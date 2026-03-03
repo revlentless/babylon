@@ -1,19 +1,14 @@
 'use client';
 
-import { FEE_CONFIG } from '@babylon/engine/config/fees';
+import { FEE_CONFIG } from '@babylon/engine/client';
 import { BABYLON_POINTS_SYMBOL, cn, logger } from '@babylon/shared';
-import {
-  AlertTriangle,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-  X,
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { usePerpTrade } from '@/hooks/usePerpTrade';
+import { useMarketTracking } from '@/hooks/usePostHog';
 import { invalidatePerpMarketsCache } from '@/stores/perpMarketsStore';
 import {
   invalidateWalletBalance,
@@ -58,6 +53,8 @@ interface PerpTradingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Default side to preselect when modal opens */
+  defaultSide?: TradeSide;
 }
 
 export function PerpTradingModal({
@@ -65,9 +62,11 @@ export function PerpTradingModal({
   isOpen,
   onClose,
   onSuccess,
+  defaultSide = 'long',
 }: PerpTradingModalProps) {
   const { user, authenticated, login, getAccessToken } = useAuth();
-  const [side, setSide] = useState<TradeSide>('long');
+  const { trackMarketView, trackTrade } = useMarketTracking();
+  const [side, setSide] = useState<TradeSide>(defaultSide);
   const [size, setSize] = useState('100');
   const [leverage, setLeverage] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -77,6 +76,21 @@ export function PerpTradingModal({
     loading: balanceLoading,
     refresh: refreshBalance,
   } = useWalletBalance(isOpen ? user?.id : null);
+
+  // Track previous isOpen to detect open transition
+  const prevIsOpenRef = useRef(false);
+
+  // Reset side only when modal actually opens (isOpen transitions from false to true)
+  useEffect(() => {
+    const prevIsOpen = prevIsOpenRef.current;
+    prevIsOpenRef.current = isOpen;
+
+    // Only reset when transitioning from closed to open
+    if (!prevIsOpen && isOpen) {
+      setSide(defaultSide);
+      trackMarketView(market.ticker, 'perp');
+    }
+  }, [isOpen, defaultSide, market.ticker, trackMarketView]);
 
   // Body scroll lock using counter-based approach for multi-modal safety
   useBodyScrollLock(isOpen);
@@ -159,6 +173,7 @@ export function PerpTradingModal({
       toast.success('Position opened!', {
         description: `Opened ${leverage}x ${side} on ${market.ticker} at ${BABYLON_POINTS_SYMBOL}${result.position.entryPrice.toFixed(2)}`,
       });
+      trackTrade('open', market.ticker, sizeNum, true);
 
       // Invalidate caches to ensure fresh data on next fetch
       invalidatePerpMarketsCache();
@@ -174,6 +189,7 @@ export function PerpTradingModal({
         { ticker: market.ticker, side, size: sizeNum, leverage, error: err },
         'PerpTradingModal'
       );
+      trackTrade('open', market.ticker, sizeNum, false);
       toast.error(message);
     } finally {
       setLoading(false);
@@ -187,30 +203,30 @@ export function PerpTradingModal({
   const isHighRisk = leverage > 50 || marginRequired > 1000;
 
   return (
-    <>
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-0 backdrop-blur-sm md:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !loading) {
+          onClose();
+        }
+      }}
+    >
       <div
-        className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      <div className="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 w-full max-w-lg">
-        <div className="fade-in zoom-in-95 m-4 max-h-[90vh] animate-in overflow-y-auto rounded bg-popover p-4 shadow-xl duration-200 sm:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="font-bold text-2xl text-foreground">
-                ${market.ticker}
-              </h2>
-              <p className="text-muted-foreground text-sm">{market.name}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <X size={20} />
-            </button>
+        className="relative flex h-full w-full flex-col bg-background md:h-auto md:max-h-[90vh] md:w-auto md:min-w-[480px] md:max-w-lg md:rounded-lg md:border md:border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-center border-border border-b p-4 sm:p-6">
+          <div>
+            <h2 className="font-bold text-2xl text-foreground">
+              ${market.ticker}
+            </h2>
+            <p className="text-muted-foreground text-sm">{market.name}</p>
           </div>
+        </div>
 
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mb-6 rounded bg-muted p-4">
             <div className="mb-1 text-muted-foreground text-sm">
               Current Price
@@ -396,7 +412,10 @@ export function PerpTradingModal({
               </div>
             </div>
           )}
+        </div>
 
+        {/* Footer */}
+        <div className="shrink-0 border-border border-t p-4 sm:p-6">
           <button
             type="button"
             onClick={handleSubmit}
@@ -427,8 +446,16 @@ export function PerpTradingModal({
               `${side === 'long' ? 'LONG' : 'SHORT'} ${market.ticker} ${leverage}x`
             )}
           </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="mt-3 w-full cursor-pointer rounded py-2.5 font-medium text-muted-foreground transition-all hover:bg-muted disabled:cursor-not-allowed sm:py-3"
+          >
+            Cancel
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

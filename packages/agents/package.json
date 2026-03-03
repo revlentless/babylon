@@ -39,7 +39,7 @@
     "@elizaos/plugin-openai": "^1.5.18",
     "@huggingface/hub": "^2.6.12",
     "@privy-io/server-auth": "^1.32.5",
-    "agent0-sdk": "^0.31.0",
+    "agent0-sdk": "1.5.2",
     "ai": "^5.0.106",
     "drizzle-orm": "^0.44.7",
     "ethers": "^6.16.0",
@@ -47,7 +47,7 @@
     "ioredis": "^5.6.1",
     "tiktoken": "^1.0.22",
     "uuid": "^13.0.0",
-    "zod": "^4.1.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

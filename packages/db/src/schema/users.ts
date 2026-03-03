@@ -93,6 +93,12 @@ export const users = pgTable(
   'User',
   {
     id: text('id').primaryKey(),
+    // Privy embedded wallet id (used for server-side wallet actions).
+    // This is not the Privy user id (did:privy:...), it's the wallet resource id.
+    privyWalletId: text('privyWalletId'),
+    // Offline delegated wallet readiness (signer + policy attached in Privy).
+    offlineWalletReady: boolean('offlineWalletReady').notNull().default(false),
+    offlineWalletReadyAt: timestamp('offlineWalletReadyAt', { mode: 'date' }),
     walletAddress: text('walletAddress').unique(),
     username: text('username').unique(),
     displayName: text('displayName'),
@@ -261,12 +267,52 @@ export const users = pgTable(
       .default(false),
     emailVerified: boolean('emailVerified').notNull().default(false),
     email: text('email'),
+    emailNotificationsEnabled: boolean('emailNotificationsEnabled')
+      .notNull()
+      .default(false),
+    emailNotificationsRealtime: boolean('emailNotificationsRealtime')
+      .notNull()
+      .default(true),
+    emailNotificationsDailySummary: boolean('emailNotificationsDailySummary')
+      .notNull()
+      .default(true),
+    emailNotificationsWeeklySummary: boolean('emailNotificationsWeeklySummary')
+      .notNull()
+      .default(true),
+    emailNotificationsMonthlySummary: boolean(
+      'emailNotificationsMonthlySummary'
+    )
+      .notNull()
+      .default(true),
+    emailNotificationsUnsubscribedAt: timestamp(
+      'emailNotificationsUnsubscribedAt',
+      {
+        mode: 'date',
+      }
+    ),
     waitlistGraduatedAt: timestamp('waitlistGraduatedAt', { mode: 'date' }),
     // Agent flags (config stored in UserAgentConfig table)
     isAgent: boolean('isAgent').notNull().default(false),
     managedBy: text('managedBy'),
+    // Unified total points (wallet + positions, excludes agents)
+    totalPoints: decimal('totalPoints', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    // Dirty flag for incremental totalPoints recompute
+    totalPointsDirtyAt: timestamp('totalPointsDirtyAt', { mode: 'date' }),
     // Game guide completion tracking
     gameGuideCompletedAt: timestamp('gameGuideCompletedAt', { mode: 'date' }),
+    // Profile chain sync tracking (database-first architecture)
+    profileChainSyncNeeded: boolean('profileChainSyncNeeded')
+      .notNull()
+      .default(false),
+    profileChainSyncAt: timestamp('profileChainSyncAt', { mode: 'date' }),
+    profileChainSyncError: text('profileChainSyncError'),
+    // Daily login streak tracking (BAB-88)
+    dailyLoginStreak: integer('dailyLoginStreak').notNull().default(0),
+    lastDailyLogin: timestamp('lastDailyLogin', { mode: 'date' }),
+    longestStreak: integer('longestStreak').notNull().default(0),
+    totalDailyLogins: integer('totalDailyLogins').notNull().default(0),
   },
   (table) => [
     index('User_displayName_idx').on(table.displayName),
@@ -288,14 +334,56 @@ export const users = pgTable(
     ),
     index('User_referralCode_idx').on(table.referralCode),
     index('User_reputationPoints_idx').on(table.reputationPoints),
+    index('User_totalPoints_idx').on(table.totalPoints),
     index('User_username_idx').on(table.username),
+    index('User_emailNotificationsEnabled_idx').on(
+      table.emailNotificationsEnabled
+    ),
     index('User_waitlistJoinedAt_idx').on(table.waitlistJoinedAt),
     index('User_waitlistPosition_idx').on(table.waitlistPosition),
     index('User_walletAddress_idx').on(table.walletAddress),
     index('User_registrationIpHash_idx').on(table.registrationIpHash),
     index('User_lastReferralIpHash_idx').on(table.lastReferralIpHash),
+    // Index for efficient profile chain sync queries
+    index('User_profileChainSyncNeeded_onChainRegistered_idx').on(
+      table.profileChainSyncNeeded,
+      table.onChainRegistered
+    ),
+    // Indexes for daily login streak (BAB-88)
+    index('User_dailyLoginStreak_idx').on(table.dailyLoginStreak),
+    index('User_longestStreak_idx').on(table.longestStreak),
+    index('User_lastDailyLogin_idx').on(table.lastDailyLogin),
   ]
 );
+
+// UserPointsSnapshot - Daily/weekly snapshots of totalPoints for gain tracking
+export const userPointsSnapshots = pgTable(
+  'UserPointsSnapshot',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    totalPoints: decimal('totalPoints', { precision: 18, scale: 2 })
+      .notNull()
+      .default('0'),
+    snapshotDate: timestamp('snapshotDate', { mode: 'date' }).notNull(),
+    period: text('period').notNull().default('daily'), // 'daily' | 'weekly'
+    createdAt: timestamp('createdAt', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('UserPointsSnapshot_userId_idx').on(table.userId),
+    index('UserPointsSnapshot_userId_period_snapshotDate_idx').on(
+      table.userId,
+      table.period,
+      table.snapshotDate
+    ),
+    index('UserPointsSnapshot_snapshotDate_idx').on(table.snapshotDate),
+  ]
+);
+
+export type UserPointsSnapshot = typeof userPointsSnapshots.$inferSelect;
+export type NewUserPointsSnapshot = typeof userPointsSnapshots.$inferInsert;
 
 // OnboardingIntent
 export const onboardingIntents = pgTable(
@@ -563,6 +651,16 @@ export const userApiKeys = pgTable(
     index('UserApiKey_keyHash_idx').on(table.keyHash),
     index('UserApiKey_userId_revokedAt_idx').on(table.userId, table.revokedAt),
   ]
+);
+
+export const userPointsSnapshotsRelations = relations(
+  userPointsSnapshots,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userPointsSnapshots.userId],
+      references: [users.id],
+    }),
+  })
 );
 
 export const gameOnboardingRelations = relations(gameOnboarding, ({ one }) => ({

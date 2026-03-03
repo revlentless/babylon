@@ -58,6 +58,7 @@ import type {
   MarketTimeframe,
 } from '@babylon/db';
 import { logger } from '@babylon/shared';
+import { clamp01 } from '../utils/math-utils';
 
 // Re-export types from DB schema for consumers of this module
 // Arc state types are canonical in @babylon/db/schema/narrative.ts
@@ -140,6 +141,45 @@ export interface TimeframedMarket {
     affiliatedOrgs?: string[];
     affiliatedActors?: string[];
   };
+}
+
+// =============================================================================
+// GRANULAR TIMEFRAME TO DB TIMEFRAME MAPPING
+// =============================================================================
+
+/**
+ * Maps granular timeframe strings (like '15m', '30m', '1h') to their
+ * corresponding DB timeframe categories ('flash', 'intraday', 'daily', 'weekly').
+ *
+ * This is the canonical source of truth for this mapping, used by:
+ * - markets-tick cron for market creation and tracking
+ * - Integration tests for validation
+ */
+export const GRANULAR_TO_DB_TIMEFRAME: Record<string, MarketTimeframe> = {
+  '15m': 'flash',
+  '30m': 'flash',
+  '1h': 'intraday',
+  '6h': 'intraday',
+  '12h': 'daily',
+  '1d': 'daily',
+  '2d': 'weekly',
+  '3d': 'weekly',
+} as const;
+
+/**
+ * Map a granular timeframe string to its DB timeframe category.
+ * Throws an error for unknown timeframes to fail fast.
+ *
+ * @param timeframe - Granular timeframe string (e.g., '15m', '1h', '1d')
+ * @returns The corresponding DB timeframe category
+ * @throws Error if timeframe is not recognized
+ */
+export function mapGranularToDbTimeframe(timeframe: string): MarketTimeframe {
+  const dbTimeframe = GRANULAR_TO_DB_TIMEFRAME[timeframe];
+  if (!dbTimeframe) {
+    throw new Error(`Unsupported granular timeframe: ${timeframe}`);
+  }
+  return dbTimeframe;
 }
 
 // =============================================================================
@@ -514,7 +554,7 @@ export function getCurrentArcState(
   }
 
   const elapsed = now.getTime() - startTime.getTime();
-  const progress = Math.max(0, Math.min(1, elapsed / totalDuration));
+  const progress = clamp01(elapsed / totalDuration);
 
   // Map progress to state index
   const stateIndex = Math.min(

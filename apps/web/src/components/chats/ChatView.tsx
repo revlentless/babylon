@@ -1,10 +1,11 @@
 'use client';
 
 import { MessageCircle } from 'lucide-react';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Separator } from '@/components/shared/Separator';
 import { ChatViewHeader } from './ChatViewHeader';
 import { FeedbackMessages } from './FeedbackMessages';
+import type { MentionableAgent } from './MentionAutocomplete';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
 import { NftVerificationBanner } from './NftVerificationBanner';
@@ -18,7 +19,6 @@ interface ChatViewProps {
   loading: boolean;
   isLoadingMore: boolean;
   hasMore: boolean;
-  pullDistance: number;
   messageInput: string;
   sending: boolean;
   sendError: string | null;
@@ -30,9 +30,13 @@ interface ChatViewProps {
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   onBack?: () => void;
   onManageGroup: () => void;
-  onLeaveChat: () => void;
   onMessageChange: (value: string) => void;
   onSendMessage: () => void;
+  onToggleReaction?: (
+    messageId: string,
+    emoji: string,
+    currentlyReactedByMe: boolean
+  ) => void;
 }
 
 export function ChatView({
@@ -43,7 +47,6 @@ export function ChatView({
   loading,
   isLoadingMore,
   hasMore,
-  pullDistance,
   messageInput,
   sending,
   sendError,
@@ -55,10 +58,21 @@ export function ChatView({
   messagesEndRef,
   onBack,
   onManageGroup,
-  onLeaveChat,
   onMessageChange,
   onSendMessage,
+  onToggleReaction,
 }: ChatViewProps) {
+  // Convert chat participants to mentionable members format
+  const mentionableMembers: MentionableAgent[] = useMemo(() => {
+    if (!chatDetails?.participants) return [];
+    return chatDetails.participants.map((p) => ({
+      id: p.id,
+      username: p.username || null,
+      displayName: p.displayName || null,
+      profileImageUrl: p.profileImageUrl || null,
+    }));
+  }, [chatDetails?.participants]);
+
   // Empty state when no chat selected
   if (!chatDetails) {
     return (
@@ -86,7 +100,6 @@ export function ChatView({
           showBackButton={showBackButton}
           onBack={onBack}
           onManageGroup={onManageGroup}
-          onLeaveChat={onLeaveChat}
         />
 
         {/* Header Separator */}
@@ -103,10 +116,10 @@ export function ChatView({
         )}
       </div>
 
-      {/* Messages - Scrollable, starts at bottom via flex-col-reverse */}
+      {/* Messages - Scrollable */}
       <div
         ref={containerRef}
-        className="relative flex min-h-0 flex-1 flex-col-reverse overflow-y-auto px-4 py-3"
+        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3"
       >
         <div className="flex flex-col space-y-4">
           <MessageList
@@ -116,16 +129,16 @@ export function ChatView({
             loading={loading}
             isLoadingMore={isLoadingMore}
             hasMore={hasMore}
-            pullDistance={pullDistance}
             authenticated={authenticated}
             topSentinelRef={topSentinelRef}
             messagesEndRef={messagesEndRef}
+            onToggleReaction={onToggleReaction}
           />
         </div>
       </div>
 
       {/* Footer - Fixed */}
-      <div className="shrink-0">
+      <div className="shrink-0 pb-safe md:pb-0">
         {/* Feedback Messages */}
         {authenticated && (
           <FeedbackMessages
@@ -135,18 +148,14 @@ export function ChatView({
           />
         )}
 
-        {/* Input Separator */}
-        <div className="px-4">
-          <Separator />
-        </div>
-
-        {/* Message Input */}
+        {/* Message Input with mention support */}
         <MessageInput
           value={messageInput}
           onChange={onMessageChange}
           onSend={onSendMessage}
           sending={sending}
           authenticated={authenticated}
+          mentionableMembers={mentionableMembers}
         />
       </div>
     </div>

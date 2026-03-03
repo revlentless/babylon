@@ -6,7 +6,7 @@ import {
   logger,
   WALLET_ERROR_MESSAGES,
 } from '@babylon/shared';
-import { usePrivy } from '@privy-io/react-auth';
+import { useSendTransaction } from '@privy-io/react-auth';
 import {
   AlertCircle,
   CheckCircle2,
@@ -17,21 +17,21 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Address } from 'viem';
-import { useSmartWallet } from '@/hooks/useSmartWallet';
+import { useAuth } from '@/hooks/useAuth';
 import { useWalletFunding } from '@/hooks/useWalletFunding';
 
 /**
  * Admin send money modal component for sending ETH to users.
  *
  * Provides a multi-step payment flow for admins to send ETH to users
- * via smart wallet transactions. Handles wallet funding, payment processing,
+ * via embedded wallet transactions. Handles wallet funding, payment processing,
  * and transaction verification. Includes optional reason field for tracking.
  *
  * Features:
  * - USD amount input
  * - ETH conversion
  * - Optional reason field
- * - Smart wallet funding (if needed)
+ * - Embedded wallet funding (if needed)
  * - Payment processing
  * - Transaction verification
  * - Multi-step flow (input → payment → verifying → success/error)
@@ -88,10 +88,10 @@ export function AdminSendMoneyModal({
   recipientWalletAddress,
   onSuccess,
 }: AdminSendMoneyModalProps) {
-  const { getAccessToken } = usePrivy();
-  const { sendSmartWalletTransaction, smartWalletAddress, smartWalletReady } =
-    useSmartWallet();
+  const { embeddedWalletAddress, embeddedWalletReady, getAccessToken } =
+    useAuth();
   const { ensureFunds } = useWalletFunding();
+  const { sendTransaction } = useSendTransaction();
 
   const [amountUSD, setAmountUSD] = useState('10');
   const [reason, setReason] = useState('');
@@ -180,7 +180,7 @@ export function AdminSendMoneyModal({
 
   if (!recipientWalletAddress) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
@@ -221,7 +221,7 @@ export function AdminSendMoneyModal({
   }
 
   const handleCreatePayment = async () => {
-    if (!smartWalletAddress || !smartWalletReady) {
+    if (!embeddedWalletAddress || !embeddedWalletReady) {
       toast.error(WALLET_ERROR_MESSAGES.NO_EMBEDDED_WALLET);
       return;
     }
@@ -349,7 +349,7 @@ export function AdminSendMoneyModal({
     setLoading(true);
     setStep('payment');
 
-    if (!smartWalletReady || !smartWalletAddress) {
+    if (!embeddedWalletReady || !embeddedWalletAddress) {
       const errorMessage = WALLET_ERROR_MESSAGES.NO_EMBEDDED_WALLET;
       logger.error(
         'Escrow payment failed',
@@ -367,7 +367,7 @@ export function AdminSendMoneyModal({
       const requiredAmountWei = BigInt(paymentReq.amount);
 
       // Use shared hook with abort signal
-      await ensureFunds(smartWalletAddress, requiredAmountWei, { signal });
+      await ensureFunds(embeddedWalletAddress, requiredAmountWei, { signal });
 
       // Check if cancelled after funding
       if (signal.aborted || !isMountedRef.current) {
@@ -375,10 +375,17 @@ export function AdminSendMoneyModal({
         return;
       }
 
-      const hash = await sendSmartWalletTransaction({
-        to: paymentReq.to as Address,
-        value: requiredAmountWei,
-      });
+      // Use Privy's client-side sendTransaction with gas sponsorship
+      const result = await sendTransaction(
+        {
+          to: paymentReq.to as Address,
+          value: requiredAmountWei,
+        },
+        {
+          sponsor: true, // Privy covers gas fees
+        }
+      );
+      const hash = result.hash;
 
       // Check if cancelled after payment
       if (signal.aborted || !isMountedRef.current) {
@@ -449,7 +456,7 @@ export function AdminSendMoneyModal({
           body: JSON.stringify({
             escrowId,
             txHash: transactionHash,
-            fromAddress: smartWalletAddress || paymentReq.from,
+            fromAddress: embeddedWalletAddress || paymentReq.from,
             toAddress: paymentReq.to,
             amount: paymentReq.amount,
           }),
@@ -689,13 +696,16 @@ export function AdminSendMoneyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-0 backdrop-blur-sm md:p-4"
+      onClick={handleClose}
+    >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-      <div className="relative w-full max-w-md rounded-2xl border border-border bg-background shadow-xl">
-        <div className="flex items-center justify-between border-border border-b p-6">
+        className="flex h-full w-full flex-col bg-background md:h-auto md:max-h-[90vh] md:w-auto md:min-w-[480px] md:max-w-md md:rounded-2xl md:border md:border-border md:shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex shrink-0 items-start justify-between border-border border-b p-6">
           <h2 className="font-bold text-xl">Send Money (Escrow)</h2>
           <button
             onClick={handleClose}
@@ -705,7 +715,11 @@ export function AdminSendMoneyModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="p-6">{renderContent()}</div>
+
+        {/* Content */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

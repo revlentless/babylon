@@ -20,15 +20,15 @@ interface SoldeerPackage {
 const PACKAGES: SoldeerPackage[] = [
   {
     name: 'forge-std',
-    version: '1.9.4',
-    folderName: 'forge-std-1.9.4',
-    url: 'https://soldeer-revisions.s3.amazonaws.com/forge-std/1_9_4_25-10-2024_14:36:59_forge-std-1.9.zip',
+    version: '1.9.7',
+    folderName: 'forge-std-1.9.7',
+    url: 'https://soldeer-revisions.s3.amazonaws.com/forge-std/1_9_7_28-04-2025_15:55:08_forge-std-1.9.zip',
   },
   {
     name: '@openzeppelin-contracts',
-    version: '5.2.0',
-    folderName: '@openzeppelin-contracts-5.2.0',
-    url: 'https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts/5_2_0_11-01-2025_09:30:20_contracts.zip',
+    version: '5.4.0',
+    folderName: '@openzeppelin-contracts-5.4.0',
+    url: 'https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts/5_4_0_19-07-2025_08:59:41_contracts.zip',
   },
 ];
 
@@ -99,21 +99,20 @@ async function checkForge(): Promise<boolean> {
 async function main() {
   console.log('\n🔧 Setting up Solidity dependencies...');
 
-  // Check if Forge is installed
+  // Create dependencies directory
+  if (!existsSync(DEPS_DIR)) {
+    mkdirSync(DEPS_DIR, { recursive: true });
+  }
+
+  // Check if Forge is installed (optional - dependencies can still be downloaded)
   const hasForge = await checkForge();
   if (!hasForge) {
     console.log(
-      '   ⚠️  Foundry (forge) not installed. Skipping Solidity setup.'
+      '   ⚠️  Foundry (forge) not installed. Installing Solidity dependencies anyway.'
     );
     console.log(
       '   💡 Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup'
     );
-    return;
-  }
-
-  // Create dependencies directory
-  if (!existsSync(DEPS_DIR)) {
-    mkdirSync(DEPS_DIR, { recursive: true });
   }
 
   // Download packages
@@ -127,7 +126,11 @@ async function main() {
     console.log('   ✅ Solidity dependencies ready\n');
   } else {
     console.log('   ⚠️  Some dependencies failed to install\n');
-    console.log('   💡 Try running: forge soldeer update\n');
+    if (hasForge) {
+      console.log('   💡 Try running: forge soldeer update\n');
+    } else {
+      console.log('   💡 Install Foundry, then run: forge soldeer update\n');
+    }
   }
 }
 

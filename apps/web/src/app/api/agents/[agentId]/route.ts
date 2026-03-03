@@ -174,7 +174,11 @@
  * @see {@link /src/app/agents/[agentId]/page.tsx} Agent detail page
  */
 
-import { agentService, getAgentConfig } from '@babylon/agents';
+import {
+  agentService,
+  getAgentConfig,
+  isAutonomousTradingEnabled,
+} from '@babylon/agents';
 import { authenticateUser } from '@babylon/api';
 import { logger } from '@babylon/shared';
 import type { NextRequest } from 'next/server';
@@ -193,6 +197,8 @@ export async function GET(
     getAgentConfig(agentId),
   ]);
 
+  const tradingEnabled = isAutonomousTradingEnabled(config);
+
   return NextResponse.json({
     success: true,
     agent: {
@@ -201,6 +207,7 @@ export async function GET(
       name: agent!.displayName,
       description: agent!.bio,
       profileImageUrl: agent!.profileImageUrl,
+      coverImageUrl: agent!.coverImageUrl,
       // Parse trading strategy from system prompt if it was appended
       system: (() => {
         const system = config?.systemPrompt || '';
@@ -252,9 +259,13 @@ export async function GET(
           return tradingStrategyMatch ? tradingStrategyMatch[1]!.trim() : '';
         })(),
       virtualBalance: Number(agent!.virtualBalance ?? 0),
+      totalDeposited:
+        agent!.totalDeposited == null ? null : Number(agent!.totalDeposited),
+      totalWithdrawn:
+        agent!.totalWithdrawn == null ? null : Number(agent!.totalWithdrawn),
       isActive: config?.status === 'active',
-      autonomousEnabled: config?.autonomousTrading ?? false,
-      autonomousTrading: config?.autonomousTrading ?? false,
+      autonomousEnabled: tradingEnabled,
+      autonomousTrading: tradingEnabled,
       autonomousPosting: config?.autonomousPosting ?? false,
       autonomousCommenting: config?.autonomousCommenting ?? false,
       autonomousDMs: config?.autonomousDMs ?? false,
@@ -290,6 +301,7 @@ export async function PUT(
     name,
     description,
     profileImageUrl,
+    coverImageUrl,
     system,
     bio,
     personality,
@@ -308,6 +320,7 @@ export async function PUT(
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
   if (profileImageUrl !== undefined) updates.profileImageUrl = profileImageUrl;
+  if (coverImageUrl !== undefined) updates.coverImageUrl = coverImageUrl;
   if (system !== undefined) updates.system = system;
   if (bio !== undefined) {
     if (Array.isArray(bio)) {
@@ -346,8 +359,9 @@ export async function PUT(
       name: agent.displayName,
       description: agent.bio,
       profileImageUrl: agent.profileImageUrl,
+      coverImageUrl: agent.coverImageUrl,
       virtualBalance: Number(agent.virtualBalance ?? 0),
-      autonomousTrading: updatedConfig?.autonomousTrading ?? false,
+      autonomousTrading: isAutonomousTradingEnabled(updatedConfig),
       autonomousPosting: updatedConfig?.autonomousPosting ?? false,
       modelTier: updatedConfig?.modelTier ?? 'lite',
       updatedAt: agent.updatedAt.toISOString(),

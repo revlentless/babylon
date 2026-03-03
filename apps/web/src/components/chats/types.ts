@@ -1,3 +1,8 @@
+import type { MessageMetadata, MessageType } from '@babylon/shared';
+
+export { MessageTypeEnum } from '@babylon/shared';
+export type { MessageMetadata, MessageType };
+
 export type ChatFilter = 'all' | 'dms' | 'groups';
 
 export interface Chat {
@@ -31,20 +36,26 @@ export interface Chat {
   };
 }
 
-import type { MessageType } from '@babylon/db';
-
-// Enum for runtime checks, type-guarded by MessageType from db
-export const MessageTypeEnum = {
-  USER: 'user' as MessageType,
-  SYSTEM: 'system' as MessageType,
-} as const;
-
 export interface Message {
   id: string;
   content: string;
   senderId: string;
   type?: MessageType;
   createdAt: string;
+  /** Stable key for React rendering - prevents flash when optimistic messages are replaced */
+  stableKey?: string;
+  /** Whether this message is a "thinking" placeholder (shows spinner while waiting for response) */
+  isThinking?: boolean;
+  /** Metadata containing action tags for sidebar display */
+  metadata?: MessageMetadata | null;
+  /** Aggregated emoji reactions summary (counts + whether current user reacted). */
+  reactions?: MessageReactionSummary[];
+}
+
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
 }
 
 export interface ChatParticipant {

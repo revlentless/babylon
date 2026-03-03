@@ -85,6 +85,7 @@ const FORBIDDEN_PATTERNS = [
 
 /**
  * Validates that text doesn't contain real names
+ * Uses pattern-based detection for variations and common misspellings
  */
 export function validateNoRealNames(text: string): string[] {
   const violations: string[] = [];

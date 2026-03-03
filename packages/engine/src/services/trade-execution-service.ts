@@ -55,6 +55,7 @@ import type {
   TradingDecision,
   TradingExecutionResult,
 } from '../types/market-decisions';
+import { formatError } from '../utils/error-utils';
 import { FeeService } from './fee-service';
 import {
   type AggregatedImpact,
@@ -63,8 +64,10 @@ import {
 } from './market-impact-service';
 import { NpcTradeRateLimiter } from './npc-trade-rate-limiter';
 import { createNpcWalletAdapter } from './npc-wallet-adapter';
+import { createPerpPriceImpactPort } from './perp-price-impact-port';
 import { broadcastToChannel } from './realtime-broadcaster';
 import { StaticDataRegistry } from './static-data-registry';
+import { TotalPointsService } from './total-points-service';
 import { invalidateAfterPredictionTrade } from './trade-cache-invalidation';
 
 type PredictionTradeBroadcast = {
@@ -211,8 +214,7 @@ export class TradeExecutionService {
         }
       } catch (error) {
         result.failedTrades++;
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
+        const errorMessage = formatError(error);
         result.errors.push({
           npcId: decision.npcId,
           decision,
@@ -293,14 +295,19 @@ export class TradeExecutionService {
     // Normalize amount - handle string amounts with commas (e.g., "12,000" -> 12000)
     if (typeof decision.amount === 'string') {
       const cleanedAmount = String(decision.amount).replace(/,/g, '');
-      decision.amount = Number.parseFloat(cleanedAmount);
+      const parsed = Number.parseFloat(cleanedAmount);
+      // Validate parsed value is finite (not NaN, not Infinity, not -Infinity)
+      if (!Number.isFinite(parsed)) {
+        throw new Error(`Invalid amount (not finite): ${decision.amount}`);
+      }
+      decision.amount = parsed;
     }
 
     // For close_position, amount=0 is valid (we close the full position)
     // For other actions, amount must be > 0
     const isClosePosition = decision.action === 'close_position';
-    if (isNaN(decision.amount)) {
-      throw new Error(`Invalid amount (NaN): ${decision.amount}`);
+    if (!Number.isFinite(decision.amount)) {
+      throw new Error(`Invalid amount (not finite): ${decision.amount}`);
     }
     if (!isClosePosition && decision.amount <= 0) {
       throw new Error(`Invalid amount: ${decision.amount}`);
@@ -490,6 +497,7 @@ export class TradeExecutionService {
         referrerShare: FEE_CONFIG.REFERRER_SHARE,
         minFeeAmount: FEE_CONFIG.MIN_FEE_AMOUNT,
       },
+      priceImpact: createPerpPriceImpactPort(),
     });
 
     // Open position via PerpMarketService (uses perpPositions table)
@@ -519,6 +527,15 @@ export class TradeExecutionService {
       reason: decision.reasoning,
     });
 
+    // Fire-and-forget: recompute totalPoints after position open
+    TotalPointsService.markDirty(actorId).catch((e) =>
+      logger.warn(
+        'Failed to mark user dirty',
+        { userId: actorId, error: e instanceof Error ? e.message : String(e) },
+        'TradeExecutionService'
+      )
+    );
+
     return {
       npcId: decision.npcId,
       npcName: decision.npcName,
@@ -547,6 +564,8 @@ export class TradeExecutionService {
     if (!decision.marketId) {
       throw new Error('MarketId required for prediction position');
     }
+    // Store validated marketId to avoid non-null assertions
+    const validatedMarketId = decision.marketId;
 
     const sideLabel: 'yes' | 'no' =
       decision.action === 'buy_yes' ? 'yes' : 'no';
@@ -558,7 +577,7 @@ export class TradeExecutionService {
       wallet: this.buildActorWallet(actorId),
       broadcast,
       cache: {
-        invalidate: () => invalidateAfterPredictionTrade(decision.marketId!),
+        invalidate: () => invalidateAfterPredictionTrade(validatedMarketId),
       },
       fees: {
         tradingFeeRate: FEE_CONFIG.TRADING_FEE_RATE,
@@ -583,13 +602,19 @@ export class TradeExecutionService {
     // Back-compat: store poolPositions/npcTrades for NPC analytics
     // Use onConflictDoUpdate to handle re-runs where position already exists
     await db.transaction(async (tx: Transaction) => {
+      // Validate marketId before database operations
+      if (decision.marketId === null || decision.marketId === undefined) {
+        throw new Error('marketId is required for prediction position');
+      }
+      const marketIdStr = decision.marketId.toString();
+
       await tx
         .insert(poolPositions)
         .values({
           id: result.positionId,
           poolId: actorId,
           marketType: 'prediction',
-          marketId: decision.marketId!.toString(),
+          marketId: marketIdStr,
           side: sideLabel === 'yes' ? 'YES' : 'NO',
           entryPrice,
           currentPrice:
@@ -616,7 +641,7 @@ export class TradeExecutionService {
         npcActorId: decision.npcId,
         poolId: null,
         marketType: 'prediction',
-        marketId: decision.marketId!.toString(),
+        marketId: marketIdStr,
         action: decision.action,
         side: sideLabel === 'yes' ? 'YES' : 'NO',
         amount: decision.amount,
@@ -626,13 +651,22 @@ export class TradeExecutionService {
       });
     });
 
-    await invalidateAfterPredictionTrade(decision.marketId).catch((error) => {
+    await invalidateAfterPredictionTrade(validatedMarketId).catch((error) => {
       logger.warn(
         'Failed to invalidate cache after NPC prediction buy',
-        { error, marketId: decision.marketId },
+        { error, marketId: validatedMarketId },
         'TradeExecutionService'
       );
     });
+
+    // Fire-and-forget: recompute totalPoints after position open
+    TotalPointsService.markDirty(actorId).catch((e) =>
+      logger.warn(
+        'Failed to mark user dirty',
+        { userId: actorId, error: e instanceof Error ? e.message : String(e) },
+        'TradeExecutionService'
+      )
+    );
 
     return {
       npcId: decision.npcId,
@@ -664,6 +698,9 @@ export class TradeExecutionService {
     if (!decision.marketId) {
       throw new Error('MarketId required for prediction sell');
     }
+    // Store validated marketId to avoid non-null assertions
+    const validatedMarketId = decision.marketId;
+    const marketIdStr = validatedMarketId.toString();
 
     // Find the actor's open position in this market
     const sideToClose = decision.action === 'sell_yes' ? 'YES' : 'NO';
@@ -674,7 +711,7 @@ export class TradeExecutionService {
       .where(
         and(
           eq(poolPositions.poolId, actorId),
-          eq(poolPositions.marketId, decision.marketId.toString()),
+          eq(poolPositions.marketId, marketIdStr),
           eq(poolPositions.side, sideToClose),
           eq(poolPositions.marketType, 'prediction'),
           isNull(poolPositions.closedAt)
@@ -705,7 +742,7 @@ export class TradeExecutionService {
       wallet: this.buildActorWallet(actorId),
       broadcast,
       cache: {
-        invalidate: () => invalidateAfterPredictionTrade(decision.marketId!),
+        invalidate: () => invalidateAfterPredictionTrade(validatedMarketId),
       },
       fees: {
         tradingFeeRate: FEE_CONFIG.TRADING_FEE_RATE,
@@ -719,7 +756,7 @@ export class TradeExecutionService {
 
     const sellResult = await service.sell({
       userId: actorId,
-      marketId: decision.marketId.toString(),
+      marketId: marketIdStr,
       shares,
       positionId: position.id,
     });
@@ -757,7 +794,7 @@ export class TradeExecutionService {
         npcActorId: decision.npcId,
         poolId: null,
         marketType: 'prediction',
-        marketId: decision.marketId!.toString(),
+        marketId: marketIdStr,
         action: decision.action,
         side: sideToClose,
         amount: sellResult.netProceeds ?? 0,
@@ -767,13 +804,22 @@ export class TradeExecutionService {
       });
     });
 
-    await invalidateAfterPredictionTrade(decision.marketId).catch((error) => {
+    await invalidateAfterPredictionTrade(validatedMarketId).catch((error) => {
       logger.warn(
         'Failed to invalidate cache after NPC prediction sell',
-        { error, marketId: decision.marketId },
+        { error, marketId: validatedMarketId },
         'TradeExecutionService'
       );
     });
+
+    // Fire-and-forget: recompute totalPoints after position close
+    TotalPointsService.markDirty(actorId).catch((e) =>
+      logger.warn(
+        'Failed to mark user dirty',
+        { userId: actorId, error: e instanceof Error ? e.message : String(e) },
+        'TradeExecutionService'
+      )
+    );
 
     return {
       npcId: decision.npcId,
@@ -920,6 +966,18 @@ export class TradeExecutionService {
         );
       });
 
+      // Fire-and-forget: recompute totalPoints after position close
+      TotalPointsService.markDirty(actorId).catch((e) =>
+        logger.warn(
+          'Failed to mark user dirty',
+          {
+            userId: actorId,
+            error: e instanceof Error ? e.message : String(e),
+          },
+          'TradeExecutionService'
+        )
+      );
+
       return {
         npcId: decision.npcId,
         npcName: decision.npcName,
@@ -1034,6 +1092,15 @@ export class TradeExecutionService {
       });
     });
 
+    // Fire-and-forget: recompute totalPoints after position close
+    TotalPointsService.markDirty(actorId).catch((e) =>
+      logger.warn(
+        'Failed to mark user dirty',
+        { userId: actorId, error: e instanceof Error ? e.message : String(e) },
+        'TradeExecutionService'
+      )
+    );
+
     return {
       npcId: decision.npcId,
       npcName: decision.npcName,
@@ -1078,6 +1145,7 @@ export class TradeExecutionService {
         referrerShare: FEE_CONFIG.REFERRER_SHARE,
         minFeeAmount: FEE_CONFIG.MIN_FEE_AMOUNT,
       },
+      priceImpact: createPerpPriceImpactPort(),
     });
 
     const result = await perpService.closePosition({
@@ -1099,6 +1167,15 @@ export class TradeExecutionService {
       sentiment: 0,
       reason: decision.reasoning,
     });
+
+    // Fire-and-forget: recompute totalPoints after position close
+    TotalPointsService.markDirty(actorId).catch((e) =>
+      logger.warn(
+        'Failed to mark user dirty',
+        { userId: actorId, error: e instanceof Error ? e.message : String(e) },
+        'TradeExecutionService'
+      )
+    );
 
     return {
       npcId: decision.npcId,

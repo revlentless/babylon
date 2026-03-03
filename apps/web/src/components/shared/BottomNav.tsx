@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePostHog } from '@/hooks/usePostHog';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { getAuthToken } from '@/lib/auth';
 
 /**
  * Bottom navigation content component for mobile devices.
  *
- * Provides mobile navigation with Feed, Markets, Chats, Agents, and Notifications tabs.
+ * Provides mobile navigation with Feed, Terminal, Chats, Agents, and Notifications tabs.
  * Shows unread message and notification badges. Automatically hides when WAITLIST_MODE
  * is enabled on home page.
  *
@@ -21,6 +22,7 @@ import { getAuthToken } from '@/lib/auth';
 function BottomNavContent() {
   const pathname = usePathname();
   const { authenticated, user } = useAuth();
+  const { trackNavigation } = usePostHog();
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { totalUnread: unreadMessages } = useUnreadMessages();
 
@@ -65,6 +67,30 @@ function BottomNavContent() {
     return () => clearInterval(interval);
   }, [authenticated, user]);
 
+  // Hide when virtual keyboard is open (interactiveWidget: 'resizes-content'
+  // shrinks the layout viewport, pushing the fixed nav up with the keyboard).
+  // Also sets --bottom-nav-height CSS variable so page height calcs (e.g.
+  // h-[calc(100dvh-56px-var(--bottom-nav-height))]) and main pb-[--bottom-nav-height] adjust too.
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    let fullHeight = vv.height;
+    const onResize = () => {
+      if (vv.height > fullHeight) fullHeight = vv.height;
+      const open = fullHeight - vv.height > 150;
+      setKeyboardOpen(open);
+      document.documentElement.style.setProperty(
+        '--bottom-nav-height',
+        open ? '0px' : '56px'
+      );
+    };
+
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
+
   // If should be hidden, don't render anything
   if (shouldHide) {
     return null;
@@ -79,7 +105,7 @@ function BottomNavContent() {
       active: pathname === '/feed' || pathname === '/',
     },
     {
-      name: 'Markets',
+      name: 'Terminal',
       href: '/markets',
       icon: TrendingUp,
       color: '#0066FF',
@@ -94,7 +120,7 @@ function BottomNavContent() {
     },
     {
       name: 'Agents',
-      href: '/agents',
+      href: '/agents/team',
       icon: Bot,
       color: '#0066FF',
       active: pathname === '/agents' || pathname.startsWith('/agents/'),
@@ -109,7 +135,14 @@ function BottomNavContent() {
   ];
 
   return (
-    <nav className="fixed right-0 bottom-0 bottom-nav-rounded left-0 z-50 border-border border-t bg-sidebar md:hidden">
+    <nav
+      id="app-bottom-nav"
+      data-bottom-nav
+      className={cn(
+        'fixed right-0 bottom-0 bottom-nav-rounded left-0 z-50 border-border border-t bg-sidebar md:hidden',
+        keyboardOpen && 'hidden'
+      )}
+    >
       {/* Navigation Items */}
       <div className="safe-area-bottom flex h-14 items-center justify-between px-4">
         <div className="flex flex-1 items-center justify-around">
@@ -122,6 +155,7 @@ function BottomNavContent() {
               <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => trackNavigation(item.href, 'bottom_nav')}
                 className={cn(
                   'flex h-12 w-12 items-center justify-center rounded-lg transition-colors duration-200',
                   'hover:bg-sidebar-accent/50',
@@ -155,7 +189,7 @@ function BottomNavContent() {
 /**
  * Bottom navigation component for mobile devices.
  *
- * Provides mobile navigation with Feed, Markets, Chats, Agents, and Notifications tabs.
+ * Provides mobile navigation with Feed, Terminal, Chats, Agents, and Notifications tabs.
  * Shows unread message and notification badges. Automatically hides when WAITLIST_MODE
  * is enabled on home page.
  *

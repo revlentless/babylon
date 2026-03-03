@@ -57,6 +57,8 @@ import {
   agentRuntimeManager,
   agentService,
   autonomousCoordinator,
+  getAutonomousFeatures,
+  hasAnyAutonomousFeature,
   releaseAgentLock,
 } from '@babylon/agents';
 import {
@@ -73,9 +75,34 @@ import { NextResponse } from 'next/server';
 import { ensureEngineServices } from '@/lib/engine/ensure-engine-services';
 
 // Vercel function configuration
-// Note: vercel.json overrides this with 800 seconds (13.3 minutes)
-export const maxDuration = 800; // 13.3 minutes max for agent tick (matches vercel.json)
+export const maxDuration = 300; // 5 minutes max - reduced from 800s to prevent long lock holds
 export const dynamic = 'force-dynamic';
+
+/**
+ * Time budget for entire tick (ms). Stop processing new agents after this.
+ * Set to 180s to leave headroom before function timeout (300s).
+ */
+const TICK_TIME_BUDGET_MS = 180_000; // 3 minutes
+
+/**
+ * Per-agent processing timeout (ms). Abort agent if exceeds this.
+ * Prevents single slow agent from blocking entire tick.
+ */
+const PER_AGENT_TIMEOUT_MS = 90_000; // 90 seconds
+
+/**
+ * Custom error for agent timeouts. Using a typed error class instead of
+ * string matching for more robust timeout detection in catch blocks.
+ */
+class AgentTimeoutError extends Error {
+  constructor(
+    public readonly agentId: string,
+    timeoutMs: number
+  ) {
+    super(`Agent timeout after ${timeoutMs / 1000}s`);
+    this.name = 'AgentTimeoutError';
+  }
+}
 
 /**
  * Points cost per autonomous tick.
@@ -128,32 +155,24 @@ export async function POST(_req: NextRequest) {
   const processId = `agent-tick-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   logger.info('Agent tick started', { processId }, 'AgentTick');
 
-  // 1. Relay to staging if REDIRECT_CRON_STAGING is enabled
+  // 1. Relay to staging if REDIRECT_CRON_STAGING is enabled (fan-out)
   const relayResult = await relayCronToStaging(_req, 'agent-tick');
   if (relayResult.forwarded) {
     logger.info(
-      'Cron execution relayed to staging - skipping local execution',
+      'Cron execution relayed to staging (fan-out: continuing local execution)',
       {
         status: relayResult.status,
         error: relayResult.error,
       },
       'AgentTick'
     );
-    return NextResponse.json({
-      success: true,
-      skipped: true,
-      reason: 'Relayed to staging environment',
-      relayStatus: relayResult.status,
-      processed: 0,
-      skippedLocked: 0,
-    });
   }
 
   // 1.5 Acquire global lock to prevent overlapping cron invocations
-  // Duration matches function timeout (800s) to prevent overlap when ticks take longer than cron interval
+  // Duration matches function timeout (300s) to prevent overlap when ticks take longer than cron interval
   const globalLockAcquired = await DistributedLockService.acquireLock({
     lockId: 'agent-tick-global',
-    durationMs: 800 * 1000, // 800 seconds (13.3 minutes) - matches function timeout
+    durationMs: 300 * 1000, // 300 seconds (5 minutes) - matches function timeout
     operation: 'agent-tick-global',
     processId,
   });
@@ -304,15 +323,7 @@ export async function POST(_req: NextRequest) {
         TICK_POINTS_COST <= 0 ||
         Number(user.virtualBalance ?? 0) >= TICK_POINTS_COST;
 
-      if (
-        user.isAgent &&
-        hasEnoughBalance &&
-        (config?.autonomousTrading ||
-          config?.autonomousPosting ||
-          config?.autonomousCommenting ||
-          config?.autonomousDMs ||
-          config?.autonomousGroupChats)
-      ) {
+      if (user.isAgent && hasEnoughBalance && hasAnyAutonomousFeature(config)) {
         eligibleAgents.push({
           agentId: agent.agentId,
           type: agent.type,
@@ -366,8 +377,22 @@ export async function POST(_req: NextRequest) {
     let totalActionsExecuted = 0;
     let errors = 0;
     let skippedDueToLock = 0;
+    let skippedDueToTimeBudget = 0;
 
     for (const eligibleAgent of eligibleAgents) {
+      // Check tick-level time budget before processing each agent
+      const tickElapsed = Date.now() - startTime;
+      if (tickElapsed >= TICK_TIME_BUDGET_MS) {
+        const remainingAgents = eligibleAgents.length - results.length;
+        logger.warn(
+          `Tick time budget exceeded (${Math.round(tickElapsed / 1000)}s) - skipping ${remainingAgents} remaining agents`,
+          { processId, processed: results.length, remaining: remainingAgents },
+          'AgentTick'
+        );
+        skippedDueToTimeBudget = remainingAgents;
+        break;
+      }
+
       const agentStartTime = Date.now();
 
       // Try to acquire lock for this agent - skip if already running
@@ -421,27 +446,56 @@ export async function POST(_req: NextRequest) {
         );
 
         // Determine enabled features from agent config
+        const features = getAutonomousFeatures(eligibleAgent.config);
         const enabledFeatures: string[] = [];
-        if (eligibleAgent.config) {
-          if (eligibleAgent.config.autonomousTrading)
-            enabledFeatures.push('trading');
-          if (eligibleAgent.config.autonomousPosting)
-            enabledFeatures.push('posting');
-          if (eligibleAgent.config.autonomousCommenting)
-            enabledFeatures.push('commenting');
-          if (eligibleAgent.config.autonomousDMs) enabledFeatures.push('DMs');
-          if (eligibleAgent.config.autonomousGroupChats)
-            enabledFeatures.push('group chats');
-        }
+        if (features.trading) enabledFeatures.push('trading');
+        if (features.posting) enabledFeatures.push('posting');
+        if (features.commenting) enabledFeatures.push('commenting');
+        if (features.dms) enabledFeatures.push('DMs');
+        if (features.groupChats) enabledFeatures.push('group chats');
+
+        logger.info(
+          `Processing agent ${eligibleAgent.name}`,
+          { agentId: eligibleAgent.agentId, features: enabledFeatures },
+          'AgentTick'
+        );
 
         // Always record trajectories for RL training data collection
         // For USER_CONTROLLED agents, pass user.id (userId for User table lookup)
-        const tickResult = await autonomousCoordinator.executeAutonomousTick(
-          eligibleAgent.user.id,
-          runtime,
-          true, // Always record trajectories
-          false // isNpc = false for user agents
-        );
+        // Wrap with per-agent timeout to prevent single agent from blocking tick
+        //
+        // Note on timeout behavior: When timeout fires, the underlying executeAutonomousTick
+        // continues running in the background. This is intentional - we don't want to add
+        // AbortSignal complexity throughout the coordinator. The per-agent lock (acquireAgentLock)
+        // prevents duplicate execution: if this agent is still running when the next tick starts,
+        // it will be skipped via the lock check. The timeout just prevents blocking OTHER agents.
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const tickResult = await Promise.race([
+          autonomousCoordinator.executeAutonomousTick(
+            eligibleAgent.user.id,
+            runtime,
+            true, // Always record trajectories
+            false // isNpc = false for user agents
+          ),
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              logger.warn(
+                `Agent ${eligibleAgent.name} timed out after ${PER_AGENT_TIMEOUT_MS / 1000}s - execution continues in background`,
+                { agentId: eligibleAgent.agentId },
+                'AgentTick'
+              );
+              reject(
+                new AgentTimeoutError(
+                  eligibleAgent.agentId,
+                  PER_AGENT_TIMEOUT_MS
+                )
+              );
+            }, PER_AGENT_TIMEOUT_MS);
+          }),
+        ]).finally(() => {
+          // Clear timeout to prevent timer leak when main promise resolves first
+          if (timeoutId) clearTimeout(timeoutId);
+        });
 
         // Validation: Verify tick executed successfully
         if (!tickResult.success) {
@@ -536,6 +590,7 @@ export async function POST(_req: NextRequest) {
           'AgentTick'
         );
       } catch (error) {
+        const isTimeout = error instanceof AgentTimeoutError;
         errors++;
         logger.error(
           `Error processing agent ${eligibleAgent.name}`,
@@ -543,6 +598,7 @@ export async function POST(_req: NextRequest) {
             agentId: eligibleAgent.agentId,
             agentType: eligibleAgent.type,
             error: error instanceof Error ? error.message : String(error),
+            isTimeout,
           },
           'AgentTick'
         );
@@ -551,7 +607,7 @@ export async function POST(_req: NextRequest) {
           agentId: eligibleAgent.agentId,
           agentType: eligibleAgent.type,
           name: eligibleAgent.name,
-          status: 'error',
+          status: isTimeout ? 'timeout' : 'error',
           error: error instanceof Error ? error.message : String(error),
           duration: Date.now() - agentStartTime,
         });
@@ -570,6 +626,7 @@ export async function POST(_req: NextRequest) {
         agentsEligible: eligibleAgents.length,
         agentsProcessed: results.length - skippedDueToLock,
         agentsSkippedLocked: skippedDueToLock,
+        agentsSkippedTimeBudget: skippedDueToTimeBudget,
         totalActions: totalActionsExecuted,
         errors,
         averageActionsPerAgent:
@@ -584,16 +641,8 @@ export async function POST(_req: NextRequest) {
 
     // Validation: Warn if no actions were executed
     if (totalActionsExecuted === 0 && results.length > 0) {
-      // Count agents with autonomous features enabled
-      const agentsWithFeatures = eligibleAgents.filter((a) => {
-        return (
-          a.config?.autonomousTrading ||
-          a.config?.autonomousPosting ||
-          a.config?.autonomousCommenting ||
-          a.config?.autonomousDMs ||
-          a.config?.autonomousGroupChats
-        );
-      }).length;
+      // All eligible agents have at least one autonomous feature (pre-filtered during eligibility check)
+      const agentsWithFeatures = eligibleAgents.length;
 
       logger.warn(
         'Agent tick completed but no actions were executed',
@@ -618,6 +667,7 @@ export async function POST(_req: NextRequest) {
       eligible: eligibleAgents.length,
       processed: results.length - skippedDueToLock,
       skippedLocked: skippedDueToLock,
+      skippedTimeBudget: skippedDueToTimeBudget,
       duration,
       totalActions: totalActionsExecuted,
       errors,

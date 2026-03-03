@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@babylon/shared';
+import { cn, getActorProfileUrl, getProfileUrl } from '@babylon/shared';
 import {
   AlertCircle,
   Ban,
@@ -220,14 +220,17 @@ export function RegistryTab() {
       }
     };
 
-    const getProfileUrl = () => {
-      if (entity.type === 'user' && entity.username) {
-        return `/profile/${entity.username}`;
+    const getEntityProfileUrl = () => {
+      if (entity.type === 'user') {
+        return getProfileUrl(entity.id, entity.username);
+      }
+      if (entity.type === 'actor') {
+        return getActorProfileUrl(entity.id);
       }
       return null;
     };
 
-    const profileUrl = getProfileUrl();
+    const profileUrl = getEntityProfileUrl();
 
     const cardContent = (
       <>
@@ -901,7 +904,7 @@ export function RegistryTab() {
 
       {/* Feedback Modal */}
       {showFeedbackModal && selectedEntity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-4 font-bold text-xl">Give Feedback</h2>
             <p className="mb-4 text-muted-foreground">
@@ -928,7 +931,7 @@ export function RegistryTab() {
 
       {/* Ban Modal */}
       {showBanModal && selectedEntity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-4 font-bold text-xl">
               {selectedEntity.isBanned ? 'Unban User' : 'Ban User'}

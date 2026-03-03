@@ -32,7 +32,7 @@ const agentPnLService = new AgentPnLService();
 export const sellPredictionAction: Action = {
   name: 'SELL_PREDICTION',
   description:
-    'Sell shares from an existing prediction market position. IMPORTANT: Always call CHECK_PNL first to see your actual holdings - you need the position ID and must verify how many shares you actually own before selling. Do NOT rely on conversation history for share counts. Requires positionId and number of shares to sell.',
+    'Sell shares from YOUR prediction market position. IMPORTANT: Call CHECK_PNL first to see your holdings - you need the position ID and your actual share count. Do NOT rely on conversation history. Requires positionId and shares.',
   parameters: {
     positionId: {
       type: 'string',
@@ -193,7 +193,8 @@ export const sellPredictionAction: Action = {
                 type as (typeof FEE_CONFIG.FEE_TYPES)[keyof typeof FEE_CONFIG.FEE_TYPES],
                 amount,
                 positionId,
-                relatedId
+                relatedId,
+                txDb // Pass the existing transaction to avoid nested transaction deadlocks
               ),
           },
         });

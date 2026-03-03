@@ -11,6 +11,7 @@ import {
   broadcastChatMessage,
   broadcastToChannel,
   type CommentActivityData,
+  cachedDb,
   type JsonValue,
   type MessageActivityData,
   type PostActivityData,
@@ -32,6 +33,7 @@ import {
   db,
   dmAcceptances,
   eq,
+  follows,
   gte,
   isNull,
   messages,
@@ -43,6 +45,7 @@ import {
   users,
 } from '@babylon/db';
 import {
+  createPerpPriceImpactPort,
   FEE_CONFIG,
   FeeService,
   type GeneratedTag,
@@ -53,6 +56,7 @@ import {
   storeTagsForPost,
   WalletService,
 } from '@babylon/engine';
+import { isPureRepost } from '@babylon/shared';
 import { agentPnLService } from '../services/AgentPnLService';
 import { logger } from '../shared/logger';
 import { generateSnowflakeId } from '../shared/snowflake';
@@ -216,15 +220,27 @@ function createPerpWalletAdapter(isNpc: boolean) {
   };
 }
 
+/** PnL record to be processed after transaction completes */
+interface DeferredPnLRecord {
+  userId: string;
+  pnl: number;
+  reason: string;
+  relatedId?: string;
+}
+
 /**
  * Creates a wallet adapter for prediction market trading operations.
  *
  * - NPCs use actorState.tradingBalance (within the provided transaction context).
  * - Regular users use WalletService.
+ *
+ * IMPORTANT: recordPnL is deferred to avoid nested transaction deadlocks.
+ * The caller must process deferredPnL after the transaction completes.
  */
 function createPredictionWalletAdapter(
   isNpc: boolean,
-  txDb?: Parameters<Parameters<typeof asUser>[1]>[0]
+  txDb?: Parameters<Parameters<typeof asUser>[1]>[0],
+  deferredPnL?: DeferredPnLRecord[]
 ) {
   if (isNpc) {
     if (!txDb) {
@@ -350,7 +366,14 @@ function createPredictionWalletAdapter(
       reason: string;
       relatedId?: string;
     }) => {
-      await WalletService.recordPnL(uid, pnl, reason, relatedId);
+      // Defer PnL recording to avoid nested transaction deadlocks
+      // The PnL will be recorded after the transaction completes
+      if (deferredPnL) {
+        deferredPnL.push({ userId: uid, pnl, reason, relatedId });
+      } else {
+        // Fallback for callers that don't use deferredPnL (shouldn't happen in new code)
+        await WalletService.recordPnL(uid, pnl, reason, relatedId);
+      }
     },
     getBalance: (uid: string) => WalletService.getBalance(uid),
   };
@@ -451,13 +474,29 @@ export interface DirectRepostResult {
   error?: string;
 }
 
+export interface DirectFollowParams {
+  agentUserId: string;
+  targetUserId: string;
+}
+
+export interface DirectFollowResult {
+  success: boolean;
+  followed?: boolean;
+  alreadyFollowing?: boolean;
+  unfollowed?: boolean;
+  wasFollowing?: boolean;
+  targetUserId?: string;
+  error?: string;
+}
+
 // =============================================================================
 // Direct Trade Executor
 // =============================================================================
 
 /**
  * Execute a trade directly without LLM decision-making.
- * Validates balance - cannot trade more than you have.
+ * Validates balance for entry trades; exit trades (sell_yes/sell_no/close_position)
+ * can close positions even when balance is $0.
  */
 export async function executeDirectTrade(
   params: DirectTradeParams
@@ -465,11 +504,23 @@ export async function executeDirectTrade(
   const { agentUserId, marketType, marketId, side, reasoning } = params;
   let { amount } = params;
 
+  if (!Number.isFinite(amount)) {
+    return {
+      success: false,
+      error: 'Invalid trade amount. Must be a finite number.',
+    };
+  }
+
   // Check if this is an NPC (system-defined actor from static data files).
   // User-created agents are NOT in StaticDataRegistry, so they won't match.
   // This ensures only system NPCs skip broadcasting - user agents always broadcast.
   const npcActor = StaticDataRegistry.getActor(agentUserId);
   const isNpc = !!npcActor;
+
+  const isExitTrade =
+    (marketType === 'prediction' &&
+      (side === 'sell_yes' || side === 'sell_no')) ||
+    (marketType === 'perp' && side === 'close_position');
 
   // Get current balance
   let balance = 0;
@@ -485,39 +536,46 @@ export async function executeDirectTrade(
     balance = walletBalance.balance;
   }
 
-  const looksLikeShareCount =
-    Number.isInteger(amount) &&
-    amount >= 1 &&
-    amount <= SHARE_LIKE_MAX_INTEGER &&
-    balance > 0 &&
-    amount / balance < SHARE_LIKE_RATIO_THRESHOLD;
-  if (looksLikeShareCount) {
-    logger.warn(
-      `[DirectExecutor] Trade amount $${amount.toFixed(
-        2
-      )} looks like a share count relative to $${balance.toFixed(
-        2
-      )} balance. Expected Babylon Points.`,
-      { agentUserId, marketType, side, balance },
-      'DirectExecutors'
-    );
-  }
+  if (!isExitTrade) {
+    const looksLikeShareCount =
+      Number.isInteger(amount) &&
+      amount >= 1 &&
+      amount <= SHARE_LIKE_MAX_INTEGER &&
+      balance > 0 &&
+      amount / balance < SHARE_LIKE_RATIO_THRESHOLD;
+    if (looksLikeShareCount) {
+      logger.warn(
+        `[DirectExecutor] Trade amount $${amount.toFixed(
+          2
+        )} looks like a share count relative to $${balance.toFixed(
+          2
+        )} balance. Expected Babylon Points.`,
+        { agentUserId, marketType, side, balance },
+        'DirectExecutors'
+      );
+    }
 
-  // Cannot trade more than balance
-  if (amount > balance) {
-    logger.warn(
-      `[DirectExecutor] Trade capped to balance: $${amount} -> $${balance}`,
-      { agentUserId, isNpc },
-      'DirectExecutors'
-    );
-    amount = balance;
-  }
+    // Cannot trade more than balance
+    if (amount > balance) {
+      logger.warn(
+        `[DirectExecutor] Trade capped to balance: $${amount} -> $${balance}`,
+        { agentUserId, isNpc },
+        'DirectExecutors'
+      );
+      amount = balance;
+    }
 
-  // Reject if insufficient funds
-  if (amount < 1) {
+    // Reject if insufficient funds
+    if (amount < 1) {
+      return {
+        success: false,
+        error: `Insufficient balance: $${balance.toFixed(2)}`,
+      };
+    }
+  } else if (amount < 0) {
     return {
       success: false,
-      error: `Insufficient balance: $${balance.toFixed(2)}`,
+      error: 'Amount must be 0 or greater for exit trades',
     };
   }
 
@@ -641,7 +699,8 @@ async function executePredictionTrade(params: {
                 type as (typeof FEE_CONFIG.FEE_TYPES)[keyof typeof FEE_CONFIG.FEE_TYPES],
                 amount,
                 positionId,
-                relatedId
+                relatedId,
+                txDb // Pass the existing transaction to avoid nested transaction deadlocks
               ),
           },
     });
@@ -712,13 +771,16 @@ async function executePredictionSell(params: {
   const isSellYes = side === 'sell_yes';
   const sideLabel = isSellYes ? 'yes' : 'no';
 
+  // Collect PnL records to process after transaction completes (avoids nested transaction deadlocks)
+  const deferredPnL: DeferredPnLRecord[] = [];
+
   const sellOperation = async (
     txDb: Parameters<Parameters<typeof asUser>[1]>[0]
   ) => {
     const adapter = new PredictionDbAdapter(txDb);
     const service = new PredictionMarketService({
       db: adapter,
-      wallet: createPredictionWalletAdapter(isNpc, txDb),
+      wallet: createPredictionWalletAdapter(isNpc, txDb, deferredPnL),
       broadcast: {
         emit: (channel, payload) =>
           broadcastToChannel(channel, payload as Record<string, JsonValue>),
@@ -747,7 +809,8 @@ async function executePredictionSell(params: {
                 type as (typeof FEE_CONFIG.FEE_TYPES)[keyof typeof FEE_CONFIG.FEE_TYPES],
                 amount,
                 positionId,
-                relatedId
+                relatedId,
+                txDb // Pass the existing transaction to avoid nested transaction deadlocks
               ),
           },
     });
@@ -800,6 +863,17 @@ async function executePredictionSell(params: {
   const { sellResult, sharesToSell } = isNpc
     ? await asSystem(sellOperation, 'npc_prediction_sell')
     : await asUser({ userId: agentUserId }, sellOperation);
+
+  // Process deferred PnL records AFTER transaction completes (avoids nested transaction deadlocks)
+  for (const pnlRecord of deferredPnL) {
+    if (pnlRecord.pnl === 0) continue;
+    await WalletService.recordPnL(
+      pnlRecord.userId,
+      pnlRecord.pnl,
+      pnlRecord.reason,
+      pnlRecord.relatedId
+    );
+  }
 
   // Record in AgentTrade
   await agentPnLService.recordTrade({
@@ -867,6 +941,7 @@ async function executePerpTrade(params: {
         referrerShare: 0.5,
         minFeeAmount: 0.01,
       },
+      priceImpact: createPerpPriceImpactPort(),
     });
 
     await service.openPosition({
@@ -955,6 +1030,7 @@ async function executeClosePerpPosition(params: {
         referrerShare: 0.5,
         minFeeAmount: 0.01,
       },
+      priceImpact: createPerpPriceImpactPort(),
     });
 
     // Capture the result from closePosition to get accurate realizedPnL
@@ -1305,6 +1381,21 @@ export async function executeDirectMessage(
 
   // If chatId not provided, resolve it from recipientId
   if (!chatId && recipientId) {
+    // Check if agent is trying to DM their owner - not allowed
+    // Agents should communicate with owners through Agents (team chat)
+    const [agent] = await db
+      .select({ managedBy: users.managedBy })
+      .from(users)
+      .where(eq(users.id, agentUserId))
+      .limit(1);
+
+    if (agent?.managedBy === recipientId) {
+      return {
+        success: false,
+        error: 'Agent-owner DMs are not allowed - use Agents chat instead',
+      };
+    }
+
     // Check if recipient exists
     const [recipient] = await db
       .select({ id: users.id })
@@ -1537,6 +1628,157 @@ export async function executeDirectMessage(
 }
 
 // =============================================================================
+// Direct Follow / Unfollow Executors
+// =============================================================================
+
+/**
+ * Follow a user/agent directly without LLM decision-making.
+ * This action is restricted to real users/agents (not static NPC actors).
+ */
+export async function executeDirectFollow(
+  params: DirectFollowParams
+): Promise<DirectFollowResult> {
+  const { agentUserId, targetUserId } = params;
+  const cleanTargetUserId = targetUserId?.trim();
+
+  if (!cleanTargetUserId) {
+    return { success: false, error: 'Target user ID is required' };
+  }
+
+  if (cleanTargetUserId === agentUserId) {
+    return { success: false, error: 'Cannot follow yourself' };
+  }
+
+  const [targetUser] = await db
+    .select({ id: users.id, isActor: users.isActor })
+    .from(users)
+    .where(eq(users.id, cleanTargetUserId))
+    .limit(1);
+
+  if (!targetUser) {
+    return { success: false, error: `User not found: ${cleanTargetUserId}` };
+  }
+
+  if (targetUser.isActor) {
+    return {
+      success: false,
+      error:
+        'FOLLOW supports users/agents only. NPC actors are not supported here',
+    };
+  }
+
+  logger.info(
+    `[DirectExecutor] Following user ${cleanTargetUserId}`,
+    { agentUserId },
+    'DirectExecutors'
+  );
+
+  const followId = await generateSnowflakeId();
+  const insertResult = await db
+    .insert(follows)
+    .values({
+      id: followId,
+      followerId: agentUserId,
+      followingId: cleanTargetUserId,
+    })
+    .onConflictDoNothing()
+    .returning({ id: follows.id });
+
+  const followed = insertResult.length > 0;
+
+  if (followed) {
+    await Promise.all([
+      cachedDb.invalidateUserCache(agentUserId),
+      cachedDb.invalidateUserCache(cleanTargetUserId),
+    ]).catch((error: unknown) => {
+      logger.warn('Failed to invalidate user cache after direct follow', {
+        error,
+      });
+    });
+  }
+
+  return {
+    success: true,
+    followed,
+    alreadyFollowing: !followed,
+    targetUserId: cleanTargetUserId,
+  };
+}
+
+/**
+ * Unfollow a user/agent directly without LLM decision-making.
+ * Returns success even if there was no active follow relationship (idempotent).
+ */
+export async function executeDirectUnfollow(
+  params: DirectFollowParams
+): Promise<DirectFollowResult> {
+  const { agentUserId, targetUserId } = params;
+  const cleanTargetUserId = targetUserId?.trim();
+
+  if (!cleanTargetUserId) {
+    return { success: false, error: 'Target user ID is required' };
+  }
+
+  if (cleanTargetUserId === agentUserId) {
+    return { success: false, error: 'Cannot unfollow yourself' };
+  }
+
+  const [targetUser] = await db
+    .select({ id: users.id, isActor: users.isActor })
+    .from(users)
+    .where(eq(users.id, cleanTargetUserId))
+    .limit(1);
+
+  if (!targetUser) {
+    return { success: false, error: `User not found: ${cleanTargetUserId}` };
+  }
+
+  if (targetUser.isActor) {
+    return {
+      success: false,
+      error:
+        'UNFOLLOW supports users/agents only. NPC actors are not supported here',
+    };
+  }
+
+  logger.info(
+    `[DirectExecutor] Unfollowing user ${cleanTargetUserId}`,
+    { agentUserId },
+    'DirectExecutors'
+  );
+
+  const deletedRows = await db
+    .delete(follows)
+    .where(
+      and(
+        eq(follows.followerId, agentUserId),
+        eq(follows.followingId, cleanTargetUserId)
+      )
+    )
+    .returning({ id: follows.id });
+
+  const wasFollowing = deletedRows.length > 0;
+
+  if (wasFollowing) {
+    await Promise.all([
+      cachedDb.invalidateUserCache(agentUserId),
+      cachedDb.invalidateUserCache(cleanTargetUserId),
+    ]).catch((error: unknown) => {
+      logger.warn('Failed to invalidate user cache after direct unfollow', {
+        error,
+      });
+    });
+  }
+
+  return {
+    success: true,
+    unfollowed: wasFollowing,
+    wasFollowing,
+    targetUserId: cleanTargetUserId,
+  };
+}
+
+// =============================================================================
 // Direct Like Executor
 // =============================================================================
 
@@ -1612,7 +1854,12 @@ export async function executeDirectRepost(
 
   // Verify post exists
   const [post] = await db
-    .select({ id: posts.id, authorId: posts.authorId, content: posts.content })
+    .select({
+      id: posts.id,
+      authorId: posts.authorId,
+      content: posts.content,
+      originalPostId: posts.originalPostId,
+    })
     .from(posts)
     .where(eq(posts.id, postId))
     .limit(1);
@@ -1621,8 +1868,34 @@ export async function executeDirectRepost(
     return { success: false, error: `Post not found: ${postId}` };
   }
 
+  let targetPost = post;
+  let targetPostId = postId;
+
+  if (isPureRepost(post)) {
+    const [resolvedPost] = await db
+      .select({
+        id: posts.id,
+        authorId: posts.authorId,
+        content: posts.content,
+        originalPostId: posts.originalPostId,
+      })
+      .from(posts)
+      .where(eq(posts.id, post.originalPostId))
+      .limit(1);
+
+    if (!resolvedPost) {
+      return {
+        success: false,
+        error: 'Original post no longer exists',
+      };
+    }
+
+    targetPost = resolvedPost;
+    targetPostId = resolvedPost.id;
+  }
+
   // Don't let agents repost their own content
-  if (post.authorId === agentUserId) {
+  if (targetPost.authorId === agentUserId) {
     return { success: false, error: 'Cannot repost own content' };
   }
 
@@ -1630,8 +1903,8 @@ export async function executeDirectRepost(
   // The pre-check was removed to avoid TOCTOU race conditions.
 
   logger.info(
-    `[DirectExecutor] Reposting post ${postId}`,
-    { agentUserId, hasComment: !!comment },
+    `[DirectExecutor] Reposting post ${targetPostId}`,
+    { agentUserId, hasComment: !!comment, requestedPostId: postId },
     'DirectExecutors'
   );
 
@@ -1649,7 +1922,7 @@ export async function executeDirectRepost(
       await tx.insert(shares).values({
         id: shareId,
         userId: agentUserId,
-        postId,
+        postId: targetPostId,
         createdAt: now,
       });
 
@@ -1659,7 +1932,7 @@ export async function executeDirectRepost(
           id: quotePostId,
           content: comment!.trim(),
           authorId: agentUserId,
-          originalPostId: postId,
+          originalPostId: targetPostId,
           type: 'repost',
           timestamp: now,
           createdAt: now,
@@ -1668,7 +1941,7 @@ export async function executeDirectRepost(
     });
 
     logger.info(
-      `[DirectExecutor] Post reposted: ${postId} -> share ${shareId}${quotePostId ? ` with quote ${quotePostId}` : ''}`,
+      `[DirectExecutor] Post reposted: ${targetPostId} -> share ${shareId}${quotePostId ? ` with quote ${quotePostId}` : ''}`,
       undefined,
       'DirectExecutors'
     );
@@ -1691,7 +1964,9 @@ export async function executeDirectRepost(
       const [share] = await db
         .select({ id: shares.id })
         .from(shares)
-        .where(and(eq(shares.postId, postId), eq(shares.userId, agentUserId)))
+        .where(
+          and(eq(shares.postId, targetPostId), eq(shares.userId, agentUserId))
+        )
         .limit(1);
 
       if (!share?.id) {

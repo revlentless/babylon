@@ -64,7 +64,7 @@ const loginMethodsAndOrder: NonNullable<
 };
 
 const embeddedWallets: NonNullable<BabylonPrivyConfig['embeddedWallets']> = {
-  ethereum: { createOnLogin: 'users-without-wallets' },
+  ethereum: { createOnLogin: 'off' },
 };
 
 const externalWallets: BabylonPrivyConfig['externalWallets'] = (() => {
@@ -82,6 +82,7 @@ export const privyConfig: { appId: string; config: BabylonPrivyConfig } = {
     loginMethodsAndOrder,
     embeddedWallets,
     defaultChain: CHAIN,
+    // Babylon is deployed on a single chain; keep Privy chain config aligned.
     supportedChains: [CHAIN],
     externalWallets,
   },

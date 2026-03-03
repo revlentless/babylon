@@ -6,6 +6,12 @@ import { LatestNewsPanel } from '@/components/feed/LatestNewsPanel';
 import { MarketsPanel } from '@/components/feed/MarketsPanel';
 import { TrendingPanel } from '@/components/feed/TrendingPanel';
 
+interface WidgetSidebarProps {
+  showLatestNews?: boolean;
+  showTrending?: boolean;
+  showMarkets?: boolean;
+}
+
 /**
  * Widget sidebar component for desktop layouts.
  *
@@ -16,14 +22,18 @@ import { TrendingPanel } from '@/components/feed/TrendingPanel';
  *
  * Features:
  * - Entity search autocomplete
- * - Latest news panel
- * - Trending panel
- * - Markets panel
+ * - Latest news panel (optional)
+ * - Trending panel (optional)
+ * - Markets panel (optional)
  * - Smart sticky scrolling on XL+ screens
  *
  * @returns Widget sidebar element (hidden on screens < XL)
  */
-export function WidgetSidebar() {
+export function WidgetSidebar({
+  showLatestNews = true,
+  showTrending = true,
+  showMarkets = true,
+}: WidgetSidebarProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -57,9 +67,11 @@ export function WidgetSidebar() {
       // Check if sidebar fits in viewport
       const fitsInViewport = sidebarHeight <= viewportHeight;
 
-      // Check if NFT promo banner is visible (not dismissed)
-      const bannerDismissed = localStorage.getItem('nft-banner-dismissed');
-      const bannerOffset = bannerDismissed ? 0 : 40;
+      // Calculate banner offset dynamically from the container's viewport position.
+      // When the NFT promo banner (in document flow) is visible, the container
+      // starts below it; as the user scrolls past the banner it reaches 0.
+      const containerTop = container.getBoundingClientRect().top;
+      const bannerOffset = Math.max(0, containerTop);
 
       if (fitsInViewport) {
         // Sidebar fits - simple sticky to top (below banner)
@@ -129,7 +141,7 @@ export function WidgetSidebar() {
 
   return (
     <div ref={containerRef} className="hidden w-96 flex-none flex-col xl:flex">
-      <div ref={innerRef} className="flex w-96 flex-col gap-6 px-4 py-6">
+      <div ref={innerRef} className="flex w-96 flex-col gap-8 px-4 py-6">
         <div className="flex-shrink-0">
           <EntitySearchAutocomplete
             value={searchQuery}
@@ -139,17 +151,23 @@ export function WidgetSidebar() {
           />
         </div>
 
-        <div className="flex-shrink-0">
-          <LatestNewsPanel />
-        </div>
+        {showLatestNews && (
+          <div className="flex-shrink-0">
+            <LatestNewsPanel />
+          </div>
+        )}
 
-        <div className="flex-shrink-0">
-          <TrendingPanel />
-        </div>
+        {showTrending && (
+          <div className="flex-shrink-0">
+            <TrendingPanel />
+          </div>
+        )}
 
-        <div className="flex-shrink-0">
-          <MarketsPanel />
-        </div>
+        {showMarkets && (
+          <div className="flex-shrink-0">
+            <MarketsPanel />
+          </div>
+        )}
       </div>
     </div>
   );

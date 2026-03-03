@@ -141,6 +141,7 @@ export const GET = withErrorHandling(
         referralCode: users.referralCode,
         referralCount: users.referralCount,
         reputationPoints: users.reputationPoints,
+        totalPoints: users.totalPoints,
         totalFeesEarned: users.totalFeesEarned,
         pointsAwardedForProfile: users.pointsAwardedForProfile,
         pointsAwardedForFarcaster: users.pointsAwardedForFarcaster,
@@ -149,6 +150,7 @@ export const GET = withErrorHandling(
         farcasterUsername: users.farcasterUsername,
         twitterUsername: users.twitterUsername,
         walletAddress: users.walletAddress,
+        onChainRegistered: users.onChainRegistered,
       })
       .from(users)
       .where(eq(users.id, canonicalUserId))
@@ -344,6 +346,7 @@ export const GET = withErrorHandling(
         profileImageUrl: user.profileImageUrl,
         referralCode: referralCode,
         reputationPoints: user.reputationPoints,
+        totalPoints: Number(user.totalPoints ?? 0),
         totalFeesEarned: user.totalFeesEarned,
         pointsAwardedForProfile: user.pointsAwardedForProfile,
         pointsAwardedForFarcaster: user.pointsAwardedForFarcaster,
@@ -352,6 +355,7 @@ export const GET = withErrorHandling(
         farcasterUsername: user.farcasterUsername,
         twitterUsername: user.twitterUsername,
         walletAddress: user.walletAddress,
+        onChainRegistered: user.onChainRegistered,
       },
       stats: {
         totalReferrals: completedReferralsData.length, // Only completed count

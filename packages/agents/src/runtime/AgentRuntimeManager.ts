@@ -12,13 +12,27 @@
  * @packageDocumentation
  */
 
-import { db, eq, users } from '@babylon/db';
+import {
+  actorState,
+  agentLogs,
+  agentTrades,
+  and,
+  db,
+  desc,
+  eq,
+  gte,
+  users,
+} from '@babylon/db';
 import {
   type ActorData,
   loadActorById,
   StaticDataRegistry,
 } from '@babylon/engine';
-import { GROQ_MODELS } from '@babylon/shared';
+import {
+  COORDINATOR_RUNTIME_ID as COORDINATOR_RUNTIME_ID_STRING,
+  COORDINATOR_SYSTEM_PROMPT,
+  GROQ_MODELS,
+} from '@babylon/shared';
 import {
   AgentRuntime,
   type Character,
@@ -40,6 +54,7 @@ import {
   wrapPluginProviders,
 } from '../plugins/plugin-trajectory-logger/src/action-interceptor';
 import { TrajectoryLoggerService } from '../plugins/plugin-trajectory-logger/src/TrajectoryLoggerService';
+import { userCorePlugin } from '../plugins/plugin-user-core/src';
 import { agentRegistry } from '../services/agent-registry.service';
 import { getAgentConfig } from '../shared/agent-config';
 import { logger } from '../shared/logger';
@@ -63,6 +78,127 @@ const globalRuntimes = new Map<string, AgentRuntime>();
 /** Global trajectory logger instances per agent */
 const trajectoryLoggers = new Map<string, TrajectoryLoggerService>();
 
+interface RuntimeLifecycleMetadata {
+  createdAtMs: number;
+  refreshCount: number;
+}
+
+/** Runtime lifecycle metadata used for periodic refresh decisions */
+const runtimeLifecycleMetadata = new Map<string, RuntimeLifecycleMetadata>();
+
+const DEFAULT_CONTEXT_REFRESH_HOURS = 48;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MAX_REFRESH_WINDOW_LOGS = 250;
+const MAX_REFRESH_WINDOW_TRADES = 250;
+const CONTEXT_REFRESH_INTERVAL_MS = (() => {
+  const configured = Number(process.env.AGENT_CONTEXT_REFRESH_HOURS ?? '');
+  if (Number.isFinite(configured) && configured > 0) {
+    return Math.floor(configured * MS_PER_HOUR);
+  }
+  return DEFAULT_CONTEXT_REFRESH_HOURS * MS_PER_HOUR;
+})();
+
+/** Pending runtime creation promises to prevent race conditions */
+const pendingRuntimePromises = new Map<string, Promise<AgentRuntime>>();
+
+/** Coordinator runtime ID cast to UUID type for ElizaOS */
+const COORDINATOR_RUNTIME_ID = COORDINATOR_RUNTIME_ID_STRING as UUID;
+
+/**
+ * Creates adapter stub methods for ElizaOS runtime.
+ * Babylon doesn't use ElizaOS's memory/DB system, so we stub these out.
+ */
+function createAdapterStubs(existingAdapter: unknown): unknown {
+  return {
+    ...(existingAdapter as object),
+    // Lifecycle
+    init: async () => {},
+    close: async () => {},
+    isReady: async () => true,
+    // Agent methods
+    getAgent: async () => null,
+    getAgents: async () => [],
+    createAgent: async () => true,
+    updateAgent: async () => true,
+    deleteAgent: async () => true,
+    // Entity methods
+    getEntitiesByIds: async () => [],
+    createEntities: async () => true,
+    updateEntity: async () => {},
+    getEntitiesForRoom: async () => [],
+    // Room/Participant methods
+    getParticipantsForRoom: async () => [],
+    getParticipantsForEntity: async () => [],
+    addParticipantsRoom: async () => true,
+    removeParticipant: async () => true,
+    isRoomParticipant: async () => false,
+    getParticipantUserState: async () => null,
+    setParticipantUserState: async () => {},
+    getRoomsByIds: async () => [],
+    getRoomsByWorld: async () => [],
+    getRoomsForParticipant: async () => [],
+    getRoomsForParticipants: async () => [],
+    createRooms: async (rooms: unknown[]) => rooms, // Return rooms to avoid "Failed to create room" error
+    deleteRoom: async () => {},
+    deleteRoomsByWorldId: async () => {},
+    updateRoom: async () => {},
+    // World methods
+    createWorld: async () => crypto.randomUUID() as UUID,
+    getWorld: async () => null,
+    getAllWorlds: async () => [],
+    updateWorld: async () => {},
+    removeWorld: async () => {},
+    // Memory methods
+    createMemory: async (memory: { id?: string } | null) =>
+      (memory?.id || crypto.randomUUID()) as UUID,
+    getMemories: async () => [],
+    getMemoryById: async () => null,
+    getMemoriesByIds: async () => [],
+    getMemoriesByRoomIds: async () => [],
+    getMemoriesByWorldId: async () => [],
+    searchMemories: async () => [],
+    updateMemory: async () => true,
+    deleteMemory: async () => {},
+    deleteManyMemories: async () => {},
+    deleteAllMemories: async () => {},
+    countMemories: async () => 0,
+    // Logging
+    log: async () => {},
+    getLogs: async () => [],
+    deleteLog: async () => {},
+    // Cache
+    getCache: async () => undefined,
+    setCache: async () => true,
+    deleteCache: async () => true,
+    // Embeddings
+    getCachedEmbeddings: async () => [],
+    ensureEmbeddingDimension: async () => {},
+    // Relationships
+    createRelationship: async () => true,
+    getRelationship: async () => null,
+    getRelationships: async () => [],
+    updateRelationship: async () => {},
+    // Tasks
+    createTask: async () => crypto.randomUUID() as UUID,
+    getTask: async () => null,
+    getTasks: async () => [],
+    getTasksByName: async () => [],
+    updateTask: async () => {},
+    deleteTask: async () => {},
+    // Components
+    getComponent: async () => null,
+    getComponents: async () => [],
+    createComponent: async () => true,
+    updateComponent: async () => {},
+    deleteComponent: async () => {},
+    // Misc
+    getConnection: async () => null,
+    runMigrations: async () => {},
+    runPluginMigrations: async () => {},
+    db: null,
+  };
+}
+
 export class AgentRuntimeManager {
   private static instance: AgentRuntimeManager;
 
@@ -81,6 +217,185 @@ export class AgentRuntimeManager {
     return AgentRuntimeManager.instance;
   }
 
+  private shouldRefreshRuntime(createdAtMs: number): boolean {
+    return Date.now() - createdAtMs >= CONTEXT_REFRESH_INTERVAL_MS;
+  }
+
+  private async persistContextRefreshSummary(
+    agentUserId: string,
+    lifecycle: RuntimeLifecycleMetadata
+  ): Promise<void> {
+    const refreshEndedAt = new Date();
+    const refreshStartedAt = new Date(lifecycle.createdAtMs);
+
+    const [windowLogs, windowTrades, userSnapshot, npcSnapshot] =
+      await Promise.all([
+        db
+          .select({
+            type: agentLogs.type,
+            level: agentLogs.level,
+            createdAt: agentLogs.createdAt,
+          })
+          .from(agentLogs)
+          .where(
+            and(
+              eq(agentLogs.agentUserId, agentUserId),
+              gte(agentLogs.createdAt, refreshStartedAt)
+            )
+          )
+          .orderBy(desc(agentLogs.createdAt))
+          .limit(MAX_REFRESH_WINDOW_LOGS),
+        db
+          .select({
+            marketType: agentTrades.marketType,
+            action: agentTrades.action,
+            pnl: agentTrades.pnl,
+            executedAt: agentTrades.executedAt,
+          })
+          .from(agentTrades)
+          .where(
+            and(
+              eq(agentTrades.agentUserId, agentUserId),
+              gte(agentTrades.executedAt, refreshStartedAt)
+            )
+          )
+          .orderBy(desc(agentTrades.executedAt))
+          .limit(MAX_REFRESH_WINDOW_TRADES),
+        db
+          .select({
+            displayName: users.displayName,
+            virtualBalance: users.virtualBalance,
+            lifetimePnL: users.lifetimePnL,
+          })
+          .from(users)
+          .where(eq(users.id, agentUserId))
+          .limit(1),
+        db
+          .select({ tradingBalance: actorState.tradingBalance })
+          .from(actorState)
+          .where(eq(actorState.id, agentUserId))
+          .limit(1),
+      ]);
+
+    const actionCounts = {
+      ticks: 0,
+      trades: 0,
+      posts: 0,
+      comments: 0,
+      dms: 0,
+      likes: 0,
+      reposts: 0,
+      errors: 0,
+    };
+
+    for (const entry of windowLogs) {
+      if (entry.level === 'error') {
+        actionCounts.errors++;
+      }
+
+      switch (entry.type) {
+        case 'tick':
+          actionCounts.ticks++;
+          break;
+        case 'trade':
+          actionCounts.trades++;
+          break;
+        case 'post':
+          actionCounts.posts++;
+          break;
+        case 'comment':
+          actionCounts.comments++;
+          break;
+        case 'dm':
+          actionCounts.dms++;
+          break;
+        case 'like':
+          actionCounts.likes++;
+          break;
+        case 'repost':
+          actionCounts.reposts++;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const closedTrades = windowTrades.filter((trade) => trade.pnl !== null);
+    const winningTrades = closedTrades.filter(
+      (trade) => Number(trade.pnl ?? 0) > 0
+    ).length;
+    const realizedPnl = Number(
+      closedTrades
+        .reduce((acc, trade) => acc + Number(trade.pnl ?? 0), 0)
+        .toFixed(2)
+    );
+    const runtimeAgeHours = Number(
+      (
+        (refreshEndedAt.getTime() - lifecycle.createdAtMs) /
+        MS_PER_HOUR
+      ).toFixed(2)
+    );
+
+    const user = userSnapshot[0];
+    const npc = npcSnapshot[0];
+    const balanceText = user
+      ? `$${Number(user.virtualBalance ?? 0).toFixed(2)} balance, lifetime PnL ${Number(user.lifetimePnL ?? 0) >= 0 ? '+' : ''}$${Number(user.lifetimePnL ?? 0).toFixed(2)}`
+      : npc
+        ? `$${Number(npc.tradingBalance ?? 0).toFixed(2)} NPC trading balance`
+        : 'balance unavailable';
+
+    const summary =
+      `Runtime refreshed after ${runtimeAgeHours}h. ` +
+      `Window activity: ${actionCounts.ticks} ticks, ${actionCounts.trades} logged trades, ` +
+      `${actionCounts.posts} posts, ${actionCounts.comments} comments, ${actionCounts.dms} DMs, ` +
+      `${actionCounts.likes + actionCounts.reposts} engagements. ` +
+      `Trade outcomes: ${windowTrades.length} trades, ${closedTrades.length} closed, ${winningTrades} wins, realized PnL ${realizedPnl >= 0 ? '+' : ''}$${Math.abs(realizedPnl).toFixed(2)}. ` +
+      `Current state: ${balanceText}.`;
+
+    const metadata: Record<string, JsonValue> = {
+      event: 'context_refresh',
+      summary,
+      refreshCount: lifecycle.refreshCount + 1,
+      refreshIntervalHours: Number(
+        (CONTEXT_REFRESH_INTERVAL_MS / MS_PER_HOUR).toFixed(2)
+      ),
+      runtimeAgeHours,
+      windowStart: refreshStartedAt.toISOString(),
+      windowEnd: refreshEndedAt.toISOString(),
+      actionCounts,
+      tradeStats: {
+        total: windowTrades.length,
+        closed: closedTrades.length,
+        wins: winningTrades,
+        realizedPnl,
+      },
+      accountState: {
+        displayName: user?.displayName ?? null,
+        balance: user
+          ? Number(user.virtualBalance ?? 0)
+          : npc
+            ? Number(npc.tradingBalance ?? 0)
+            : null,
+        lifetimePnl: user ? Number(user.lifetimePnL ?? 0) : null,
+      },
+      lastActionAt:
+        windowLogs[0]?.createdAt instanceof Date
+          ? windowLogs[0].createdAt.toISOString()
+          : null,
+      logsSampled: windowLogs.length,
+      tradesSampled: windowTrades.length,
+    };
+
+    await db.insert(agentLogs).values({
+      id: await generateSnowflakeId(),
+      agentUserId,
+      type: 'system',
+      level: 'info',
+      message: 'Context refresh checkpoint',
+      metadata,
+    });
+  }
+
   /**
    * Gets or creates a runtime for any agent type
    *
@@ -91,14 +406,64 @@ export class AgentRuntimeManager {
    * @returns Agent runtime instance
    */
   public async getRuntime(agentUserId: string): Promise<AgentRuntime> {
+    let refreshCount = 0;
+
     if (globalRuntimes.has(agentUserId)) {
-      const runtime = globalRuntimes.get(agentUserId)!;
+      const lifecycle = runtimeLifecycleMetadata.get(agentUserId);
+
+      if (!lifecycle) {
+        runtimeLifecycleMetadata.set(agentUserId, {
+          createdAtMs: Date.now(),
+          refreshCount: 0,
+        });
+        const runtime = globalRuntimes.get(agentUserId)!;
+        logger.info(
+          `Using cached runtime for agent ${agentUserId} (lifecycle initialized)`,
+          undefined,
+          'AgentRuntimeManager'
+        );
+        return runtime;
+      }
+
+      if (!this.shouldRefreshRuntime(lifecycle.createdAtMs)) {
+        const runtime = globalRuntimes.get(agentUserId)!;
+        logger.info(
+          `Using cached runtime for agent ${agentUserId}`,
+          undefined,
+          'AgentRuntimeManager'
+        );
+        return runtime;
+      }
+
+      refreshCount = lifecycle.refreshCount + 1;
+      const runtimeAgeHours = (
+        (Date.now() - lifecycle.createdAtMs) /
+        MS_PER_HOUR
+      ).toFixed(2);
+
       logger.info(
-        `Using cached runtime for agent ${agentUserId}`,
-        undefined,
+        `Refreshing runtime for agent ${agentUserId} after ${runtimeAgeHours}h`,
+        {
+          refreshIntervalHours: CONTEXT_REFRESH_INTERVAL_MS / MS_PER_HOUR,
+          refreshCount,
+        },
         'AgentRuntimeManager'
       );
-      return runtime;
+
+      try {
+        await this.persistContextRefreshSummary(agentUserId, lifecycle);
+      } catch (error) {
+        logger.warn(
+          'Failed to persist context refresh summary before runtime reset',
+          {
+            agentId: agentUserId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'AgentRuntimeManager'
+        );
+      }
+
+      await this.clearRuntime(agentUserId);
     }
 
     const registration = await agentRegistry.getAgentById(agentUserId);
@@ -126,6 +491,10 @@ export class AgentRuntimeManager {
 
       // Cache runtime
       globalRuntimes.set(agentUserId, runtime);
+      runtimeLifecycleMetadata.set(agentUserId, {
+        createdAtMs: Date.now(),
+        refreshCount,
+      });
 
       // Use debug level for per-agent runtime creation to reduce startup noise
       logger.debug(
@@ -261,32 +630,10 @@ export class AgentRuntimeManager {
 
     runtime.currentModel = 'groq';
 
-    // Override adapter methods to prevent undefined errors
-    // Babylon doesn't use ElizaOS's memory system, so we stub these out
-    runtime.adapter = {
-      ...runtime.adapter,
-      log: async (_params: {
-        body: { [key: string]: JsonValue };
-        entityId: string;
-        roomId: string;
-        type: string;
-      }): Promise<void> => {
-        // No-op - Babylon uses its own logging
-      },
-      createMemory: async (
-        memory: unknown,
-        _tableName?: string
-      ): Promise<UUID> => {
-        // No-op - Babylon uses its own DB for message storage
-        // Return the memory ID or generate one
-        const memoryObj = memory as { id?: string } | null;
-        return (memoryObj?.id || crypto.randomUUID()) as UUID;
-      },
-      getMemories: async (_params: unknown): Promise<unknown[]> => {
-        // Return empty array - Babylon uses its own DB
-        return [];
-      },
-    } as typeof runtime.adapter;
+    // Stub adapter methods - Babylon uses its own DB, not ElizaOS's
+    runtime.adapter = createAdapterStubs(
+      runtime.adapter
+    ) as typeof runtime.adapter;
 
     // Configure logger
     if (!runtime.logger || !runtime.logger.log) {
@@ -348,6 +695,10 @@ export class AgentRuntimeManager {
 
     // Cache runtime
     globalRuntimes.set(agentUserId, runtime);
+    runtimeLifecycleMetadata.set(agentUserId, {
+      createdAtMs: Date.now(),
+      refreshCount,
+    });
 
     // Use debug level for per-agent runtime creation to reduce startup noise
     logger.debug(
@@ -580,32 +931,10 @@ export class AgentRuntimeManager {
     }
     runtime.currentModel = 'groq';
 
-    // Override adapter methods to prevent undefined errors
-    // Babylon doesn't use ElizaOS's memory system, so we stub these out
-    runtime.adapter = {
-      ...runtime.adapter,
-      log: async (_params: {
-        body: { [key: string]: JsonValue };
-        entityId: string;
-        roomId: string;
-        type: string;
-      }): Promise<void> => {
-        // No-op - Babylon uses its own logging
-      },
-      createMemory: async (
-        memory: unknown,
-        _tableName?: string
-      ): Promise<UUID> => {
-        // No-op - Babylon uses its own DB for message storage
-        // Return the memory ID or generate one
-        const memoryObj = memory as { id?: string } | null;
-        return (memoryObj?.id || crypto.randomUUID()) as UUID;
-      },
-      getMemories: async (_params: unknown): Promise<unknown[]> => {
-        // Return empty array - Babylon uses its own DB
-        return [];
-      },
-    } as typeof runtime.adapter;
+    // Stub adapter methods - Babylon uses its own DB, not ElizaOS's
+    runtime.adapter = createAdapterStubs(
+      runtime.adapter
+    ) as typeof runtime.adapter;
 
     // Configure logger
     this.configureLogger(runtime, character.name);
@@ -620,6 +949,10 @@ export class AgentRuntimeManager {
       }
     }
     await Promise.all(pluginRegistrationPromises);
+
+    // Initialize runtime to signal services that runtime is ready
+    // This prevents 30s timeout errors in services waiting for runtime initialization
+    await runtime.initialize();
 
     // Wrap and enhance with Babylon plugin
     // Use userId for USER_CONTROLLED agents (User table lookup), agentId for NPCs
@@ -709,6 +1042,151 @@ export class AgentRuntimeManager {
   }
 
   /**
+   * Get or create the global coordinator runtime.
+   *
+   * The coordinator is a shared runtime used for team chat when no agents are tagged.
+   * It uses plugin-user-core (limited actions) instead of plugin-agent-core.
+   *
+   * @returns The global coordinator runtime instance
+   */
+  public async getCoordinatorRuntime(): Promise<AgentRuntime> {
+    // Check cache first
+    if (globalRuntimes.has(COORDINATOR_RUNTIME_ID)) {
+      logger.debug(
+        'Using cached coordinator runtime',
+        undefined,
+        'AgentRuntimeManager'
+      );
+      return globalRuntimes.get(COORDINATOR_RUNTIME_ID)!;
+    }
+
+    // Check if there's already a pending creation to avoid race conditions
+    const pendingPromise = pendingRuntimePromises.get(COORDINATOR_RUNTIME_ID);
+    if (pendingPromise) {
+      logger.debug(
+        'Waiting for pending coordinator runtime creation',
+        undefined,
+        'AgentRuntimeManager'
+      );
+      return pendingPromise;
+    }
+
+    // Create new coordinator runtime with pending-promise guard
+    const creationPromise = (async () => {
+      try {
+        const runtime = await this.createCoordinatorRuntime();
+
+        // Cache it
+        globalRuntimes.set(COORDINATOR_RUNTIME_ID, runtime);
+
+        logger.info(
+          'Coordinator runtime created and cached',
+          undefined,
+          'AgentRuntimeManager'
+        );
+
+        return runtime;
+      } finally {
+        // Clear pending entry on completion or error
+        pendingRuntimePromises.delete(COORDINATOR_RUNTIME_ID);
+      }
+    })();
+
+    // Store the pending promise so concurrent callers await it
+    pendingRuntimePromises.set(COORDINATOR_RUNTIME_ID, creationPromise);
+
+    return creationPromise;
+  }
+
+  /**
+   * Create the global coordinator runtime.
+   *
+   * Key differences from agent runtimes:
+   * - Uses plugin-user-core instead of plugin-agent-core
+   * - Has limited actions (read-only, informational)
+   * - Does not have Babylon plugin enhancement (no agent-specific features)
+   * - Shared across all users
+   */
+  private async createCoordinatorRuntime(): Promise<AgentRuntime> {
+    // Database configuration
+    const dbPort = process.env.POSTGRES_DEV_PORT || 5432;
+    const postgresUrl =
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      `postgres://postgres:password@localhost:${dbPort}/babylon`;
+
+    // Create trajectory logger for coordinator
+    const trajectoryLogger = new TrajectoryLoggerService();
+    trajectoryLoggers.set(COORDINATOR_RUNTIME_ID, trajectoryLogger);
+
+    // Character configuration for coordinator
+    const character: Character = {
+      name: 'Coordinator',
+      system: COORDINATOR_SYSTEM_PROMPT,
+      bio: [
+        'Team chat coordinator for Babylon - helps users understand and coordinate their AI agents',
+      ],
+      messageExamples: [],
+      plugins: [],
+      settings: this.getModelSettings(),
+    };
+
+    // Plugins for coordinator - uses userCorePlugin instead of agentCorePlugin
+    // Note: openaiPlugin is intentionally omitted for coordinator as it uses read-only
+    // actions (userCorePlugin) and doesn't require the full capabilities of OpenAI models.
+    // The coordinator relies on Groq/Anthropic for cost efficiency with its limited scope.
+    const plugins: Plugin[] = [
+      userCorePlugin as Plugin, // Limited actions for coordinator
+      trajectoryLoggerPlugin as Plugin,
+      ...(process.env.GROQ_API_KEY ? [groqPlugin as Plugin] : []),
+      ...(process.env.ANTHROPIC_API_KEY ? [anthropicPlugin as Plugin] : []),
+    ];
+
+    const runtimeConfig = {
+      character,
+      agentId: COORDINATOR_RUNTIME_ID,
+      plugins,
+      settings: {
+        ...character.settings,
+        POSTGRES_URL: postgresUrl,
+      },
+    };
+
+    const runtime = new AgentRuntime(runtimeConfig) as ExtendedAgentRuntime;
+
+    runtime.currentModel = 'groq';
+
+    // Stub adapter methods - Babylon uses its own DB
+    runtime.adapter = createAdapterStubs(
+      runtime.adapter
+    ) as typeof runtime.adapter;
+
+    // Configure logger
+    this.configureLogger(runtime, 'Coordinator');
+
+    // Register plugins
+    const pluginRegistrationPromises: Promise<void>[] = [];
+    for (const plugin of plugins) {
+      if (plugin) {
+        pluginRegistrationPromises.push(runtime.registerPlugin(plugin));
+      }
+    }
+    await Promise.all(pluginRegistrationPromises);
+
+    // Initialize runtime to signal services that runtime is ready
+    // This prevents 30s timeout errors in services waiting for runtime initialization
+    await runtime.initialize();
+
+    // Store trajectory logger reference
+    runtime.trajectoryLogger = trajectoryLogger;
+
+    // NOTE: We intentionally do NOT call enhanceWithBabylon here
+    // The coordinator doesn't need agent-specific Babylon features
+
+    return runtime;
+  }
+
+  /**
    * Get trajectory logger for an agent
    */
   public getTrajectoryLogger(
@@ -724,6 +1202,7 @@ export class AgentRuntimeManager {
     if (globalRuntimes.has(agentUserId)) {
       globalRuntimes.delete(agentUserId);
       trajectoryLoggers.delete(agentUserId);
+      runtimeLifecycleMetadata.delete(agentUserId);
 
       // Update registry status if agent exists in registry
       await agentRegistry.clearRuntimeInstance(agentUserId);
@@ -739,6 +1218,7 @@ export class AgentRuntimeManager {
   public clearAllRuntimes(): void {
     globalRuntimes.clear();
     trajectoryLoggers.clear();
+    runtimeLifecycleMetadata.clear();
     logger.info('All runtimes cleared', undefined, 'AgentRuntimeManager');
   }
 
@@ -767,6 +1247,9 @@ export const agentRuntimeManager = {
   },
   async getRuntime(agentUserId: string) {
     return getManagerInstance().getRuntime(agentUserId);
+  },
+  async getCoordinatorRuntime() {
+    return getManagerInstance().getCoordinatorRuntime();
   },
   getTrajectoryLogger(agentUserId: string) {
     return getManagerInstance().getTrajectoryLogger(agentUserId);

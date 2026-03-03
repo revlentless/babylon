@@ -1,4 +1,12 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 import { defineConfig } from 'drizzle-kit';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Load root .env file
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Determine if we're in local development mode
 const isLocalDev =
@@ -18,7 +26,10 @@ const databaseUrl = isLocalDev
     LOCAL_DATABASE_URL);
 
 export default defineConfig({
-  // Use relative paths (drizzle-kit has issues with absolute paths)
+  // NOTE: Keep `schema`/`out` as relative paths.
+  // Drizzle Kit currently mis-resolves absolute paths by prefixing them with `./`,
+  // which breaks reading existing snapshots under `drizzle/migrations/meta/*`.
+  // These scripts are run with `--cwd packages/db`, so relative paths are stable.
   schema: './src/schema/index.ts',
   out: './drizzle/migrations',
   dialect: 'postgresql',

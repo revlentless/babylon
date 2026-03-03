@@ -1,6 +1,6 @@
 'use client';
 
-import { cn, formatCompactCurrency } from '@babylon/shared';
+import { cn } from '@babylon/shared';
 import {
   Ban,
   CheckCircle,
@@ -19,6 +19,8 @@ import { BlockUserModal } from '@/components/moderation/BlockUserModal';
 import { MuteUserModal } from '@/components/moderation/MuteUserModal';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatCurrencyCompact } from '@/lib/format';
+import { getUserDisplayName } from '@/lib/user-display';
 
 /**
  * User schema for validation.
@@ -32,6 +34,7 @@ const UserSchema = z.object({
   isActor: z.boolean(),
   isAdmin: z.boolean(),
   isBanned: z.boolean(),
+  isWhitelisted: z.boolean().optional(),
   bannedAt: z.string().nullable(),
   bannedReason: z.string().nullable(),
   bannedBy: z.string().nullable(),
@@ -132,6 +135,9 @@ export function UserManagementTab() {
   const [isScammer, setIsScammer] = useState(false);
   const [isCSAM, setIsCSAM] = useState(false);
   const [isBanning, startBanning] = useTransition();
+  const [whitelistingUserId, setWhitelistingUserId] = useState<string | null>(
+    null
+  );
 
   const fetchUsers = useCallback(
     (showRefreshing = false) => {
@@ -205,11 +211,35 @@ export function UserManagementTab() {
     });
   };
 
-  /** Use shared formatCompactCurrency for currency formatting */
-  const formatCurrency = (value: string) => {
-    const num = parseFloat(value);
-    return formatCompactCurrency(Number.isNaN(num) ? 0 : num);
+  const handleWhitelistUser = async (userId: string) => {
+    setWhitelistingUserId(userId);
+    try {
+      const res = await fetch('/api/admin/whitelist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, source: 'admin_manual' }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast.info('User is already whitelisted');
+        } else {
+          toast.error(data.error ?? 'Failed to whitelist user');
+        }
+        return;
+      }
+
+      toast.success('User whitelisted successfully');
+    } catch {
+      toast.error('Failed to whitelist user');
+    } finally {
+      setWhitelistingUserId(null);
+    }
   };
+
+  const formatCurrency = formatCurrencyCompact;
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -220,7 +250,7 @@ export function UserManagementTab() {
   };
 
   const UserRow = ({ user }: { user: User }) => {
-    const displayName = user.displayName || user.username || 'Anonymous';
+    const displayName = getUserDisplayName(user, 'Anonymous');
 
     return (
       <div className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50">
@@ -261,6 +291,12 @@ export function UserManagementTab() {
               {user.onChainRegistered && (
                 <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-500 text-xs">
                   On-chain
+                </span>
+              )}
+              {user.isWhitelisted && (
+                <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-emerald-500 text-xs">
+                  <Shield className="h-3 w-3" />
+                  Whitelisted
                 </span>
               )}
             </div>
@@ -422,6 +458,19 @@ export function UserManagementTab() {
               >
                 <Ban className="h-4 w-4" />
                 Block
+              </button>
+              <button
+                onClick={() => handleWhitelistUser(user.id)}
+                disabled={whitelistingUserId === user.id}
+                className="flex items-center gap-1 rounded bg-emerald-500/20 px-3 py-1.5 font-medium text-emerald-500 text-sm transition-colors hover:bg-emerald-500/30 disabled:opacity-50"
+                title="Whitelist user — allow them to bypass gating"
+              >
+                {whitelistingUserId === user.id ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Shield className="h-4 w-4" />
+                )}
+                Whitelist
               </button>
               {user.isBanned ? (
                 <button
@@ -610,7 +659,7 @@ export function UserManagementTab() {
 
       {/* Ban Modal */}
       {showBanModal && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-4 font-bold text-xl">Ban User</h2>
             <p className="mb-4 text-muted-foreground">

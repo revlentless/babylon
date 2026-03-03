@@ -90,6 +90,7 @@ import type { JsonValue } from '@babylon/api';
 import {
   authenticate,
   ConflictError,
+  ensureOfflineWalletReady,
   getHashedClientIp,
   getOrCreateReferralCode,
   getPrivyClient,
@@ -101,6 +102,7 @@ import {
 } from '@babylon/api';
 import {
   and,
+  balanceTransactions,
   db,
   eq,
   follows,
@@ -112,6 +114,7 @@ import {
   withRetry,
   withTransaction,
 } from '@babylon/db';
+import { UserAlphaGroupAssignmentService } from '@babylon/engine';
 import type { OnboardingProfilePayload } from '@babylon/shared';
 import {
   checkForAdminEmail,
@@ -139,68 +142,7 @@ interface SignupRequestBody {
   privacyPolicyAccepted?: boolean;
 }
 
-type PrivyWalletLite = {
-  id?: string | null;
-  address?: string;
-  chainType?: string;
-  walletClientType?: string | null;
-};
-
-type PrivyUserWithSmartWallet = PrivyUser &
-  PrivyUserWithEmails & {
-    smartWallet?: { address?: string | null };
-    wallet?: PrivyWalletLite;
-  };
-
-function pickEmbeddedEvmWallet(
-  user: PrivyUserWithSmartWallet
-): PrivyWalletLite | null {
-  const candidates: PrivyWalletLite[] = [];
-  if (user.wallet) candidates.push(user.wallet);
-  if (Array.isArray(user.linkedAccounts)) {
-    for (const acc of user.linkedAccounts) {
-      if (acc?.type === 'wallet') candidates.push(acc);
-    }
-  }
-  return (
-    candidates.find(
-      (w) =>
-        (w.walletClientType === 'privy' || Boolean(w.id)) &&
-        (!w.chainType || w.chainType === 'ethereum') &&
-        typeof w.address === 'string'
-    ) ?? null
-  );
-}
-
-async function ensureSmartWalletAddress(
-  privyClient: ReturnType<typeof getPrivyClient>,
-  privyId: string
-): Promise<{
-  smartWalletAddress: string | null;
-  embeddedWalletAddress: string | null;
-}> {
-  const user = (await privyClient.getUser(privyId)) as PrivyUserWithSmartWallet;
-  let smartWalletAddress = user.smartWallet?.address?.toLowerCase() ?? null;
-  let embeddedWallet = pickEmbeddedEvmWallet(user);
-
-  if (!smartWalletAddress) {
-    // Note: createEthereumWallet must be true when creating a smart wallet
-    // If user already has an embedded wallet, Privy will skip creating a new one
-    const updated = (await privyClient.createWallets({
-      userId: privyId,
-      createEthereumSmartWallet: true,
-      createEthereumWallet: true,
-    })) as PrivyUserWithSmartWallet;
-
-    smartWalletAddress = updated.smartWallet?.address?.toLowerCase() ?? null;
-    embeddedWallet = embeddedWallet ?? pickEmbeddedEvmWallet(updated);
-  }
-
-  return {
-    smartWalletAddress,
-    embeddedWalletAddress: embeddedWallet?.address?.toLowerCase() ?? null,
-  };
-}
+type PrivyIdentityUser = PrivyUser & PrivyUserWithEmails;
 
 const SignupSchema = OnboardingProfileSchema.extend({
   identityToken: z
@@ -213,6 +155,8 @@ const SignupSchema = OnboardingProfileSchema.extend({
 
 export const POST = withErrorHandling(async (request: NextRequest) => {
   const authUser = await authenticate(request);
+  const privyId = authUser.privyId ?? authUser.userId;
+
   const body = (await request.json()) as
     | SignupRequestBody
     | Record<string, JsonValue>;
@@ -228,9 +172,9 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   const referralCode = rawReferralCode?.trim() || null;
 
   const canonicalUserId = authUser.dbUserId ?? authUser.userId;
-  const privyId = authUser.privyId ?? authUser.userId;
-  // Prefer Privy smart wallet (AA) address over legacy/linked wallets
+  // Embedded-wallet-only: persist the embedded wallet (EOA) as the user's onchain identity.
   let walletAddress = authUser.walletAddress?.toLowerCase() ?? null;
+  let privyWalletId: string | null = null;
 
   // Capture and hash IP address for self-referral detection
   const registrationIpHash = getHashedClientIp(request.headers);
@@ -247,7 +191,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     const privyClient = getPrivyClient();
     const identityUser = (await privyClient.getUserFromIdToken(
       identityToken
-    )) as PrivyUserWithSmartWallet;
+    )) as PrivyIdentityUser;
 
     identityFarcasterUsername = identityUser.farcaster?.username ?? undefined;
     identityTwitterUsername = identityUser.twitter?.username ?? undefined;
@@ -266,15 +210,11 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
   const importedTwitter = parsedProfile.importedFrom === 'twitter';
   const importedFarcaster = parsedProfile.importedFrom === 'farcaster';
 
-  // Ensure smart wallet exists and prefer its address for DB persistence
-  const privyClient = getPrivyClient();
-  const { smartWalletAddress, embeddedWalletAddress } =
-    await ensureSmartWalletAddress(privyClient, privyId);
-  walletAddress =
-    smartWalletAddress ??
-    embeddedWalletAddress ??
-    authUser.walletAddress?.toLowerCase() ??
-    null;
+  const offlineWallet = await ensureOfflineWalletReady({
+    privyId,
+  });
+  privyWalletId = offlineWallet.privyWalletId;
+  walletAddress = offlineWallet.walletAddress;
 
   // Wrap transaction with retry logic for connection errors
   const result = await withRetry(
@@ -359,14 +299,27 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
           );
         }
 
+        const normalizedProfileEmail =
+          parsedProfile.email?.trim().toLowerCase() || null;
+        const profileEmailVerified = normalizedProfileEmail
+          ? adminEmailResult.allVerifiedEmails.some(
+              (verifiedEmail) =>
+                verifiedEmail.toLowerCase() === normalizedProfileEmail
+            )
+          : false;
+
         const baseUserData: Partial<typeof users.$inferInsert> = {
           username: parsedProfile.username,
           displayName: parsedProfile.displayName,
-          email: parsedProfile.email || null,
+          email: normalizedProfileEmail,
+          emailVerified: profileEmailVerified,
           bio: parsedProfile.bio ?? '',
           profileImageUrl: parsedProfile.profileImageUrl ?? null,
           coverImageUrl: parsedProfile.coverImageUrl ?? null,
+          privyWalletId,
           walletAddress,
+          offlineWalletReady: offlineWallet.offlineWalletReady,
+          offlineWalletReadyAt: new Date(),
           profileComplete: true,
           profileSetupCompletedAt: new Date(), // Track when profile was completed
           hasUsername: true,
@@ -563,6 +516,53 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
 
   // Generate referral code for new user (ensures they can refer others immediately)
   await getOrCreateReferralCode(result.user.id);
+
+  // Award welcome bonus at profile completion (idempotent, transaction-safe)
+  const userId = result.user.id;
+  const welcomeBonus = POINTS.INITIAL_SIGNUP;
+  await withTransaction(async (tx) => {
+    const [hasWelcomeBonus] = await tx
+      .select({ id: balanceTransactions.id })
+      .from(balanceTransactions)
+      .where(
+        and(
+          eq(balanceTransactions.userId, userId),
+          eq(balanceTransactions.description, 'Welcome bonus - initial signup')
+        )
+      )
+      .limit(1);
+
+    if (hasWelcomeBonus) return;
+
+    const [updated] = await tx
+      .update(users)
+      .set({
+        virtualBalance: sql`(${users.virtualBalance})::numeric + ${welcomeBonus}`,
+        totalDeposited: sql`(${users.totalDeposited})::numeric + ${welcomeBonus}`,
+      })
+      .where(eq(users.id, userId))
+      .returning({ virtualBalance: users.virtualBalance });
+
+    const balAfter = Number(updated?.virtualBalance ?? String(welcomeBonus));
+    const balBefore = balAfter - welcomeBonus;
+
+    await tx.insert(balanceTransactions).values({
+      id: await generateSnowflakeId(),
+      userId,
+      type: 'deposit',
+      amount: String(welcomeBonus),
+      balanceBefore: String(balBefore),
+      balanceAfter: String(balAfter),
+      description: 'Welcome bonus - initial signup',
+      createdAt: new Date(),
+    });
+
+    logger.info(
+      `Awarded ${welcomeBonus}-pt welcome bonus at profile completion`,
+      { userId, amount: welcomeBonus },
+      'POST /api/users/signup'
+    );
+  });
 
   // Award points for social account linking
   const pointsAwarded = {
@@ -761,6 +761,71 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
     pointsBreakdown: pointsAwarded,
     importedFrom: parsedProfile.importedFrom || null,
   });
+
+  // Assign default alpha groups (async, non-blocking)
+  // New users get access to NPC group chats from day one
+  // This runs after the main signup flow to avoid blocking the response
+  if (!isWaitlist) {
+    UserAlphaGroupAssignmentService.assignDefaultGroups(result.user.id)
+      .then((assignmentResult) => {
+        if (assignmentResult.groupsAssigned > 0) {
+          logger.info(
+            'Assigned default alpha groups to new user',
+            {
+              userId: result.user.id,
+              groupsAssigned: assignmentResult.groupsAssigned,
+              assignments: assignmentResult.assignments.map((a) => ({
+                npc: a.npcName,
+                tier: a.tier,
+              })),
+            },
+            'POST /api/users/signup'
+          );
+          // Track successful assignment for monitoring
+          trackServerEvent(result.user.id, 'alpha_group_assignment.success', {
+            groupsAssigned: assignmentResult.groupsAssigned,
+            assignments: assignmentResult.assignments.map((a) => a.npcName),
+          }).catch(() => {
+            /* ignore tracking errors */
+          });
+        }
+        if (assignmentResult.errors.length > 0) {
+          logger.warn(
+            'Some default group assignments had errors',
+            {
+              userId: result.user.id,
+              errors: assignmentResult.errors,
+            },
+            'POST /api/users/signup'
+          );
+          // Track partial failures for monitoring
+          trackServerEvent(
+            result.user.id,
+            'alpha_group_assignment.partial_failure',
+            {
+              groupsAssigned: assignmentResult.groupsAssigned,
+              errorCount: assignmentResult.errors.length,
+            }
+          ).catch(() => {
+            /* ignore tracking errors */
+          });
+        }
+      })
+      .catch((error) => {
+        // Log but don't fail signup - alpha group assignment is non-critical
+        logger.warn(
+          'Failed to assign default alpha groups',
+          { userId: result.user.id, error: String(error) },
+          'POST /api/users/signup'
+        );
+        // Track failures for monitoring and alerting
+        trackServerEvent(result.user.id, 'alpha_group_assignment.failure', {
+          error: String(error),
+        }).catch(() => {
+          /* ignore tracking errors */
+        });
+      });
+  }
 
   return successResponse({
     user: {

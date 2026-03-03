@@ -6,9 +6,14 @@
  */
 
 export {
+  clearApiKeyCache,
   generateApiKey,
   generateTestApiKey,
+  getApiKeyCacheStats,
   hashApiKey,
+  invalidateCachedKey,
+  invalidateCachedKeysForUser,
+  validateUserApiKey,
   verifyApiKey,
 } from './api-keys';
 export {
@@ -19,6 +24,10 @@ export {
   DUPLICATE_DETECTION_CONFIGS,
   getDuplicateStats,
 } from './duplicate-detector';
+export {
+  type DeploymentEnvironment,
+  getDeploymentEnvironment,
+} from './environment';
 export {
   getClientIp,
   getHashedClientIp,

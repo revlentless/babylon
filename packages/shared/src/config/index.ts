@@ -24,6 +24,12 @@ export interface LocalContractAddresses extends CoreContractAddresses {
   babylonOracle: Address;
 }
 
+export interface EthereumContractAddresses {
+  identityRegistry: Address;
+  reputationSystem: Address;
+  nft: Address;
+}
+
 export interface NetworkConfig {
   chainId: number;
   name: string;
@@ -31,10 +37,11 @@ export interface NetworkConfig {
   contracts: CoreContractAddresses | LocalContractAddresses;
 }
 
-export interface EndpointsConfig {
-  apiBaseUrl: string;
-  a2aEndpoint: string;
-  mcpEndpoint: string;
+export interface EthereumNetworkConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  contracts: EthereumContractAddresses;
 }
 
 export interface PublicConfig {
@@ -43,11 +50,12 @@ export interface PublicConfig {
     local: NetworkConfig;
     baseSepolia: NetworkConfig;
     base: NetworkConfig;
+    ethereum: EthereumNetworkConfig;
   };
   environments: {
-    development: { network: string; endpoints: EndpointsConfig };
-    staging: { network: string; endpoints: EndpointsConfig };
-    production: { network: string; endpoints: EndpointsConfig };
+    development: { network: string };
+    staging: { network: string };
+    production: { network: string };
   };
 }
 
@@ -57,19 +65,13 @@ export interface PublicConfig {
 
 export const PUBLIC_CONFIG = configData as PublicConfig;
 
-type NetworkId = 'local' | 'baseSepolia' | 'base';
-type EnvironmentName = 'development' | 'staging' | 'production';
+type NetworkId = 'local' | 'baseSepolia' | 'base' | 'ethereum';
 
 const CHAIN_ID_TO_NETWORK: Record<number, NetworkId> = {
   31337: 'local',
   84532: 'baseSepolia',
   8453: 'base',
-};
-
-const NETWORK_TO_ENVIRONMENT: Record<NetworkId, EnvironmentName> = {
-  local: 'development',
-  baseSepolia: 'staging',
-  base: 'production',
+  1: 'ethereum',
 };
 
 export function getCurrentChainId(): number {
@@ -82,18 +84,9 @@ export function getCurrentChainId(): number {
   return 31337;
 }
 
-function getCurrentEnvironment(): EnvironmentName {
-  const networkId = CHAIN_ID_TO_NETWORK[getCurrentChainId()];
-  return networkId ? NETWORK_TO_ENVIRONMENT[networkId] : 'development';
-}
-
-function getCurrentNetwork(): NetworkConfig {
+function getCurrentNetwork(): NetworkConfig | EthereumNetworkConfig {
   const networkId = CHAIN_ID_TO_NETWORK[getCurrentChainId()] || 'local';
   return PUBLIC_CONFIG.networks[networkId];
-}
-
-function getCurrentEndpoints(): EndpointsConfig {
-  return PUBLIC_CONFIG.environments[getCurrentEnvironment()].endpoints;
 }
 
 // =============================================================================
@@ -102,15 +95,17 @@ function getCurrentEndpoints(): EndpointsConfig {
 
 export function getCurrentContractAddresses():
   | CoreContractAddresses
-  | LocalContractAddresses {
+  | LocalContractAddresses
+  | EthereumContractAddresses {
   return getCurrentNetwork().contracts;
 }
 
 export function areContractsDeployed(chainId: number): boolean {
   const networkId = CHAIN_ID_TO_NETWORK[chainId] || 'local';
-  const contracts = PUBLIC_CONFIG.networks[networkId].contracts;
+  const network = PUBLIC_CONFIG.networks[networkId];
   return (
-    contracts.identityRegistry !== '0x0000000000000000000000000000000000000000'
+    network.contracts.identityRegistry !==
+    '0x0000000000000000000000000000000000000000'
   );
 }
 
@@ -131,14 +126,63 @@ export function getCurrentRpcUrl(): string {
   return getCurrentNetwork().rpcUrl;
 }
 
+/**
+ * Get the base URL for the application with intelligent fallback chain
+ *
+ * Priority order:
+ * 0. `window.location.origin` (browser runtime, always accurate)
+ * 1. NEXT_PUBLIC_APP_URL (explicit override for all environments)
+ * 2. NEXT_PUBLIC_VERCEL_URL or VERCEL_URL (Vercel auto-set for preview/staging/production)
+ * 3. http://localhost:3000 (local development fallback)
+ *
+ * This ensures:
+ * - Production: Uses play.babylon.market (via NEXT_PUBLIC_APP_URL)
+ * - Staging: Uses play.staging.babylon.market (via NEXT_PUBLIC_APP_URL)
+ * - Preview: Uses unique Vercel URL (e.g., babylon-pr-123.vercel.app via VERCEL_URL)
+ * - Local: Uses localhost:3000
+ */
+function normalizeBaseUrl(input: string): string {
+  const trimmed = input.trim().replace(/\/+$/, '');
+  if (!trimmed) return 'http://localhost:3000';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+export function getBaseUrl(): string {
+  // 0. Browser runtime: always use the current origin
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  // 1. Explicit override (highest priority)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL);
+  }
+
+  // 2. Vercel auto-set variables (preview/staging/production)
+  const vercelUrl =
+    process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL;
+  if (vercelUrl) {
+    return normalizeBaseUrl(vercelUrl);
+  }
+
+  // 3. Local development fallback
+  return 'http://localhost:3000';
+}
+
 export function getAPIBaseUrl(): string {
-  return getCurrentEndpoints().apiBaseUrl;
+  return `${getBaseUrl()}/api`;
 }
 
 export function getA2AEndpoint(): string {
-  return getCurrentEndpoints().a2aEndpoint;
+  const baseUrl = getBaseUrl();
+  const protocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+  const host = baseUrl.replace(/^https?:\/\//, '');
+  return `${protocol}://${host}/ws/a2a`;
 }
 
 export function getMCPEndpoint(): string {
-  return getCurrentEndpoints().mcpEndpoint;
+  return `${getBaseUrl()}/api/mcp`;
 }

@@ -58,6 +58,8 @@ export * from './utils/logger';
 export * from './utils/name-replacement';
 // OASF skill mapper (pure functions)
 export * from './utils/oasf-skill-mapper';
+// Post utilities (pure functions)
+export * from './utils/post-utils';
 // Profile utilities (pure functions)
 export * from './utils/profile';
 // Retry utilities (pure functions)
@@ -68,6 +70,8 @@ export * from './utils/singleton';
 export * from './utils/snowflake';
 // UI utilities (cn function for Tailwind)
 export * from './utils/ui';
+// UUID generation (cross-browser compatible UUID v4)
+export * from './utils/uuid';
 
 // =============================================================================
 // Error Classes (client-safe)
@@ -116,6 +120,12 @@ export * from './share';
 // =============================================================================
 
 export * from './config';
+
+// =============================================================================
+// NFT utilities (client-safe)
+// =============================================================================
+
+export * from './nft';
 
 // =============================================================================
 // NOT EXPORTED (Server-only modules - import from @babylon/api):

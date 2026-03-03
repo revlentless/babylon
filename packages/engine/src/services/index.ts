@@ -14,7 +14,9 @@
 export * from './ActorSocialActions';
 export * from './activity-pattern-service';
 export * from './alpha-group-invite-service';
+export * from './arc-context-service';
 export * from './capital-allocation-service';
+export * from './event-reaction-service';
 export * from './following-mechanics';
 export * from './game-onboarding-service';
 // Group Chat Service
@@ -43,6 +45,7 @@ export * from './posting-probability-service';
 export * from './reply-rate-limiter';
 export * from './tier-config';
 export * from './tiered-group-service';
+export * from './user-alpha-group-assignment-service';
 
 // =============================================================================
 // Market Services
@@ -55,10 +58,13 @@ export {
 export * from './event-market-linker'; // BAB-5: Event-market connection
 // Event-market pipeline for narrative-driven market impacts
 export * from './event-market-pipeline';
+// Market correlation service for cross-market cascade effects
+export * from './market-correlation-service';
 export * from './market-metrics-service'; // BAB-5: Metrics-based question generation
 export * from './market-mover-agent';
 export * from './market-timeframes'; // Multi-timeframe market system
 export * from './onchain-market-service';
+export * from './perp-price-impact-port';
 export * from './price-update-service';
 export * from './signal-extraction-service';
 export * from './sub-market-service'; // Sub-market spawning
@@ -70,6 +76,7 @@ export * from './timeframe-arc-processor'; // Time-based arc state machine
 // =============================================================================
 
 export * from './article-image-service';
+export * from './article-persistence';
 export * from './article-rate-limiter';
 export * from './event-generation-helpers';
 export * from './narrative-state-service';
@@ -100,8 +107,10 @@ export * from './trending-grouping-service';
 // Core Services
 // =============================================================================
 
+export * from './agent-trade-notification';
 export * from './character-mapping-service';
 export * from './distributed-lock-service';
+export * from './dm-service';
 export * from './earned-points-service';
 export * from './fee-service';
 export {
@@ -109,6 +118,13 @@ export {
   type GameBootstrapResult,
   GameBootstrapService,
 } from './game-bootstrap-service';
+// Game Context Cache for shared cron data
+export {
+  type ActiveQuestion,
+  GameContextCache,
+  type GameState,
+  type RecentWorldEvent,
+} from './game-context-cache';
 export * from './group-chat-invite-notifier';
 export * from './market-context-service';
 export * from './market-impact-service';
@@ -129,9 +145,14 @@ export { getOracleService, OracleService } from './oracle/oracle-service';
 export * from './oracle/types';
 export { CommitmentStore } from './oracle-commitment-store';
 export {
+  calculatePortfolioBreakdown,
+  type PortfolioBreakdownSnapshot,
+} from './portfolio-breakdown';
+export {
   calculatePortfolioPnL,
   type PortfolioPnLSnapshot,
 } from './portfolio-pnl';
+export { TotalPointsService } from './total-points-service';
 
 // =============================================================================
 // Reputation Service (includes sync interface)
@@ -151,4 +172,4 @@ export {
 // Token Statistics Service
 // =============================================================================
 
-export { TokenStatsService } from './token-stats-service';
+export { tokenStatsService } from './token-stats-service';

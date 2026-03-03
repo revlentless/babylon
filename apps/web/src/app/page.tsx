@@ -1,76 +1,36 @@
-'use client';
-
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
+import { isNftGatingEnabled } from '@babylon/shared';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { ComingSoon } from '@/components/shared/ComingSoon';
-import { Skeleton } from '@/components/shared/Skeleton';
-import { useAuth } from '@/hooks/useAuth';
-import { useLoginModal } from '@/hooks/useLoginModal';
+import { isWaitlistHostname } from '@/lib/host-routing';
+import { HomePageClient } from './HomePageClient';
 
-const waitlistModeEnabled = process.env.NEXT_PUBLIC_WAITLIST_MODE === 'true';
+type HomePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-function HomePageContent() {
-  const router = useRouter();
-  const { ready, authenticated } = useAuth();
-  const { showLoginModal } = useLoginModal();
-  const searchParams = useSearchParams();
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const hostHeader = (await headers()).get('host') ?? '';
+  const hostname = hostHeader.split(':')[0]?.toLowerCase() ?? '';
+  const isWaitlistHost = isWaitlistHostname(hostname);
 
-  useEffect(() => {
-    // Skip redirect logic if waitlist mode is enabled
-    if (waitlistModeEnabled) {
-      return;
-    }
-
-    // Wait for Privy to be ready before deciding to show login modal
-    // This prevents the modal from flashing on every page load
-    if (!ready) {
-      return;
-    }
-
-    // Show login modal if not authenticated
-    if (!authenticated) {
-      showLoginModal({
-        title: 'Welcome to Babylon',
-        message:
-          'Log in to start trading prediction markets, replying to NPCs, and earning rewards in this satirical game.',
-      });
-    }
-
-    // Redirect to feed, preserving referral code if present
-    const ref = searchParams.get('ref');
-    const feedUrl = ref ? `/feed?ref=${ref}` : '/feed';
-    router.push(feedUrl);
-  }, [ready, authenticated, router, showLoginModal, searchParams]);
-
-  // Show coming soon page if WAITLIST_MODE is enabled
-  if (waitlistModeEnabled) {
+  if (isWaitlistHost) {
     return <ComingSoon />;
   }
 
-  // Show loading while redirecting to feed
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="space-y-3">
-        <Skeleton className="h-12 w-48" />
-        <Skeleton className="h-4 w-64" />
-      </div>
-    </div>
-  );
-}
+  const nftGatingEnabled = isNftGatingEnabled();
 
-export default function HomePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-full items-center justify-center">
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-48" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-        </div>
-      }
-    >
-      <HomePageContent />
-    </Suspense>
-  );
+  if (nftGatingEnabled) {
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    const ref = resolvedSearchParams?.ref;
+    const referralCode = Array.isArray(ref) ? ref[0] : ref;
+    const params = new URLSearchParams();
+    if (referralCode) params.set('ref', referralCode);
+    params.set('gated', '1');
+
+    const qs = params.toString();
+    redirect(qs ? `/nft?${qs}` : '/nft');
+  }
+
+  return <HomePageClient />;
 }

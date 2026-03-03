@@ -24,6 +24,8 @@ export interface PredictionMarketRecord {
   id: string;
   question: string;
   description?: string | null;
+  gameId?: string | null;
+  dayNumber?: number | null;
   yesShares: number;
   noShares: number;
   liquidity: number;
@@ -48,7 +50,7 @@ export interface PredictionPositionRecord {
   side: PredictionSide;
   shares: number;
   avgPrice: number;
-  status?: 'active' | 'closed' | 'resolved';
+  status?: 'active' | 'closed' | 'resolved' | 'cancelled' | 'voided';
   outcome?: boolean | null;
   pnl?: number;
   resolvedAt?: Date | null;
@@ -78,7 +80,11 @@ export interface PredictionDbPort {
   createMarketFromQuestion(
     question: QuestionRecord,
     initialLiquidity: number,
-    options?: { description?: string | null }
+    options?: {
+      description?: string | null;
+      gameId?: string | null;
+      dayNumber?: number | null;
+    }
   ): Promise<PredictionMarketRecord>;
   updateMarketState(
     marketId: string,
@@ -131,6 +137,18 @@ export interface PredictionResolveInput {
   resolvedAt?: Date;
   resolutionProofUrl?: string;
   resolutionDescription?: string;
+}
+
+export interface PredictionCancelInput {
+  marketId: string;
+  reason?: string;
+  cancelledAt?: Date;
+}
+
+export interface PredictionCancelResult {
+  marketId: string;
+  positionsRefunded: number;
+  totalRefunded: number;
 }
 
 export interface PredictionTradeResult {

@@ -6,6 +6,8 @@
 
 // Agent types
 export * from './agents';
+// Article types (Article, ArticleItem, ArticlePersistInput, ArticlePreview)
+export * from './article';
 // Auth types
 export * from './auth';
 // Common types (JsonValue, etc.)
@@ -25,6 +27,10 @@ export {
 export * from './groups';
 // Social interaction types
 export * from './interactions';
+// Message tag types (for action result tags on messages)
+export * from './message-tags';
+// Message types (chat/system)
+export * from './messages';
 // Agent monitoring types
 export * from './monitoring';
 // Payment types

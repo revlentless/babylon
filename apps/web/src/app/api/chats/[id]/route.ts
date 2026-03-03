@@ -58,16 +58,19 @@ import {
   successResponse,
   withErrorHandling,
 } from '@babylon/api';
+import { requireNftChatAccess } from '@babylon/api/services/nft-chat-gating-service';
 import {
   and,
   asSystem,
   asUser,
   chatParticipants,
   chats,
+  count,
   desc,
   eq,
   inArray,
   lt,
+  messageReactions,
   messages,
   users,
 } from '@babylon/db';
@@ -79,6 +82,7 @@ import {
   logger,
 } from '@babylon/shared';
 import type { NextRequest } from 'next/server';
+import { CHAT_PAGE_SIZE } from '@/lib/constants';
 
 /**
  * GET /api/chats/[id]
@@ -106,7 +110,7 @@ export const GET = withErrorHandling(
     const validatedQuery = ChatQuerySchema.parse(query);
 
     // Parse pagination parameters
-    const limit = limitParam ? Number.parseInt(limitParam, 10) : 50;
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : CHAT_PAGE_SIZE;
     const effectiveLimit = Math.min(Math.max(limit, 1), 100); // Between 1 and 100
 
     // Check for debug mode (localhost access to game chats)
@@ -169,6 +173,8 @@ export const GET = withErrorHandling(
           'read'
         );
       }
+
+      await requireNftChatAccess(authUser, chatId);
     }
 
     // Get chat with messages
@@ -349,6 +355,55 @@ export const GET = withErrorHandling(
     // Reverse to get chronological order (oldest first)
     const messagesInOrder = [...messagesList].reverse();
 
+    // Message reactions summary (counts + reactedByMe)
+    const messageIds = messagesInOrder.map((m) => m.id);
+    const reactionsByMessageId = new Map<
+      string,
+      { emoji: string; count: number; reactedByMe: boolean }[]
+    >();
+    if (messageIds.length > 0) {
+      const [counts, mine] = await Promise.all([
+        asSystem(async (db) => {
+          return await db
+            .select({
+              messageId: messageReactions.messageId,
+              emoji: messageReactions.emoji,
+              count: count(),
+            })
+            .from(messageReactions)
+            .where(inArray(messageReactions.messageId, messageIds))
+            .groupBy(messageReactions.messageId, messageReactions.emoji);
+        }, 'get-message-reaction-counts'),
+        authUser
+          ? asSystem(async (db) => {
+              return await db
+                .select({
+                  messageId: messageReactions.messageId,
+                  emoji: messageReactions.emoji,
+                })
+                .from(messageReactions)
+                .where(
+                  and(
+                    inArray(messageReactions.messageId, messageIds),
+                    eq(messageReactions.userId, authUser!.userId)
+                  )
+                );
+            }, 'get-message-reactions-mine')
+          : Promise.resolve([]),
+      ]);
+
+      const mineSet = new Set(mine.map((r) => `${r.messageId}:${r.emoji}`));
+      for (const row of counts) {
+        const arr = reactionsByMessageId.get(row.messageId) ?? [];
+        arr.push({
+          emoji: row.emoji,
+          count: Number(row.count ?? 0),
+          reactedByMe: mineSet.has(`${row.messageId}:${row.emoji}`),
+        });
+        reactionsByMessageId.set(row.messageId, arr);
+      }
+    }
+
     // Get the cursor for the next page (oldest message ID in this batch)
     const nextCursor = hasMore
       ? fullChat.messages[effectiveLimit - 1]?.id
@@ -408,6 +463,8 @@ export const GET = withErrorHandling(
         senderId: msg.senderId,
         type: msg.type,
         createdAt: msg.createdAt,
+        metadata: msg.metadata,
+        reactions: reactionsByMessageId.get(msg.id) ?? [],
       })),
       participants: participantsInfo,
       pagination: {

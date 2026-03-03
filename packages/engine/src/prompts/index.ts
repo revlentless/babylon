@@ -108,7 +108,7 @@ export {
   validateFeedPost,
   validateHashtags,
   validateNoEmojis,
-  validateNoRealNames as validateNoRealNamesStrict,
+  validateNoRealNames,
   validatePostBatch,
 } from './validate-output';
 export { daySummary } from './world/day-summary';
@@ -133,7 +133,6 @@ export {
   getParodyActorNames,
   getRealityGrounding,
   validateGeneratedContent,
-  validateNoRealNames,
 } from './world-context';
 
 /**

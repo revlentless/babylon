@@ -10,10 +10,25 @@
  * Uses runtime.composeState() for providers and runtime.processActions() for execution.
  */
 
-import { agentRuntimeManager, agentService } from '@babylon/agents';
-import { authenticateUser, withErrorHandling } from '@babylon/api';
-import { db, eq, userAgentConfigs } from '@babylon/db';
-import { checkUserInput, GROQ_MODELS, logger } from '@babylon/shared';
+import {
+  agentRuntimeManager,
+  agentService,
+  teamChatService,
+} from '@babylon/agents';
+import {
+  authenticateUser,
+  broadcastChatMessage,
+  withErrorHandling,
+} from '@babylon/api';
+import { db, eq, messages, userAgentConfigs, users } from '@babylon/db';
+import {
+  checkUserInput,
+  GROQ_MODELS,
+  generateSnowflakeId,
+  logger,
+  type MessageMetadata,
+  type MessageTag,
+} from '@babylon/shared';
 import {
   type ActionResult,
   composePromptFromState,
@@ -31,9 +46,9 @@ import { MODEL_TIER_POINTS_COST } from '@/lib/constants';
 // Multi-Step Decision Template
 // =============================================================================
 
-const multiStepDecisionTemplate = `<task>
-Determine the next step to take in this conversation.
-</task>
+const multiStepDecisionTemplate = `{{agentContext}}
+
+---
 
 # Your Character
 {{system}}
@@ -50,24 +65,32 @@ Determine the next step to take in this conversation.
 
 ---
 
+{{#if isTeamChatMode}}
+# Team Chat Context
+You are **{{agentName}}** (@{{agentUsername}}) in team chat owned by **{{teamChatOwnerName}}**.
+Other agents may respond too. Focus on YOUR contribution.
+
+## Team Members
+{{teamMembers}}
+{{else}}
+# Your Owner
+You were created by **{{ownerName}}**{{#if ownerUsername}} (@{{ownerUsername}}){{/if}}. You are chatting with them.
+{{/if}}
+
+---
+
 # Conversation History
 {{recentMessages}}
 
 ---
 
-# Current User Message
+# Current Message from {{ownerName}}
 {{currentMessage}}
 
 ---
 
 # Execution Context
-Step {{iterationCount}} of {{maxIterations}}
-Actions taken this round: {{actionCount}}
-{{#if actionCount}}
-You have ALREADY taken {{actionCount}} action(s) in this round. Review them carefully before deciding.
-{{else}}
-This is your FIRST decision step - no actions have been taken yet.
-{{/if}}
+Step {{iterationCount}} of {{maxIterations}} | Actions this round: {{actionCount}}
 
 ---
 
@@ -78,66 +101,25 @@ This is your FIRST decision step - no actions have been taken yet.
 # Actions Completed This Round
 {{#if actionCount}}
 {{actionResults}}
-**IMPORTANT**: Use IDs/data from these results for follow-up actions. Do NOT repeat these actions.
+**Use this data. Do NOT repeat these actions.**
 {{else}}
 No actions taken yet.
 {{/if}}
 
 ---
 
-# REDUNDANCY RULES (CRITICAL)
-**AVOID REDUNDANCY** - These are DUPLICATES, DO NOT repeat:
-- ❌ Executing the SAME action with the SAME parameters you just executed
-- ❌ Buying/selling the same asset multiple times unless explicitly asked
-- ❌ Checking the same data twice in a row
-
-**ENCOURAGE COMPLEMENTARITY** - These ADD VALUE:
-- ✅ Different actions that provide different information
-- ✅ Sequential steps (check balance → then trade)
-- ✅ Using results from one action as input to another
-
-**Decision Logic**:
-- After executing an action, ask: "Did this COMPLETE the user's request?"
-- If YES → Set isFinish: true immediately
-- If NO and user asked for multiple things → Continue to next action
-- If about to repeat same action → STOP, set isFinish: true
-
----
-
-# Request Type Classification
-1. **SPECIFIC REQUEST** (e.g., "sell 100 shares", "check my balance", "enable auto-trading"):
-   - Execute the ONE action needed
-   - Set isFinish: true IMMEDIATELY after
-   
-2. **MULTI-PART REQUEST** (e.g., "check predictions AND buy the best one"):
-   - Execute each distinct action in sequence
-   - Set isFinish: true only when ALL parts are complete
-
-3. **CONVERSATIONAL** (e.g., "hello", "thanks", questions without actions):
-   - Set action to "" and isFinish: true
-
----
-
-# Decision Rules
-1. **Classify the request type FIRST** - Is it Specific, Multi-part, or Conversational?
-2. **Check what you've already done** - Review Actions Completed This Round
-3. **Before ANY action, ask**: "Have I already done THIS EXACT action?" If YES → STOP
-4. **For trades (buy/sell)**: Execute ONCE, then STOP. Do not repeat.
-5. **Use results from prior actions** - IDs, data from completed actions inform next parameters
-6. **When in doubt** → Set isFinish: true (better to under-execute than over-execute)
+# Decision Guide
+- **Need data?** → Use an action
+- **Request complete?** → Set isFinish: true
+- **Conversational?** → No action, isFinish: true
+- **NEVER repeat the same action with same parameters**
+- **Trades execute ONCE** - don't repeat buy/sell
 
 <keys>
-"thought"
-  START WITH: "Step {{iterationCount}}/{{maxIterations}}. Actions this round: {{actionCount}}."
-  THEN: Quote the user's request.
-  THEN: Classify request type (Specific/Multi-part/Conversational).
-  THEN: If actions > 0, state "I have already completed: [list actions]. Checking if request is satisfied."
-  THEN: Explain your decision:
-    - If finishing: "The request is fulfilled. Setting isFinish: true."
-    - If continuing: "Next action: [action name] because [reason]."
-"action" Name of the action to execute (empty string "" if setting isFinish: true or if no action needed)
-"parameters" JSON object with exact parameter names. Empty object {} if action has no parameters.
-"isFinish" Set to true when the user's request is satisfied (see Decision Rules)
+"thought" Your reasoning: what did user ask? what have you done? what's next?
+"action" Action name or "" if done
+"parameters" JSON params or {}
+"isFinish" true when request is satisfied
 </keys>
 
 CRITICAL CHECKS:
@@ -163,32 +145,67 @@ YOUR FINAL OUTPUT MUST BE IN THIS XML FORMAT:
 </response>
 </output>`;
 
-const multiStepSummaryTemplate = `You are responding to a user after completing actions. Generate a helpful response.
-
-# Your Character
+const multiStepSummaryTemplate = `# Your Character
 {{system}}
 
 {{#if personality}}
-Personality: {{personality}}
+## Personality
+{{personality}}
 {{/if}}
 
-# User's Message
+{{#if tradingStrategy}}
+## Trading Strategy
+{{tradingStrategy}}
+{{/if}}
+
+---
+
+{{#if isTeamChatMode}}
+# Team Chat Context
+You are **{{agentName}}** (@{{agentUsername}}) in the **Agents** team chat owned by **{{teamChatOwnerName}}**{{#if teamChatOwnerUsername}} (@{{teamChatOwnerUsername}}){{/if}}.
+Other agents may also be responding. Focus on YOUR findings and contribution.
+
+## Team Members
+{{teamMembers}}
+{{else}}
+# Your Creator/Owner
+You were created by **{{ownerName}}**{{#if ownerUsername}} (@{{ownerUsername}}){{/if}}. You are chatting with them now.
+{{/if}}
+
+---
+
+# Conversation History
+{{recentMessages}}
+
+---
+
+{{actionsWithDescriptions}}
+
+---
+
+# Current Message from {{ownerName}}
 {{currentMessage}}
+
+---
 
 # Actions You Completed
 {{actionResults}}
 
+---
+
 # Your Task
-Write a natural response to the user that:
-- Summarizes what you did and the results
-- Includes specific numbers, names, or data from the action results
-- Stays in character with your personality
+Reply to the user **in character**: your tone, voice, and wording must match the Character and Personality above. Do not sound generic, polite, or like a default assistant—sound like THIS agent.
+
+Then, in that same character voice:
+- Summarize what you did and the results (if any actions were taken)
+- Include specific numbers, names, or data from the action results when relevant
+- Reference the conversation when it fits
 
 Output ONLY this XML with your actual response (not examples or placeholders):
 
 <response>
-<thought>Brief reasoning about what to tell the user</thought>
-<text>Your helpful response with specific details from the actions</text>
+<thought>Brief reasoning: what to say and how to say it in character</thought>
+<text>Your reply in character, with any relevant details from the actions</text>
 </response>`;
 
 // =============================================================================
@@ -203,9 +220,34 @@ export const POST = withErrorHandling(
     const { agentId } = await params;
     logger.info('Agent chat endpoint hit', { agentId }, 'AgentChat');
 
-    const body = (await req.json()) as { message: string; usePro?: boolean };
+    const body = (await req.json()) as {
+      message: string;
+      usePro?: boolean;
+      /** Optional team chat ID - if provided, agent response goes to the shared team chat */
+      teamChatId?: string;
+      /** Owner display name for team chat context */
+      teamChatOwnerName?: string;
+      /** Owner username for team chat context */
+      teamChatOwnerUsername?: string;
+    };
     const message = body.message;
     const usePro = body.usePro ?? false;
+    const teamChatId = body.teamChatId;
+    const teamChatOwnerName = body.teamChatOwnerName;
+    const teamChatOwnerUsername = body.teamChatOwnerUsername;
+    const isTeamChatMode = !!teamChatId;
+
+    // Get abort signal from request for cancellation support
+    const { signal } = req;
+
+    // Helper to check if request was cancelled
+    const checkCancelled = () => {
+      if (signal.aborted) {
+        logger.info('Request cancelled by client', { agentId }, 'AgentChat');
+        return true;
+      }
+      return false;
+    };
 
     // Validate input
     const inputCheck = checkUserInput(message);
@@ -222,6 +264,26 @@ export const POST = withErrorHandling(
     }
 
     const user = await authenticateUser(req);
+
+    // Validate team chat ownership (security check)
+    // Prevents users from writing to other users' team chats
+    if (teamChatId) {
+      const isValidTeamChat = await teamChatService.validateTeamChatOwnership(
+        user.id,
+        teamChatId
+      );
+      if (!isValidTeamChat) {
+        logger.warn(
+          'Invalid team chat ID - user does not own this chat',
+          { userId: user.id, teamChatId, agentId },
+          'AgentChat'
+        );
+        return NextResponse.json(
+          { success: false, error: 'Invalid team chat' },
+          { status: 403 }
+        );
+      }
+    }
 
     // Verify ownership
     const agentWithConfig = await agentService.getAgentWithConfig(
@@ -244,19 +306,31 @@ export const POST = withErrorHandling(
       ? GROQ_MODELS.PRO.displayName
       : GROQ_MODELS.FREE.displayName;
 
-    // Only deduct points for pro mode (from virtualBalance)
+    // Check balance BEFORE processing (to return clear error upfront)
+    // Points will be deducted AFTER successful response generation
     let newBalance = Number(agentWithConfig.virtualBalance ?? 0);
-    if (pointsCost > 0) {
-      newBalance = await agentService.deductPoints(
-        agentId,
-        pointsCost,
-        `Chat message (pro mode)`,
-        undefined
+    if (pointsCost > 0 && newBalance < pointsCost) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Insufficient balance. Have: ${newBalance.toFixed(2)}, Need: ${pointsCost.toFixed(2)}`,
+        },
+        { status: 402 }
       );
     }
 
     // Get runtime
     const runtime = await agentRuntimeManager.getRuntime(agentId);
+
+    // Fetch owner info for personalized conversation
+    const [ownerProfile] = await db
+      .select({ displayName: users.displayName, username: users.username })
+      .from(users)
+      .where(eq(users.id, user.id))
+      .limit(1);
+    const ownerName =
+      ownerProfile?.displayName || ownerProfile?.username || 'User';
+    const ownerUsername = ownerProfile?.username || undefined;
 
     // Create message object for ElizaOS
     const elizaMessage: Memory = {
@@ -275,11 +349,22 @@ export const POST = withErrorHandling(
         actionType: string;
         parameters?: Record<string, unknown>;
         timestamp: number;
+        tag?: MessageTag;
       }
     > = [];
     let finalResponse: string | null = null;
+    // Track if response is due to LLM failure (don't charge points)
+    let isLLMFailure = false;
 
     for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+      // Check if client cancelled the request
+      if (checkCancelled()) {
+        return NextResponse.json(
+          { success: false, cancelled: true, error: 'Request cancelled' },
+          { status: 499 } // Client Closed Request
+        );
+      }
+
       logger.info(
         `[MultiStep] Iteration ${iteration}/${MAX_ITERATIONS}`,
         { agentId, actionsCompleted: traceActionResults.length },
@@ -289,9 +374,19 @@ export const POST = withErrorHandling(
       // Compose state with providers
       // Use strict filtering (3rd param = true) to ONLY run the specified providers
       // This prevents all Babylon A2A providers from running unnecessarily
+      // Include TEAM_MEMBERS provider when in team chat mode
+      const providers = isTeamChatMode
+        ? [
+            'AGENT_CONTEXT',
+            'RECENT_MESSAGES',
+            'ACTION_STATE',
+            'ACTIONS',
+            'TEAM_MEMBERS',
+          ]
+        : ['AGENT_CONTEXT', 'RECENT_MESSAGES', 'ACTION_STATE', 'ACTIONS'];
       const state: State = await runtime.composeState(
         elizaMessage,
-        ['RECENT_MESSAGES', 'ACTION_STATE', 'ACTIONS'],
+        providers,
         true
       );
 
@@ -306,6 +401,17 @@ export const POST = withErrorHandling(
         iterationCount: iteration,
         maxIterations: MAX_ITERATIONS,
         actionCount: traceActionResults.length,
+        // Owner info for personalized conversation
+        ownerId: user.id, // For RECENT_MESSAGES provider to filter team chat messages
+        ownerName,
+        ownerUsername,
+        // Team chat context
+        isTeamChatMode,
+        teamChatId,
+        teamChatOwnerName: teamChatOwnerName || ownerName,
+        teamChatOwnerUsername: teamChatOwnerUsername || ownerUsername,
+        agentName: agentWithConfig.displayName || 'Agent',
+        agentUsername: agentWithConfig.username || '',
       };
 
       // Add action results to state data
@@ -330,6 +436,14 @@ export const POST = withErrorHandling(
           temperature: attempt > 1 ? 0.5 : 0.7,
         });
 
+        // Check cancellation after LLM call
+        if (checkCancelled()) {
+          return NextResponse.json(
+            { success: false, cancelled: true, error: 'Request cancelled' },
+            { status: 499 }
+          );
+        }
+
         parsedStep = parseKeyValueXml(response);
 
         if (parsedStep) {
@@ -351,6 +465,7 @@ export const POST = withErrorHandling(
       if (!parsedStep) {
         finalResponse =
           "I'm having trouble processing your request. Could you try rephrasing?";
+        isLLMFailure = true; // Don't charge points for LLM parse failures
         break;
       }
 
@@ -362,6 +477,14 @@ export const POST = withErrorHandling(
       // No action - go to summary phase
       if (!action || action === '') {
         break;
+      }
+
+      // Check cancellation before action execution
+      if (checkCancelled()) {
+        return NextResponse.json(
+          { success: false, cancelled: true, error: 'Request cancelled' },
+          { status: 499 }
+        );
       }
 
       // Execute action via runtime.processActions
@@ -415,6 +538,7 @@ export const POST = withErrorHandling(
           success?: boolean;
           text?: string;
           values?: Record<string, unknown>;
+          tag?: MessageTag;
         } | null = null;
 
         await runtime.processActions(
@@ -428,6 +552,7 @@ export const POST = withErrorHandling(
                 success?: boolean;
                 text?: string;
                 values?: Record<string, unknown>;
+                tag?: MessageTag;
               };
             }> | null;
             if (resultsArray && resultsArray.length > 0) {
@@ -440,6 +565,7 @@ export const POST = withErrorHandling(
                       ? firstResult.content.text
                       : undefined,
                   values: firstResult.content?.values,
+                  tag: firstResult.content?.tag,
                 };
               }
             }
@@ -480,6 +606,7 @@ export const POST = withErrorHandling(
           values: actionResult?.values,
           parameters: actionParams,
           timestamp: Date.now(),
+          tag: actionResult?.tag,
         });
       } catch (error) {
         const errorMsg =
@@ -502,9 +629,13 @@ export const POST = withErrorHandling(
 
     // Generate summary/response - always run to get proper user-facing message
     {
+      // Include TEAM_MEMBERS provider when in team chat mode
+      const summaryProviders = isTeamChatMode
+        ? ['AGENT_CONTEXT', 'RECENT_MESSAGES', 'ACTION_STATE', 'TEAM_MEMBERS']
+        : ['AGENT_CONTEXT', 'RECENT_MESSAGES', 'ACTION_STATE'];
       const state = await runtime.composeState(
         elizaMessage,
-        ['RECENT_MESSAGES', 'ACTION_STATE'],
+        summaryProviders,
         true
       );
       state.values = {
@@ -514,11 +645,30 @@ export const POST = withErrorHandling(
         personality: agentConfig?.personality ?? '',
         tradingStrategy: agentConfig?.tradingStrategy ?? '',
         currentMessage: message,
+        // Owner info for personalized conversation
+        ownerId: user.id, // For RECENT_MESSAGES provider to filter team chat messages
+        ownerName,
+        ownerUsername,
+        // Team chat context
+        isTeamChatMode,
+        teamChatId,
+        teamChatOwnerName: teamChatOwnerName || ownerName,
+        teamChatOwnerUsername: teamChatOwnerUsername || ownerUsername,
+        agentName: agentWithConfig.displayName || 'Agent',
+        agentUsername: agentWithConfig.username || '',
       };
       state.data = {
         ...state.data,
         actionResults: traceActionResults,
       };
+
+      // Check cancellation before summary generation
+      if (checkCancelled()) {
+        return NextResponse.json(
+          { success: false, cancelled: true, error: 'Request cancelled' },
+          { status: 499 }
+        );
+      }
 
       const summaryPrompt = composePromptFromState({
         state,
@@ -572,42 +722,98 @@ export const POST = withErrorHandling(
     // Ensure finalResponse is never null
     const responseText = finalResponse ?? "I'm here to help!";
 
-    // Save messages
-    const userMessageId = uuidv4();
-    const assistantMessageId = uuidv4();
+    // Calculate actual points cost early - skip charging for LLM failures
+    // This needs to happen before DB writes so stored pointsCost is accurate
+    const actualPointsCost = isLLMFailure ? 0 : pointsCost;
+
     const userMessageTime = new Date();
     const assistantMessageTime = new Date(userMessageTime.getTime() + 1);
+    let responseMessageId: string;
 
-    await db.agentMessage.createMany({
-      data: [
-        {
-          id: userMessageId,
-          agentUserId: agentId,
-          role: 'user',
-          content: message,
-          pointsCost: 0,
-          metadata: {},
-          createdAt: userMessageTime,
-        },
-        {
-          id: assistantMessageId,
-          agentUserId: agentId,
-          role: 'assistant',
-          content: responseText,
-          modelUsed,
-          pointsCost,
-          createdAt: assistantMessageTime,
-          metadata: {
-            multiStep: true,
-            actionsExecuted: traceActionResults.length,
-            actions: traceActionResults.map((a) => ({
-              type: a.actionType,
-              success: a.success,
-            })),
+    // Collect tags from successful action results
+    const tags: MessageTag[] = traceActionResults
+      .filter((r) => r.success && r.tag)
+      .map((r) => r.tag as MessageTag);
+
+    // Build metadata if we have tags
+    const messageMetadata: MessageMetadata | null =
+      tags.length > 0 ? { tags } : null;
+
+    if (isTeamChatMode && teamChatId) {
+      // Team chat mode: Write only to messages table (not agentMessages)
+      // User message is written by frontend (once) before calling multiple agents
+      responseMessageId = await generateSnowflakeId();
+
+      // Write agent response to team chat
+      await db.insert(messages).values({
+        id: responseMessageId,
+        chatId: teamChatId,
+        senderId: agentId,
+        content: responseText,
+        createdAt: assistantMessageTime,
+        metadata: messageMetadata,
+      });
+
+      // Broadcast agent response to team chat
+      broadcastChatMessage(teamChatId, {
+        id: responseMessageId,
+        content: responseText,
+        chatId: teamChatId,
+        senderId: agentId,
+        type: 'user',
+        createdAt: assistantMessageTime.toISOString(),
+        metadata: messageMetadata,
+      }).catch((err) => {
+        logger.warn(
+          `Failed to broadcast agent message to team chat: ${err}`,
+          { teamChatId, agentId },
+          'AgentChat'
+        );
+      });
+
+      logger.info(
+        `Agent response written to team chat ${teamChatId}`,
+        { agentMessageId: responseMessageId, agentId },
+        'AgentChat'
+      );
+    } else {
+      // Legacy DM mode: Write to agentMessages table
+      const userMessageId = uuidv4();
+      responseMessageId = uuidv4();
+
+      await db.agentMessage.createMany({
+        data: [
+          {
+            id: userMessageId,
+            agentUserId: agentId,
+            role: 'user',
+            content: message,
+            pointsCost: 0,
+            metadata: {},
+            createdAt: userMessageTime,
           },
-        },
-      ],
-    });
+          {
+            id: responseMessageId,
+            agentUserId: agentId,
+            role: 'assistant',
+            content: responseText,
+            modelUsed,
+            pointsCost: actualPointsCost, // Use actual cost (0 for LLM failures)
+            createdAt: assistantMessageTime,
+            metadata: {
+              multiStep: true,
+              actionsExecuted: traceActionResults.length,
+              actions: traceActionResults.map((a) => ({
+                type: a.actionType,
+                success: a.success,
+              })),
+              isLLMFailure, // Track if this was a fallback response
+              // Note: tags are not included in legacy DM mode as it uses a different schema
+            },
+          },
+        ],
+      });
+    }
 
     // Update lastChatAt
     await db
@@ -620,19 +826,43 @@ export const POST = withErrorHandling(
         id: uuidv4(),
         agentUserId: agentId,
         type: 'chat',
-        level: 'info',
-        message: 'Chat interaction completed',
+        level: isLLMFailure ? 'warn' : 'info',
+        message: isLLMFailure
+          ? 'Chat interaction completed with LLM failure'
+          : 'Chat interaction completed',
         prompt: message,
         completion: responseText,
         metadata: {
           usePro,
-          pointsCost,
+          pointsCost: actualPointsCost,
           modelUsed,
           multiStep: true,
           actionsExecuted: traceActionResults.length,
+          isLLMFailure,
         },
       },
     });
+
+    // Deduct points ONLY after successful response generation and DB save
+    // This ensures users don't lose points on failed/cancelled requests
+    if (actualPointsCost > 0) {
+      try {
+        newBalance = await agentService.deductPoints(
+          agentId,
+          actualPointsCost,
+          `Chat message (${usePro ? 'pro' : 'free'} mode)`,
+          undefined
+        );
+      } catch (err) {
+        // Log but don't fail - response already saved, points can be reconciled
+        logger.error(
+          'Failed to deduct points after successful response',
+          { agentId, pointsCost: actualPointsCost, error: err },
+          'AgentChat'
+        );
+        // Keep original balance in response (will be slightly incorrect but safe)
+      }
+    }
 
     logger.info(
       `Chat completed for agent ${agentId}`,
@@ -642,11 +872,13 @@ export const POST = withErrorHandling(
 
     return NextResponse.json({
       success: true,
-      messageId: assistantMessageId,
+      messageId: responseMessageId,
       response: responseText,
-      pointsCost,
+      pointsCost: actualPointsCost,
       modelUsed,
       balanceAfter: newBalance,
+      isLLMFailure, // Let frontend know if this was a fallback response
+      metadata: messageMetadata, // Include tags in response for immediate UI update
       multiStep: {
         actionsExecuted: traceActionResults.length,
         actions: traceActionResults.map((a) => ({

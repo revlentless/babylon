@@ -4,6 +4,18 @@
  * Tools for evaluating agent performance through simulation.
  */
 
+// Archetype Fit Scoring
+export type {
+  ActionDistribution,
+  ArchetypeFitScore,
+  SocialBehaviorMetrics,
+  TradingBehaviorMetrics,
+} from './ArchetypeFitCalculator';
+export {
+  ArchetypeFitCalculator,
+  calculateArchetypeFit,
+  findBestArchetypeMatch,
+} from './ArchetypeFitCalculator';
 // Multi-archetype matchup benchmarking
 export type {
   ArchetypeVsResult,
@@ -57,6 +69,8 @@ export type {
 export { ModelBenchmarkService } from './ModelBenchmarkService';
 export type { ModelConfig } from './ModelRegistry';
 export {
+  createLocalModel,
+  createLocalModelFromEnv,
   getBaselineModels,
   getModelById,
   getModelByModelId,
@@ -80,6 +94,24 @@ export {
   scoreActionAgainstGroundTruth,
   wasDecisionOptimal,
 } from './RulerBenchmarkIntegration';
+// Scenario Loading
+export type {
+  FixedBenchmarkScenario,
+  ScenarioExpectedBehavior,
+  ScenarioId,
+  ScenarioLoaderOptions,
+  ScenarioMetadata,
+  ScenarioSuccessCriteria,
+} from './ScenarioLoader';
+export {
+  getScenarioLoader,
+  getScenarioSnapshot,
+  isValidScenarioId,
+  listScenarios,
+  loadScenario,
+  ScenarioLoader,
+  ScenarioValidationError,
+} from './ScenarioLoader';
 export { SimulationA2AInterface } from './SimulationA2AInterface';
 export type {
   SimulationConfig,
@@ -87,3 +119,29 @@ export type {
   SimulationResult,
 } from './SimulationEngine';
 export { SimulationEngine } from './SimulationEngine';
+// Stakeholder Reports
+export type {
+  AgentBenchmarkSummary,
+  FullBenchmarkReport,
+  ScenarioBenchmarkResult,
+} from './StakeholderReport';
+export { StakeholderReportGenerator } from './StakeholderReport';
+export type {
+  BenchmarkScenarioOptions,
+  VLLMBenchmarkConfig,
+  VLLMBenchmarkResult,
+} from './VLLMBenchmarkRunner';
+export {
+  createVLLMBenchmarkRunnerFromEnv,
+  VLLMBenchmarkRunner,
+} from './VLLMBenchmarkRunner';
+// vLLM Integration
+export type {
+  CompletionRequest,
+  CompletionResponse,
+  VLLMClientConfig,
+} from './VLLMInferenceClient';
+export {
+  createVLLMClientFromEnv,
+  VLLMInferenceClient,
+} from './VLLMInferenceClient';

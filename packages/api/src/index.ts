@@ -44,6 +44,19 @@ export {
   verifyAgentCredentials,
   verifyAgentSession,
 } from './agent-auth';
+// SIWE Authentication
+export {
+  consumeNonce,
+  createSiweMessage,
+  generateNonce,
+  getAppUrl,
+  getExpectedDomain,
+  type NonceResponse,
+  type SiweVerifyFailure,
+  type SiweVerifyResult,
+  type SiweVerifySuccess,
+  verifySiweMessage,
+} from './auth';
 // Auth Middleware
 export {
   type AuthenticationError,
@@ -73,9 +86,11 @@ export {
 } from './cache';
 // Cron Authentication
 export {
+  type CronHandler,
   cronUnauthorizedResponse,
   requireCronAuth,
   verifyCronAuth,
+  withCronAuth,
 } from './cron-auth';
 // Development credentials (for local testing)
 export {
@@ -159,6 +174,7 @@ export {
 } from './query-params';
 // Rate Limiting
 export {
+  addPublicReadHeaders,
   addRateLimitHeaders,
   applyDuplicateDetection,
   applyRateLimit,
@@ -175,6 +191,9 @@ export {
   duplicateContentError,
   getDuplicateStats,
   getRateLimitStatus,
+  type PublicRateLimitKind,
+  type PublicRateLimitResult,
+  publicRateLimit,
   RATE_LIMIT_CONFIGS,
   rateLimitError,
   resetRateLimit,
@@ -196,6 +215,7 @@ export { drainOutboxBatch, enqueueOutbox } from './realtime/outbox';
 // Redis
 export {
   closeRedis,
+  ensureRedisReady,
   getRedis,
   getRedisClient,
   isRedisAvailable,
@@ -209,11 +229,31 @@ export {
 } from './redis';
 // Services
 export * from './services';
+export {
+  type AuthedPrivyUserContext,
+  getAuthedUserContextFromPrivyToken,
+  getAuthedUserContextFromPrivyTokenBundle,
+} from './services/privy/authed-user';
+export {
+  extractPrivyApiDiagnostics,
+  type PrivyApiDiagnostics,
+  redactJwtLikeTokens,
+} from './services/privy/error-diagnostics';
+export { sendSponsoredEvmTransaction } from './services/privy/evm-send-transaction';
+export { ensureOfflineWalletReady } from './services/privy/offline-wallet-provisioning';
+// Privy (embedded wallet server-side helpers)
+export {
+  type PrivyUserWalletsLite,
+  pickEmbeddedEvmWallet,
+} from './services/privy/user-wallets';
 // SSE Event Broadcasting
 export {
   type AgentActivityEvent,
   broadcastAgentActivity,
   broadcastChatMessage,
+  broadcastChatMessageReaction,
+  broadcastChatTitleUpdate,
+  broadcastThinkingIndicator,
   broadcastToChannel,
   broadcastTypingIndicator,
   type CommentActivityData,
@@ -247,19 +287,28 @@ export {
 // Server-side utilities (require Node.js crypto)
 export {
   budgetTokens,
+  // Cached user API key validation
+  clearApiKeyCache,
   // Token counter utilities (moved from @babylon/shared)
   countTokens,
   countTokensSync,
+  // Deployment environment detection
+  type DeploymentEnvironment,
   generateApiKey,
   generateTestApiKey,
+  getApiKeyCacheStats,
   getClientIp,
+  getDeploymentEnvironment,
   getHashedClientIp,
   getModelTokenLimit,
   getSafeContextLimit,
   hashApiKey,
   hashIpAddress,
+  invalidateCachedKey,
+  invalidateCachedKeysForUser,
   MODEL_TOKEN_LIMITS,
   truncateToTokenLimit,
   truncateToTokenLimitSync,
+  validateUserApiKey,
   verifyApiKey,
 } from './utils';

@@ -61,6 +61,11 @@ export const RATE_LIMIT_CONFIGS = {
     windowMs: 60000,
     actionType: 'send_message',
   }, // 20 messages per minute
+  REACTION_TOGGLE: {
+    maxRequests: 30,
+    windowMs: 60000,
+    actionType: 'reaction_toggle',
+  }, // 30 reaction toggles per minute
   TYPING_INDICATOR: {
     maxRequests: 60,
     windowMs: 60000,
@@ -77,12 +82,26 @@ export const RATE_LIMIT_CONFIGS = {
     actionType: 'submit_feedback',
   }, // 5 feedback submissions per minute
 
+  // On-chain registration (expensive operation, limit aggressively)
+  ONCHAIN_REGISTRATION: {
+    maxRequests: 3,
+    windowMs: 3600000,
+    actionType: 'onchain_registration',
+  }, // 3 attempts per hour
+
   // Profile updates
   UPDATE_PROFILE: {
     maxRequests: 5,
     windowMs: 60000,
     actionType: 'update_profile',
   }, // 5 updates per minute
+
+  // SIWE Authentication
+  SIWE_NONCE: {
+    maxRequests: 10,
+    windowMs: 60000,
+    actionType: 'siwe_nonce',
+  }, // 10 nonce requests per minute per IP
 
   // Agent actions
   GENERATE_AGENT_PROFILE: {
@@ -147,7 +166,7 @@ export const RATE_LIMIT_CONFIGS = {
     actionType: 'public_balance_fetch_anonymous',
   }, // 10 fetches per minute for anonymous bucket (shared, stricter)
 
-  // NFT image proxy (GitHub API protection)
+  // NFT image proxy (IPFS gateway protection)
   PUBLIC_NFT_IMAGE: {
     maxRequests: 60,
     windowMs: 60000,
@@ -172,6 +191,62 @@ export const RATE_LIMIT_CONFIGS = {
     windowMs: 3600000,
     actionType: 'external_agent_register',
   }, // 5 registrations per hour per user
+
+  // A2A transfer operations (stricter limit for points/token transfers)
+  A2A_TRANSFER_OPS: {
+    maxRequests: Number(process.env.A2A_TRANSFER_RATE_LIMIT) || 10,
+    windowMs: 60000,
+    actionType: 'a2a_transfer_ops',
+  }, // 10 transfers per minute (configurable via env)
+
+  /**
+   * Public read endpoints (GETs that allow unauthenticated access).
+   * WHY tiered: Anonymous callers are keyed by IP (or shared "anonymous" when IP
+   * is unknown) so we can limit abuse without requiring sign-in. Authenticated users
+   * and API keys get higher limits because they are accountable and we want to avoid
+   * blocking legitimate apps. WHY 20/60/10: 20/min per IP allows normal browsing
+   * while curbing scrapers; 60/min per user supports power users and API clients;
+   * 10/min anonymous is a strict fallback when we cannot distinguish callers (e.g.
+   * behind some proxies) so we still limit total load.
+   */
+  PUBLIC_READ: {
+    maxRequests: 20,
+    windowMs: 60000,
+    actionType: 'public_read',
+  },
+  PUBLIC_READ_AUTHED: {
+    maxRequests: 60,
+    windowMs: 60000,
+    actionType: 'public_read_authed',
+  },
+  PUBLIC_READ_ANONYMOUS: {
+    maxRequests: 10,
+    windowMs: 60000,
+    actionType: 'public_read_anonymous',
+  },
+
+  /**
+   * SSE/firehose token or connection rate (long-lived connections).
+   * WHY stricter than read: Each "request" is a new connection or token that may
+   * stay open for minutes, so we allow fewer per minute (5 per IP, 20 per user,
+   * 2 anonymous). Prevents a single actor from opening many firehose connections
+   * without auth.
+   */
+  PUBLIC_FIREHOSE: {
+    maxRequests: 5,
+    windowMs: 60000,
+    actionType: 'public_firehose',
+  },
+  PUBLIC_FIREHOSE_AUTHED: {
+    maxRequests: 20,
+    windowMs: 60000,
+    actionType: 'public_firehose_authed',
+  },
+  PUBLIC_FIREHOSE_ANONYMOUS: {
+    maxRequests: 2,
+    windowMs: 60000,
+    actionType: 'public_firehose_anonymous',
+  },
 
   // Default fallback
   DEFAULT: { maxRequests: 30, windowMs: 60000, actionType: 'default' }, // 30 requests per minute

@@ -71,7 +71,7 @@ function PostPreview({ post }: { post: PostPreviewData }) {
     <article className="w-full overflow-hidden rounded-xl border border-white/10 bg-white/5 p-4">
       <div className="mb-3 flex w-full items-start gap-3">
         <Link
-          href={getProfileUrl(post.authorId, post.authorUsername)}
+          href={getProfileUrl(post.authorId, null)}
           className="shrink-0 transition-opacity hover:opacity-80"
           onClick={(e) => e.stopPropagation()}
         >
@@ -88,7 +88,7 @@ function PostPreview({ post }: { post: PostPreviewData }) {
           <div className="flex min-w-0 flex-col">
             <div className="flex min-w-0 items-center gap-1.5">
               <Link
-                href={getProfileUrl(post.authorId, post.authorUsername)}
+                href={getProfileUrl(post.authorId, null)}
                 className="truncate font-semibold text-foreground hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -97,7 +97,7 @@ function PostPreview({ post }: { post: PostPreviewData }) {
               {authorIsNPC && <VerifiedBadge size="sm" />}
             </div>
             <Link
-              href={getProfileUrl(post.authorId, post.authorUsername)}
+              href={getProfileUrl(post.authorId, null)}
               className="truncate text-foreground/50 text-sm hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
@@ -579,9 +579,9 @@ export function FeedCommentSection({
           )}
 
           {/* Comments list */}
-          <div className="flex-1 overflow-y-auto px-4 py-3">
+          <div className="flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
+              <div className="flex items-center justify-center px-4 py-8">
                 <div className="w-full space-y-3">
                   <Skeleton className="h-20 w-full" />
                   <Skeleton className="h-20 w-full" />
@@ -594,7 +594,7 @@ export function FeedCommentSection({
                 description="Be the first to comment!"
               />
             ) : (
-              <div className="space-y-4">
+              <div>
                 {sortedComments.map((comment) => (
                   <CommentCard
                     key={comment.id}

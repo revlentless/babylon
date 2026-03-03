@@ -153,6 +153,16 @@ export class FeedGenerator extends EventEmitter {
 
   /** Strips hashtags/emojis, normalizes whitespace, replaces real names with parody names. */
   private async postProcessContent(content: string): Promise<string> {
+    // Guard against undefined/null content from malformed LLM responses
+    if (!content || typeof content !== 'string') {
+      logger.warn(
+        'postProcessContent received invalid content, returning fallback',
+        { contentType: typeof content, content },
+        'FeedGenerator'
+      );
+      return 'No comment.';
+    }
+
     let processed = content;
 
     // 1. Strip hashtags (LLMs love to add them despite instructions)
@@ -2588,8 +2598,17 @@ ${voiceContext}
       ...(this.worldContext || {}),
     });
 
+    if (!this.llm) {
+      logger.warn(
+        'LLM not available for reply generation',
+        undefined,
+        'FeedGenerator'
+      );
+      return 'Interesting point.';
+    }
+
     const params = getPromptParams(reply);
-    const rawResponse = await this.llm!.generateJSON<
+    const rawResponse = await this.llm.generateJSON<
       { post: string } | { response: { post: string } }
     >(prompt, undefined, {
       ...params,
@@ -2605,11 +2624,21 @@ ${voiceContext}
       return 'Interesting point.'; // Fallback
     }
 
-    // Handle XML structure
+    // Handle XML structure - response may be wrapped in 'response' key or be direct
     const response =
       'response' in rawResponse && rawResponse.response
         ? rawResponse.response
-        : (rawResponse as { post: string });
+        : (rawResponse as { post?: string });
+
+    // Guard against missing 'post' field in response
+    if (!response.post) {
+      logger.warn(
+        'LLM response missing post field',
+        { response },
+        'FeedGenerator'
+      );
+      return 'Interesting point.';
+    }
 
     return await this.postProcessContent(response.post);
   }
@@ -4025,8 +4054,21 @@ ${voiceContext}
       currentTime: formattedTime,
     });
 
+    if (!this.llm) {
+      logger.warn(
+        'LLM not available for ambient post generation',
+        undefined,
+        'FeedGenerator'
+      );
+      return {
+        content: 'Interesting day in the markets.',
+        sentiment: 0,
+        energy: 0.5,
+      };
+    }
+
     const params = getPromptParams(minuteAmbient);
-    const rawResponse = await this.llm!.generateJSON<
+    const rawResponse = await this.llm.generateJSON<
       | {
           post: string;
           sentiment: number;

@@ -17,12 +17,19 @@ export interface User {
   walletAddress?: string;
   displayName: string;
   email?: string;
+  emailVerified?: boolean;
+  emailNotificationsEnabled?: boolean;
+  emailNotificationsRealtime?: boolean;
+  emailNotificationsDailySummary?: boolean;
+  emailNotificationsWeeklySummary?: boolean;
+  emailNotificationsMonthlySummary?: boolean;
   username?: string;
   bio?: string;
   profileImageUrl?: string;
   coverImageUrl?: string;
   profileComplete?: boolean;
   nftTokenId?: number | null;
+  agent0TokenId?: number | null;
   createdAt?: string;
   isActor?: boolean;
   isAdmin?: boolean;
@@ -30,6 +37,7 @@ export interface User {
   bannedAt?: string | null;
   bannedReason?: string | null;
   reputationPoints?: number;
+  totalPoints?: number;
   virtualBalance?: number;
   referralCount?: number;
   referralCode?: string;

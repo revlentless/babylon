@@ -48,19 +48,21 @@ const FieldWithAI = memo(function FieldWithAI({
           disabled={isGenerating}
           className={cn(
             'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors',
-            'text-muted-foreground hover:bg-muted hover:text-foreground',
-            'disabled:cursor-not-allowed disabled:opacity-50'
+            'text-muted-foreground',
+            isGenerating
+              ? 'cursor-not-allowed opacity-50'
+              : 'hover:bg-muted hover:text-foreground'
           )}
         >
           {isGenerating ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Generating...
+              Enhancing...
             </>
           ) : (
             <>
               <Sparkles className="h-3 w-3" />
-              Regenerate
+              Enhance
             </>
           )}
         </button>
@@ -72,7 +74,7 @@ const FieldWithAI = memo(function FieldWithAI({
         placeholder={placeholder}
         rows={rows}
         className={cn(
-          'w-full resize-none rounded-lg border border-border bg-muted px-4 py-3 font-mono text-sm',
+          'w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
           'focus:outline-none focus:ring-2 focus:ring-[#0066FF]',
           isGenerating && 'animate-pulse opacity-70'
         )}
@@ -90,13 +92,13 @@ export const AgentConfigForm = memo(function AgentConfigForm({
   onRegenerate,
 }: AgentConfigFormProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <FieldWithAI
         id="system"
         label="System Prompt"
         value={agentData.system}
         placeholder="You are a trading agent focused on..."
-        rows={6}
+        rows={4}
         isGenerating={generatingField === 'system'}
         onRegenerate={() => onRegenerate('system')}
         onChange={(v) => onFieldChange('system', v)}
@@ -108,7 +110,7 @@ export const AgentConfigForm = memo(function AgentConfigForm({
         label="Personality"
         value={agentData.personality}
         placeholder="Analytical and methodical..."
-        rows={4}
+        rows={3}
         isGenerating={generatingField === 'personality'}
         onRegenerate={() => onRegenerate('personality')}
         onChange={(v) => onFieldChange('personality', v)}
@@ -120,7 +122,7 @@ export const AgentConfigForm = memo(function AgentConfigForm({
         label="Trading Strategy"
         value={agentData.tradingStrategy}
         placeholder="Focus on momentum indicators..."
-        rows={5}
+        rows={3}
         isGenerating={generatingField === 'tradingStrategy'}
         onRegenerate={() => onRegenerate('tradingStrategy')}
         onChange={(v) => onFieldChange('tradingStrategy', v)}
@@ -161,7 +163,7 @@ export const AgentConfigForm = memo(function AgentConfigForm({
             }
           }}
           className={cn(
-            'w-full rounded-lg border border-border bg-muted px-4 py-3 font-mono text-sm',
+            'w-full rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
             'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
           )}
         />

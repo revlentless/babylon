@@ -87,7 +87,6 @@ export async function registerAgent(): Promise<AgentIdentity> {
     address: wallet.address,
     agentId: registration.agentId!,
     metadataCID: registration.agentURI?.replace('ipfs://', ''),
-    txHash: '',
   };
 
   fs.writeFileSync(IDENTITY_FILE, JSON.stringify(identity, null, 2));

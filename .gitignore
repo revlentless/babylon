@@ -5,6 +5,10 @@
 
 # cursor
 .cursor/commands/
+.cursor/skills/
+
+# CLAUDE
+.claude/skills/
 
 # next.js
 /.next/
@@ -17,8 +21,12 @@ dist/
 # production
 /build
 
+# Service Worker
+apps/web/public/sw.js
+
 # misc
 .DS_Store
+.worktrees/
 *.pem
 .serena/
 .cursor/
@@ -27,6 +35,7 @@ dist/
 # local env files
 .env*.local
 .env
+.staging-cookies.txt
 
 # Symlinked env files in apps
 apps/*/.env
@@ -99,6 +108,9 @@ circular-deps.*
 # Local metrics and audit files
 .metrics/
 **/MARKETS_FRONTEND_AUDIT.md
+
+# Local utility scripts (not tracked in version control)
+scripts/cleanup-excess-markets.ts
 
 # Continuous Claude cache (local only)
 .claude/cache/

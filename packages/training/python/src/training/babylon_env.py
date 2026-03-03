@@ -71,16 +71,34 @@ load_dotenv()
 class BabylonEnvConfig(BaseEnvConfig):
     """Configuration for Babylon RLAIF environment"""
 
-    # Database settings
+    # =========================================================================
+    # Trajectory Source Configuration
+    # =========================================================================
+    trajectory_source: str = Field(
+        default_factory=lambda: os.getenv("TRAJECTORY_SOURCE", "db"),
+        description="Source for trajectories: 'db' (PostgreSQL) or 'huggingface'"
+    )
+    
+    # Database settings (used when trajectory_source='db')
     database_url: str = Field(
         default_factory=lambda: os.getenv("DATABASE_URL", ""),
         description="PostgreSQL connection URL"
     )
+    
+    # HuggingFace settings (used when trajectory_source='huggingface')
+    hf_trajectory_dataset: str = Field(
+        default_factory=lambda: os.getenv("HF_TRAJECTORY_DATASET", ""),
+        description="HuggingFace dataset ID (e.g., 'elizaos/babylon-trajectories-v1')"
+    )
+    hf_trajectory_split: str = Field(
+        default_factory=lambda: os.getenv("HF_TRAJECTORY_SPLIT", "raw"),
+        description="HuggingFace dataset split to use: 'raw', 'preferences', 'sft'"
+    )
 
     # Training window settings
     lookback_hours: int = Field(
-        default=72,
-        description="Hours to look back for trajectories"
+        default=720,  # 30 days - increased from 72 for imported data
+        description="Hours to look back for trajectories (only for database source)"
     )
     min_agents_per_window: int = Field(
         default=2,
@@ -93,6 +111,14 @@ class BabylonEnvConfig(BaseEnvConfig):
     max_steps_per_trajectory: int = Field(
         default=20,
         description="Maximum steps to include from each trajectory"
+    )
+    max_trajectories: int = Field(
+        default=1000,
+        description="Maximum trajectories to load from database (prevents OOM)"
+    )
+    trajectory_batch_size: int = Field(
+        default=100,
+        description="Number of trajectories to fetch per batch"
     )
 
     reward_weight_profile: str = Field(
@@ -180,6 +206,12 @@ class BabylonRLAIFEnv(BaseEnv):
             "regime_counts": {"bull": 0, "bear": 0, "sideways": 0},
             "alphas": [],
             "volatilities": [],
+            # Social reward metrics (BAB-71)
+            "social_engagement": [],
+            "social_spread": [],
+            "social_network": [],
+            "social_narrative": [],
+            "social_total": [],
         }
 
         # Evaluation suite for tracking progress
@@ -237,25 +269,28 @@ class BabylonRLAIFEnv(BaseEnv):
         return env_config, server_configs
 
     async def setup(self):
-        """Initialize database connection and load trajectories"""
+        """Initialize data source connection and load trajectories"""
         logger.info("=" * 60)
         logger.info("BABYLON RLAIF ENVIRONMENT SETUP")
         logger.info("=" * 60)
 
-        # Connect to database
-        if not self.config.database_url:
-            raise ValueError("DATABASE_URL not set in environment or config")
+        # Determine trajectory source
+        source = self.config.trajectory_source.lower()
+        logger.info(f"Trajectory source: {source}")
+        
+        valid_sources = ("db", "database", "huggingface", "hf")
+        if source not in valid_sources:
+            raise ValueError(
+                f"Invalid trajectory_source: '{source}'. "
+                f"Valid options: {', '.join(valid_sources)}"
+            )
+        
+        if source in ("huggingface", "hf"):
+            await self._setup_huggingface_source()
+        else:
+            # db or database: use PostgreSQL source
+            await self._setup_database_source()
 
-        self.db_pool = await asyncpg.create_pool(
-            self.config.database_url,
-            min_size=2,
-            max_size=10,
-            command_timeout=60
-        )
-        logger.info("Connected to PostgreSQL database")
-
-        # Load available trajectories
-        await self._load_trajectories()
         logger.info(f"Loaded {len(self.trajectory_cache)} trajectory groups")
         for group in self.trajectory_cache:
             logger.info(f"  Group '{group['group_key']}': {len(group['trajectories'])} trajectories")
@@ -272,14 +307,114 @@ class BabylonRLAIFEnv(BaseEnv):
         )
         logger.info("Initialized EvaluationSuite and RolloutDumper")
 
-    async def _load_trajectories(self):
+    async def _setup_database_source(self):
+        """Initialize PostgreSQL database connection and load trajectories."""
+        if not self.config.database_url:
+            raise ValueError("DATABASE_URL not set in environment or config")
+
+        # Parse connection URL to detect pooler vs direct connection
+        db_url = self.config.database_url
+        is_supabase_pooler = "pooler.supabase.com" in db_url or ":6543" in db_url
+        
+        if is_supabase_pooler:
+            logger.warning(
+                "⚠️  Detected Supabase pooler connection (port 6543). "
+                "This may cause issues with asyncpg prepared statements. "
+                "Consider using direct connection (port 5432) for best reliability."
+            )
+        
+        # Create pool with settings optimized for connection poolers
+        # statement_cache_size=0 disables prepared statement caching which breaks
+        # with transaction poolers like Supabase's PgBouncer
+        self.db_pool = await asyncpg.create_pool(
+            db_url,
+            min_size=1,
+            max_size=5,
+            command_timeout=120,  # 2 minute timeout for large queries
+            statement_cache_size=0,  # Disable for pooler compatibility
+            server_settings={
+                'application_name': 'babylon-training',
+            }
+        )
+        logger.info("Connected to PostgreSQL database")
+
+        # Load trajectories from database
+        await self._load_trajectories_from_db()
+
+    async def _setup_huggingface_source(self):
+        """Initialize HuggingFace dataset reader and load trajectories."""
+        if not self.config.hf_trajectory_dataset:
+            raise ValueError(
+                "HF_TRAJECTORY_DATASET not set. "
+                "Required when TRAJECTORY_SOURCE=huggingface"
+            )
+        
+        from ..data_bridge.hf_reader import HuggingFaceTrajectoryReader, HFReaderConfig
+        
+        logger.info(f"Loading from HuggingFace: {self.config.hf_trajectory_dataset}")
+        logger.info(f"  Split: {self.config.hf_trajectory_split}")
+        
+        config = HFReaderConfig(
+            dataset_id=self.config.hf_trajectory_dataset,
+            split=self.config.hf_trajectory_split,
+            max_trajectories=self.config.max_trajectories,
+            min_actions=self.config.min_actions_per_trajectory,
+        )
+        
+        reader = HuggingFaceTrajectoryReader(config)
+        await reader.connect()
+        
+        # Get trajectory groups in the same format as database loading
+        self.trajectory_cache = reader.get_trajectory_groups(
+            min_agents_per_window=self.config.min_agents_per_window
+        )
+        
+        # Log stats
+        stats = reader.get_stats()
+        logger.info("HuggingFace dataset stats:")
+        logger.info(f"  Total trajectories: {stats['total_trajectories']}")
+        logger.info(f"  Total windows: {stats['total_windows']}")
+        logger.info(f"  Avg P&L: ${stats['avg_pnl']:.2f}")
+        logger.info(f"  Archetypes: {stats['archetypes']}")
+        
+        # Shuffle for variety
+        import random
+        random.shuffle(self.trajectory_cache)
+
+    async def _load_trajectories_from_db(self):
         """Load trajectories from database and group by scenario/window"""
         if not self.db_pool:
             raise RuntimeError("Database not connected")
 
+        logger.info(f"Loading trajectories (lookback={self.config.lookback_hours}h, "
+                    f"max={self.config.max_trajectories}, min_actions={self.config.min_actions_per_trajectory})")
+
         async with self.db_pool.acquire() as conn:
+            # First, check total available trajectories for diagnostics
+            try:
+                count_row = await conn.fetchrow("""
+                    SELECT COUNT(*) as total,
+                           COUNT(*) FILTER (WHERE "createdAt" > NOW() - $1::interval) as recent
+                    FROM trajectories
+                    WHERE "isTrainingData" = true
+                """, timedelta(hours=self.config.lookback_hours))
+                
+                total_count = count_row['total'] if count_row else 0
+                recent_count = count_row['recent'] if count_row else 0
+                logger.info(f"Database has {total_count} total trajectories, {recent_count} within lookback window")
+                
+                if recent_count == 0 and total_count > 0:
+                    logger.warning(
+                        f"⚠️  No trajectories within {self.config.lookback_hours}h lookback, "
+                        f"but {total_count} exist. Consider increasing --lookback-hours"
+                    )
+            except Exception as e:
+                logger.warning(f"Could not get trajectory count: {e}")
+
             # Get trajectories with valid steps from recent windows
             # Includes archetype for archetype-aware scoring
+            # LIMIT prevents OOM on large datasets
+            # Note: LEFT JOIN on User is optional - we handle NULL agent_name
             rows = await conn.fetch("""
                 SELECT 
                     t."trajectoryId",
@@ -302,8 +437,13 @@ class BabylonRLAIFEnv(BaseEnv):
                     AND t."stepsJson"::text != 'null'
                     AND t."stepsJson"::text != '[]'
                     AND t."episodeLength" >= $2
-                ORDER BY t."windowId", t."scenarioId", t."createdAt"
-            """, timedelta(hours=self.config.lookback_hours), self.config.min_actions_per_trajectory)
+                ORDER BY t."createdAt" DESC
+                LIMIT $3
+            """, timedelta(hours=self.config.lookback_hours), 
+                self.config.min_actions_per_trajectory,
+                self.config.max_trajectories)
+            
+        logger.info(f"Fetched {len(rows)} trajectories from database")
 
         # Group trajectories by window/scenario
         groups: Dict[str, List[Dict]] = {}
@@ -435,16 +575,38 @@ class BabylonRLAIFEnv(BaseEnv):
 
             if m["volatilities"]:
                 wandb_metrics["train/market_volatility_mean"] = sum(m["volatilities"]) / len(m["volatilities"])
+            
+            # Social reward metrics (BAB-71)
+            if m["social_total"]:
+                wandb_metrics["train/social_reward_mean"] = sum(m["social_total"]) / len(m["social_total"])
+                wandb_metrics["train/social_engagement_mean"] = sum(m["social_engagement"]) / len(m["social_engagement"])
+                wandb_metrics["train/social_spread_mean"] = sum(m["social_spread"]) / len(m["social_spread"])
+                wandb_metrics["train/social_network_mean"] = sum(m["social_network"]) / len(m["social_network"])
+                wandb_metrics["train/social_narrative_mean"] = sum(m["social_narrative"]) / len(m["social_narrative"])
 
             # Reset for next logging interval
             self.enhanced_reward_metrics = {
                 "regime_counts": {"bull": 0, "bear": 0, "sideways": 0},
                 "alphas": [],
                 "volatilities": [],
+                "social_engagement": [],
+                "social_spread": [],
+                "social_network": [],
+                "social_narrative": [],
+                "social_total": [],
             }
 
         self.judgement_samples = []  # Clear after logging
         await super().wandb_log(wandb_metrics)
+
+    async def _reload_trajectories(self):
+        """Reload trajectories from the configured source."""
+        source = self.config.trajectory_source.lower()
+        # Accept both "huggingface" and "hf" aliases (same as setup())
+        if source in ("huggingface", "hf"):
+            await self._setup_huggingface_source()
+        else:
+            await self._load_trajectories_from_db()
 
     async def get_next_item(self) -> Optional[Tuple]:
         """Get next trajectory group for scoring"""
@@ -452,7 +614,7 @@ class BabylonRLAIFEnv(BaseEnv):
         if not self.trajectory_cache:
             # Reload trajectories if cache is empty
             logger.info("Trajectory cache empty, reloading...")
-            await self._load_trajectories()
+            await self._reload_trajectories()
             logger.info(f"After reload: {len(self.trajectory_cache)} groups")
 
         if not self.trajectory_cache:
@@ -484,8 +646,10 @@ class BabylonRLAIFEnv(BaseEnv):
         group_key, trajectory_group = item
         logger.info(f"Collecting trajectories for group: {group_key}, count: {len(trajectory_group)}")
 
-        if len(trajectory_group) < 2:
-            logger.warning(f"Group {group_key} has insufficient trajectories")
+        # We only need 1 trajectory since we generate n=group_size completions per trajectory
+        # This enables GRPO with multiple completions from a single prompt
+        if len(trajectory_group) < 1:
+            logger.warning(f"Group {group_key} has no trajectories")
             return None, []
 
         # Collect responses from the training model for each trajectory
@@ -897,8 +1061,23 @@ You receive market updates and must analyze, reason, and then act."""
                 self.enhanced_reward_metrics["regime_counts"][regime.overall] += 1
                 self.enhanced_reward_metrics["alphas"].append(counterfactual.alpha)
                 self.enhanced_reward_metrics["volatilities"].append(regime.volatility)
-            else:
-                # Fallback: standard archetype composite reward
+            
+            # Calculate and track social reward (BAB-71)
+            # This is done separately to provide visibility into social scoring
+            if behavior_metrics is not None:
+                from .rewards import calculate_social_reward
+                social_result = calculate_social_reward(
+                    metrics=behavior_metrics,
+                    archetype=archetype_norm,
+                )
+                self.enhanced_reward_metrics["social_engagement"].append(social_result.engagement_score)
+                self.enhanced_reward_metrics["social_spread"].append(social_result.information_spread_score)
+                self.enhanced_reward_metrics["social_network"].append(social_result.network_score)
+                self.enhanced_reward_metrics["social_narrative"].append(social_result.narrative_alignment_score)
+                self.enhanced_reward_metrics["social_total"].append(social_result.total_score)
+            
+            if regime is None:
+                # Fallback: standard archetype composite reward (no market regime data)
                 base_score = archetype_composite_reward(
                     inputs=reward_inputs,
                     archetype=archetype_norm,

@@ -2,22 +2,21 @@
 
 import { cn, getDisplayReferralUrl, getReferralUrl } from '@babylon/shared';
 import {
-  Bell,
   Check,
   Copy,
   Gift,
-  Home,
   LogOut,
-  MessageCircle,
-  TrendingUp,
+  Settings,
   Trophy,
+  User,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { GameFeedbackModal } from '@/components/feedback/GameFeedbackModal';
 import { Avatar } from '@/components/shared/Avatar';
+import { BabylonIcon } from '@/components/shared/icons/BabylonIcon';
 import { useAuth } from '@/hooks/useAuth';
 import { getAuthToken } from '@/lib/auth';
 import { useAuthStore } from '@/stores/authStore';
@@ -41,7 +40,7 @@ function MobileHeaderContent() {
     total: number;
   } | null>(null);
   const [copiedReferral, setCopiedReferral] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const pathname = usePathname();
 
   // Hide mobile header when WAITLIST_MODE is enabled on home page
@@ -154,42 +153,6 @@ function MobileHeaderContent() {
     return () => clearInterval(interval);
   }, [authenticated, user?.id, user?.reputationPoints, setUser, user]);
 
-  // Poll for unread notifications
-  useEffect(() => {
-    if (!authenticated || !user) {
-      setUnreadNotifications(0);
-      return;
-    }
-
-    const fetchUnreadCount = async () => {
-      const token = getAuthToken();
-
-      if (!token) {
-        return;
-      }
-
-      const response = await fetch(
-        '/api/notifications?unreadOnly=true&limit=1',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadNotifications(data.unreadCount || 0);
-      }
-    };
-
-    fetchUnreadCount();
-
-    // Refresh every 1 minute
-    const interval = setInterval(fetchUnreadCount, 60000); // 60 seconds = 1 minute
-    return () => clearInterval(interval);
-  }, [authenticated, user]);
-
   const copyReferralCode = async () => {
     if (!user?.referralCode) return;
 
@@ -206,22 +169,10 @@ function MobileHeaderContent() {
 
   const menuItems = [
     {
-      name: 'Feed',
-      href: '/feed',
-      icon: Home,
-      active: pathname === '/feed' || pathname === '/',
-    },
-    {
-      name: 'Markets',
-      href: '/markets',
-      icon: TrendingUp,
-      active: pathname === '/markets',
-    },
-    {
-      name: 'Chats',
-      href: '/chats',
-      icon: MessageCircle,
-      active: pathname === '/chats',
+      name: 'Profile',
+      href: '/profile',
+      icon: User,
+      active: pathname === '/profile',
     },
     {
       name: 'Leaderboards',
@@ -236,10 +187,10 @@ function MobileHeaderContent() {
       active: pathname === '/rewards',
     },
     {
-      name: 'Notifications',
-      href: '/notifications',
-      icon: Bell,
-      active: pathname === '/notifications',
+      name: 'Settings',
+      href: '/settings',
+      icon: Settings,
+      active: pathname?.startsWith('/settings'),
     },
   ];
 
@@ -281,18 +232,22 @@ function MobileHeaderContent() {
               href="/feed"
               className="transition-transform duration-300 hover:scale-105"
             >
-              <Image
-                src="/assets/logos/logo.svg"
-                alt="Babylon Logo"
-                width={28}
-                height={28}
-                className="h-7 w-7"
-              />
+              <BabylonIcon className="h-7 w-7 text-primary" />
             </Link>
           </div>
 
-          {/* Right: Empty space for balance */}
-          <div className="w-8 shrink-0" />
+          {/* Right: Feedback Button */}
+          <div className="shrink-0">
+            {authenticated && (
+              <button
+                type="button"
+                onClick={() => setShowFeedbackModal(true)}
+                className="rounded-md bg-emerald-500 px-3 py-1 font-medium text-white text-xs transition-colors hover:bg-emerald-600"
+              >
+                Feedback
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -301,7 +256,7 @@ function MobileHeaderContent() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 bg-neutral-300/70 backdrop-blur-[3px] md:hidden dark:bg-neutral-900/70"
             onClick={() => setShowSideMenu(false)}
           />
 
@@ -344,59 +299,40 @@ function MobileHeaderContent() {
             </Link>
 
             {/* Points Display */}
-            <div className="shrink-0 bg-muted/30 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <div
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: '#0066FF' }}
-                >
-                  <Trophy className="h-5 w-5 text-foreground" />
+            <div className="shrink-0 border-border border-b px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="text-muted-foreground text-xs">Reputation</div>
+                <div className="font-bold text-foreground text-sm">
+                  {(user?.reputationPoints || 0).toLocaleString()}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                      Reputation
-                    </div>
-                    <div className="font-bold text-base text-foreground">
-                      {(user?.reputationPoints || 0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-muted-foreground text-xs">
-                      Trading Balance
-                    </div>
-                    <div className="font-semibold text-foreground text-sm">
-                      {(pointsData?.available || 0).toLocaleString()}
-                    </div>
-                  </div>
+              </div>
+              <div className="mt-1.5 flex items-center justify-between">
+                <div className="text-muted-foreground text-xs">
+                  Trading Balance
+                </div>
+                <div className="font-bold text-foreground text-sm">
+                  {(pointsData?.available || 0).toLocaleString()}
                 </div>
               </div>
             </div>
 
             {/* Menu Items - Scrollable */}
-            <nav className="min-h-0 flex-1 overflow-y-auto">
+            <nav className="min-h-0 flex-1 overflow-y-auto pt-2.5">
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                const hasNotifications =
-                  item.name === 'Notifications' && unreadNotifications > 0;
                 return (
                   <Link
                     key={item.name}
                     href={item.href}
                     onClick={() => setShowSideMenu(false)}
                     className={cn(
-                      'relative flex items-center gap-4 px-4 py-3 transition-colors',
+                      'relative flex items-center gap-4 px-4 py-2.5 transition-colors',
                       item.active
                         ? 'bg-[#0066FF] font-bold text-primary-foreground'
                         : 'font-semibold text-sidebar-foreground hover:bg-sidebar-accent'
                     )}
                   >
-                    <div className="relative">
-                      <Icon className="h-5 w-5" />
-                      {hasNotifications && (
-                        <span className="-top-1 -right-1 absolute h-2 w-2 rounded-full bg-blue-500 ring-2 ring-sidebar" />
-                      )}
-                    </div>
+                    <Icon className="h-5 w-5" />
                     <span className="text-base">{item.name}</span>
                   </Link>
                 );
@@ -404,7 +340,7 @@ function MobileHeaderContent() {
             </nav>
 
             {/* Bottom Section - Referral & Logout */}
-            <div className="shrink-0 border-border border-t bg-sidebar pb-20">
+            <div className="shrink-0 border-border border-t bg-sidebar pb-16">
               {/* Referral Code Button */}
               {user?.referralCode && (
                 <button
@@ -414,9 +350,14 @@ function MobileHeaderContent() {
                   {copiedReferral ? (
                     <>
                       <Check className="h-5 w-5 text-green-500" />
-                      <span className="text-base text-green-500">
-                        Referral Link Copied!
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-base text-green-500">
+                          Referral Link Copied!
+                        </div>
+                        <div className="truncate font-mono text-muted-foreground text-xs">
+                          {getDisplayReferralUrl(user.referralCode)}
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -452,6 +393,12 @@ function MobileHeaderContent() {
           </div>
         </>
       )}
+
+      {/* Feedback Modal */}
+      <GameFeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+      />
     </>
   );
 }

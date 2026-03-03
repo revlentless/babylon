@@ -16,7 +16,6 @@
 import {
   agentLogs,
   agentMessages,
-  agentPerformanceMetrics,
   agentPointsTransactions,
   agentTrades,
   and,
@@ -337,19 +336,19 @@ export class AgentServiceV2 {
       void this.setupAgentIdentity(agentUserId);
     }
 
-    // Add agent to Command Center (team chat)
+    // Add agent to Agents (team chat)
     // This creates the team chat if it doesn't exist (first agent)
     try {
       await teamChatService.addAgentToTeamChat(managerUserId, agentUserId);
       logger.info(
-        `Agent ${agentUserId} added to Command Center`,
+        `Agent ${agentUserId} added to Agents`,
         undefined,
         'AgentService'
       );
     } catch (error) {
       // Log but don't fail agent creation - team chat can be synced later
       logger.error(
-        `Failed to add agent ${agentUserId} to Command Center: ${error}`,
+        `Failed to add agent ${agentUserId} to Agents: ${error}`,
         { managerUserId, agentUserId },
         'AgentService'
       );
@@ -431,6 +430,7 @@ export class AgentServiceV2 {
       name: string;
       description: string;
       profileImageUrl: string;
+      coverImageUrl: string;
       system: string;
       bio: string[]; // Bio array for ElizaOS agentMessageExamples
       personality: string;
@@ -461,6 +461,8 @@ export class AgentServiceV2 {
     if (updates.description) userUpdates.bio = updates.description;
     if (updates.profileImageUrl !== undefined)
       userUpdates.profileImageUrl = updates.profileImageUrl;
+    if (updates.coverImageUrl !== undefined)
+      userUpdates.coverImageUrl = updates.coverImageUrl;
 
     if (Object.keys(userUpdates).length > 1) {
       await db.update(users).set(userUpdates).where(eq(users.id, agentUserId));
@@ -523,10 +525,10 @@ export class AgentServiceV2 {
     );
     if (!agentWithConfig) throw new Error('Agent not found');
 
-    // Remove agent from Command Center BEFORE deleting (so we can still get agent info)
+    // Remove agent from Agents BEFORE deleting (so we can still get agent info)
     await teamChatService.removeAgentFromTeamChat(managerUserId, agentUserId);
     logger.info(
-      `Agent ${agentUserId} removed from Command Center`,
+      `Agent ${agentUserId} removed from Agents`,
       undefined,
       'AgentService'
     );
@@ -941,46 +943,17 @@ export class AgentServiceV2 {
     const agent = agentResult[0];
     if (!agent || !agent.isAgent) throw new Error('Agent not found');
 
-    // Get pre-calculated performance metrics from agentPerformanceMetrics table
-    const metricsResult = await db
-      .select()
-      .from(agentPerformanceMetrics)
-      .where(eq(agentPerformanceMetrics.userId, agentUserId))
-      .limit(1);
-
-    const metrics = metricsResult[0];
-
-    // If metrics exist, use them; otherwise fall back to calculating from trades
-    if (metrics) {
-      // Get trades for avgTradeSize calculation
-      const trades = await db
-        .select()
-        .from(agentTrades)
-        .where(eq(agentTrades.agentUserId, agentUserId));
-
-      const tradesWithPnl = trades.filter((t) => t.pnl !== null);
-      const avgTradeSize =
-        tradesWithPnl.length > 0
-          ? tradesWithPnl.reduce((sum, t) => sum + t.amount, 0) /
-            tradesWithPnl.length
-          : 0;
-
-      return {
-        lifetimePnL: Number(agent.lifetimePnL),
-        totalTrades: metrics.totalTrades,
-        profitableTrades: metrics.profitableTrades,
-        winRate: metrics.winRate,
-        avgTradeSize,
-      };
-    }
-
-    // Fallback: calculate from agentTrades if no metrics record exists
+    // Always calculate trade stats from agentTrades (source of truth)
+    // agentPerformanceMetrics is for reputation scoring, not trade stats
     const trades = await db
       .select()
       .from(agentTrades)
       .where(eq(agentTrades.agentUserId, agentUserId));
 
     const closedTrades = trades.filter((t) => t.pnl !== null);
+    const profitableTrades = closedTrades.filter(
+      (t) => t.pnl && t.pnl > 0
+    ).length;
     const avgTradeSize =
       trades.length > 0
         ? trades.reduce((sum, t) => sum + t.amount, 0) / trades.length
@@ -989,12 +962,9 @@ export class AgentServiceV2 {
     return {
       lifetimePnL: Number(agent.lifetimePnL),
       totalTrades: trades.length,
-      profitableTrades: closedTrades.filter((t) => t.pnl && t.pnl > 0).length,
+      profitableTrades,
       winRate:
-        closedTrades.length > 0
-          ? closedTrades.filter((t) => t.pnl && t.pnl > 0).length /
-            closedTrades.length
-          : 0,
+        closedTrades.length > 0 ? profitableTrades / closedTrades.length : 0,
       avgTradeSize,
     };
   }
@@ -1080,7 +1050,8 @@ export class AgentServiceV2 {
         | 'comment'
         | 'dm'
         | 'like'
-        | 'repost';
+        | 'repost'
+        | 'follow';
       level: 'info' | 'warn' | 'error' | 'debug';
       message: string;
       prompt?: string;

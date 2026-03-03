@@ -2,21 +2,24 @@
 
 import { logger, privyConfig } from '@babylon/shared';
 import { type PrivyClientConfig, PrivyProvider } from '@privy-io/react-auth';
-import { SmartWalletsProvider } from '@privy-io/react-auth/smart-wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTheme } from 'next-themes';
 import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
 import { PostHogErrorBoundary } from '@/components/analytics/PostHogErrorBoundary';
 import { PostHogIdentifier } from '@/components/analytics/PostHogIdentifier';
 import { ThemeProvider } from '@/components/shared/ThemeProvider';
 import { FontSizeProvider } from '@/contexts/FontSizeContext';
 import { WidgetRefreshProvider } from '@/contexts/WidgetRefreshContext';
+import { SessionHeartbeatProvider } from '@/hooks/useSessionHeartbeat';
+import { DiscordActivityProvider } from './DiscordActivityProvider';
 import { FarcasterMiniAppProvider } from './FarcasterMiniAppProvider';
 import { GameGuideProvider } from './GameGuideProvider';
 import { GamePlaybackManager } from './GamePlaybackManager';
 import { OnboardingProvider } from './OnboardingProvider';
-
 import { PostHogProvider } from './PostHogProvider';
 import { ReferralCaptureProvider } from './ReferralCaptureProvider';
+import { SolanaMobileProvider } from './SolanaMobileProvider';
+import { TelegramMiniAppProvider } from './TelegramMiniAppProvider';
 
 /**
  * Wrapper component to fix clip-path DOM property issue in Privy.
@@ -166,6 +169,28 @@ function PrivyProviderWrapper({
 }
 
 /**
+ * Syncs the app's resolved theme (from next-themes) to Privy's appearance config.
+ * Must be rendered inside ThemeProvider so useTheme() has access to the context.
+ */
+function ThemedPrivyProvider({ children }: { children: React.ReactNode }) {
+  const { resolvedTheme } = useTheme();
+
+  const config = {
+    ...privyConfig.config,
+    appearance: {
+      ...privyConfig.config.appearance,
+      theme: resolvedTheme === 'light' ? 'light' : 'dark',
+    },
+  } as PrivyClientConfig;
+
+  return (
+    <PrivyProviderWrapper appId={privyConfig.appId} config={config}>
+      {children}
+    </PrivyProviderWrapper>
+  );
+}
+
+/**
  * Root providers component wrapping the application with all necessary providers.
  *
  * Provides all application-level context providers including:
@@ -244,7 +269,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                     {children}
                   </Fragment>
                 ) : (
-                  <div className="min-h-screen bg-sidebar" />
+                  <div className="min-h-dvh bg-sidebar md:min-h-screen" />
                 )}
               </WidgetRefreshProvider>
             </QueryClientProvider>
@@ -268,34 +293,38 @@ export function Providers({ children }: { children: React.ReactNode }) {
               <FontSizeProvider>
                 <QueryClientProvider client={queryClient}>
                   <GamePlaybackManager />
-                  <PrivyProviderWrapper
-                    appId={privyConfig.appId}
-                    config={privyConfig.config as PrivyClientConfig}
-                  >
-                    <SmartWalletsProvider>
-                      <FarcasterMiniAppProvider>
-                        {/* PostHog user identification */}
-                        <PostHogIdentifier />
-                        {/* Capture referral code from URL if present */}
-                        <Suspense fallback={null}>
-                          <ReferralCaptureProvider />
-                        </Suspense>
-                        {/* Onboarding provider for username setup */}
-                        <OnboardingProvider>
-                          {/* Game guide provider for first-time tutorial */}
-                          <GameGuideProvider>
-                            <WidgetRefreshProvider>
-                              {mounted ? (
-                                <Fragment>{children}</Fragment>
-                              ) : (
-                                <div className="min-h-screen bg-sidebar" />
-                              )}
-                            </WidgetRefreshProvider>
-                          </GameGuideProvider>
-                        </OnboardingProvider>
-                      </FarcasterMiniAppProvider>
-                    </SmartWalletsProvider>
-                  </PrivyProviderWrapper>
+                  <ThemedPrivyProvider>
+                    <FarcasterMiniAppProvider>
+                      <TelegramMiniAppProvider>
+                        <DiscordActivityProvider>
+                          {/* Solana MWA registration (side-effect only, no UI) */}
+                          <SolanaMobileProvider />
+                          {/* PostHog user identification */}
+                          <PostHogIdentifier />
+                          {/* Capture referral code from URL if present */}
+                          <Suspense fallback={null}>
+                            <ReferralCaptureProvider />
+                          </Suspense>
+                          {/* Onboarding provider for username setup */}
+                          <OnboardingProvider>
+                            {/* Session heartbeat for engagement metrics */}
+                            <SessionHeartbeatProvider>
+                              {/* Game guide provider for first-time tutorial */}
+                              <GameGuideProvider>
+                                <WidgetRefreshProvider>
+                                  {mounted ? (
+                                    <Fragment>{children}</Fragment>
+                                  ) : (
+                                    <div className="min-h-dvh bg-sidebar md:min-h-screen" />
+                                  )}
+                                </WidgetRefreshProvider>
+                              </GameGuideProvider>
+                            </SessionHeartbeatProvider>
+                          </OnboardingProvider>
+                        </DiscordActivityProvider>
+                      </TelegramMiniAppProvider>
+                    </FarcasterMiniAppProvider>
+                  </ThemedPrivyProvider>
                 </QueryClientProvider>
               </FontSizeProvider>
             </ThemeProvider>

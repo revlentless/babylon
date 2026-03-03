@@ -21,9 +21,11 @@ import {
   type StructuredEventData,
   sql,
 } from '@babylon/db';
-import { logger } from '@babylon/shared';
+import { logger, PERP_MARKET_CONFIG } from '@babylon/shared';
 import { secureRandom } from '../utils/entropy';
+import { formatError } from '../utils/error-utils';
 import { parseModifiersSafe, validatePriceModifier } from './jsonb-validators';
+import { applyCascadeEffects } from './market-correlation-service';
 import { PriceUpdateService } from './price-update-service';
 import { StaticDataRegistry } from './static-data-registry';
 
@@ -59,8 +61,8 @@ async function backoffDelay(attempt: number): Promise<void> {
 /**
  * Price bounds to prevent invalid prices
  */
-const MIN_PRICE_MULTIPLIER = 0.01; // Minimum 1% of base price
-const MAX_PRICE_MULTIPLIER = 100; // Maximum 100x of base price
+const MIN_EVENT_MULTIPLIER = 0.5; // Minimum 50% of base price per event
+const MAX_EVENT_MULTIPLIER = 1.5; // Maximum 150% of base price per event
 
 /**
  * Resolve a ticker to an organization ID.
@@ -151,8 +153,8 @@ export async function applyEventToMarkets(
       const rawEffect =
         impact.direction === 'up' ? 1 + magnitude : 1 - magnitude;
       const effect = Math.max(
-        MIN_PRICE_MULTIPLIER,
-        Math.min(MAX_PRICE_MULTIPLIER, rawEffect)
+        MIN_EVENT_MULTIPLIER,
+        Math.min(MAX_EVENT_MULTIPLIER, rawEffect)
       );
 
       const now = new Date();
@@ -198,7 +200,7 @@ export async function applyEventToMarkets(
     } catch (error) {
       logger.error(
         `Failed to apply modifier to ${impact.stockTicker}`,
-        { error: error instanceof Error ? error.message : String(error) },
+        { error: formatError(error) },
         'EventMarketPipeline'
       );
     }
@@ -227,15 +229,27 @@ export async function applyEventToMarkets(
 
         // Clamp combined multiplier to avoid extreme compounding from multiple impacts.
         const combinedMultiplier = Math.max(
-          MIN_PRICE_MULTIPLIER,
-          Math.min(MAX_PRICE_MULTIPLIER, entry.multiplier)
+          MIN_EVENT_MULTIPLIER,
+          Math.min(MAX_EVENT_MULTIPLIER, entry.multiplier)
         );
 
         const state = stateByOrgId.get(orgId);
+        const basePrice = Number(state?.basePrice);
         const currentPrice = Number(state?.currentPrice ?? state?.basePrice);
         if (!Number.isFinite(currentPrice) || currentPrice <= 0) return null;
 
-        const newPrice = currentPrice * combinedMultiplier;
+        // Apply multiplier to currentPrice but clamp to basePrice bounds
+        // to prevent exponential compounding across repeated events
+        const rawPrice = currentPrice * combinedMultiplier;
+        const minPrice =
+          Number.isFinite(basePrice) && basePrice > 0
+            ? basePrice * PERP_MARKET_CONFIG.PRICE_FLOOR_RATIO
+            : currentPrice * 0.25;
+        const maxPrice =
+          Number.isFinite(basePrice) && basePrice > 0
+            ? basePrice * PERP_MARKET_CONFIG.PRICE_CEILING_RATIO
+            : currentPrice * 4.0;
+        const newPrice = Math.max(minPrice, Math.min(maxPrice, rawPrice));
         if (!Number.isFinite(newPrice) || newPrice <= 0) return null;
 
         const canonicalTicker =
@@ -276,11 +290,47 @@ export async function applyEventToMarkets(
           },
           'EventMarketPipeline'
         );
+
+        // Apply cascade effects to related organizations
+        // Each primary org that had a price change may affect suppliers, competitors, partners
+        for (const update of applied) {
+          if (Math.abs(update.changePercent) > 1) {
+            // Only cascade for >1% moves (changePercent is in % units, e.g. 5.0 = 5%)
+            try {
+              // Convert percent to fraction for applyCascadeEffects (expects e.g. -0.10 for -10%)
+              const cascadeResult = await applyCascadeEffects(
+                update.organizationId,
+                update.changePercent / 100,
+                `${event.type} event (arcId: ${event.arcId})`
+              );
+              if (cascadeResult.affectedCount > 0) {
+                logger.debug(
+                  'Applied cascade effects',
+                  {
+                    primaryOrg: update.organizationId,
+                    primaryChange: update.changePercent.toFixed(4),
+                    cascadeCount: cascadeResult.affectedCount,
+                  },
+                  'EventMarketPipeline'
+                );
+              }
+            } catch (cascadeError) {
+              logger.warn(
+                'Failed to apply cascade effects',
+                {
+                  organizationId: update.organizationId,
+                  error: formatError(cascadeError),
+                },
+                'EventMarketPipeline'
+              );
+            }
+          }
+        }
       } catch (error) {
         // Price application is best-effort; modifiers are persisted regardless.
         logger.warn(
           'Failed to apply narrative price updates',
-          { error: error instanceof Error ? error.message : String(error) },
+          { error: formatError(error) },
           'EventMarketPipeline'
         );
       }
@@ -333,8 +383,8 @@ export async function addPriceModifier(
       .map((m) => ({
         ...m,
         effect: Math.max(
-          MIN_PRICE_MULTIPLIER,
-          Math.min(MAX_PRICE_MULTIPLIER, m.effect)
+          MIN_EVENT_MULTIPLIER,
+          Math.min(MAX_EVENT_MULTIPLIER, m.effect)
         ),
       }));
 
@@ -397,8 +447,8 @@ export function calculateCurrentPrice(
   const now = new Date();
 
   // Pre-compute bounds for clamping during the loop
-  const minPrice = basePrice * MIN_PRICE_MULTIPLIER;
-  const maxPrice = basePrice * MAX_PRICE_MULTIPLIER;
+  const minPrice = basePrice * MIN_EVENT_MULTIPLIER;
+  const maxPrice = basePrice * MAX_EVENT_MULTIPLIER;
 
   // Apply all active modifiers with decay, clamping after each to avoid overflow
   for (const mod of modifiers) {
@@ -412,8 +462,8 @@ export function calculateCurrentPrice(
 
     // Bound effect to prevent extreme values
     const boundedEffect = Math.max(
-      MIN_PRICE_MULTIPLIER,
-      Math.min(MAX_PRICE_MULTIPLIER, mod.effect)
+      MIN_EVENT_MULTIPLIER,
+      Math.min(MAX_EVENT_MULTIPLIER, mod.effect)
     );
 
     const hoursSince = (now.getTime() - appliedAt.getTime()) / (1000 * 60 * 60);
@@ -422,8 +472,8 @@ export function calculateCurrentPrice(
 
     // Clamp decayed effect to prevent extreme per-modifier impact
     decayedEffect = Math.max(
-      MIN_PRICE_MULTIPLIER,
-      Math.min(MAX_PRICE_MULTIPLIER, decayedEffect)
+      MIN_EVENT_MULTIPLIER,
+      Math.min(MAX_EVENT_MULTIPLIER, decayedEffect)
     );
 
     price *= decayedEffect;
@@ -480,8 +530,8 @@ export async function updateStockPrice(
       .map((m) => ({
         ...m,
         effect: Math.max(
-          MIN_PRICE_MULTIPLIER,
-          Math.min(MAX_PRICE_MULTIPLIER, m.effect)
+          MIN_EVENT_MULTIPLIER,
+          Math.min(MAX_EVENT_MULTIPLIER, m.effect)
         ),
       }));
 

@@ -1,6 +1,7 @@
 'use client';
 
-import type { FeedPost } from '@babylon/shared';
+import type { CommentPreviewData, FeedPost } from '@babylon/shared';
+import { useRouter } from 'next/navigation';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import type { PostCardProps } from '@/components/posts/PostCard';
@@ -14,6 +15,7 @@ interface PostListProps {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  density?: 'default' | 'compact';
 }
 
 /**
@@ -31,7 +33,9 @@ export const PostList = memo(function PostList({
   hasMore,
   loadingMore,
   onLoadMore,
+  density = 'default',
 }: PostListProps) {
+  const router = useRouter();
   const { user } = useAuthStore();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -133,14 +137,32 @@ export const PostList = memo(function PostList({
             ('originalPost' in post
               ? (post.originalPost as PostCardProps['post']['originalPost'])
               : null) || null,
+          commentPreviews:
+            'commentPreviews' in post
+              ? (post.commentPreviews as CommentPreviewData[])
+              : undefined,
         };
 
         return (
           <div key={`post-wrapper-${post.id}-${i}`}>
             {postData.type === 'article' ? (
-              <ArticleCard post={postData} />
+              <ArticleCard post={postData} density={density} />
             ) : (
-              <PostCard post={postData} />
+              <PostCard
+                post={postData}
+                density={density}
+                showCommentInputBar={false}
+                onCommentClick={() => {
+                  // For simple reposts, comments live on the original post
+                  const postId =
+                    post.isRepost &&
+                    !post.isQuote &&
+                    post.originalPostId != null
+                      ? post.originalPostId
+                      : post.id;
+                  router.push(`/post/${postId}`);
+                }}
+              />
             )}
             {showBannerAfterThisPost && (
               <InviteFriendsBanner

@@ -104,8 +104,35 @@ import type {
   SelectedActor,
   WorldEvent,
 } from './types/shared';
+import { firstOrThrow } from './utils/array-utils';
+import { toDateString } from './utils/date-utils';
+import { formatError } from './utils/error-utils';
+import { clamp } from './utils/math-utils';
 import { shuffleArray } from './utils/randomization';
 import { worldFactsService } from './world-facts-service';
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Determines if an actor is eligible for question generation.
+ * Actors are eligible if they have a main/supporting role OR are S/A tier.
+ * This handles cases where actors may not have a role defined but do have a tier.
+ *
+ * Exported for reuse in other modules (e.g., markets-tick).
+ */
+export function isEligibleActor(actor: {
+  role?: string | null;
+  tier?: string | null;
+}): boolean {
+  return (
+    actor.role === 'main' ||
+    actor.role === 'supporting' ||
+    actor.tier === 'S_TIER' ||
+    actor.tier === 'A_TIER'
+  );
+}
 
 /**
  * Parameters for question generation
@@ -340,8 +367,7 @@ export class QuestionManager {
       .map((q, index) => {
         const resolutionDate = new Date(currentDateObj);
         resolutionDate.setDate(
-          resolutionDate.getDate() +
-            Math.max(1, Math.min(7, q.daysUntilResolution || 3))
+          resolutionDate.getDate() + clamp(q.daysUntilResolution || 3, 1, 7)
         );
 
         return {
@@ -351,7 +377,7 @@ export class QuestionManager {
           outcome: q.expectedOutcome,
           rank: 1,
           createdDate: currentDate,
-          resolutionDate: resolutionDate.toISOString().split('T')[0]!,
+          resolutionDate: toDateString(resolutionDate),
           status: 'active',
         };
       });
@@ -382,9 +408,7 @@ ${s.involvedOrganizations?.length ? `Organizations: ${s.involvedOrganizations.jo
       .join('\n');
 
     // Shuffle actors and organizations to add variety to prompts
-    const shuffledActors = shuffleArray(
-      actors.filter((a) => a.role === 'main' || a.role === 'supporting')
-    );
+    const shuffledActors = shuffleArray(actors.filter(isEligibleActor));
     const actorsList = shuffledActors
       .slice(0, 20)
       .map((a) => `- ${a.name}: ${a.description}`)
@@ -568,7 +592,7 @@ ${s.involvedOrganizations?.length ? `Organizations: ${s.involvedOrganizations.jo
         'Failed to fetch world facts context for proof content - proceeding without',
         {
           questionId: question.id,
-          error: error instanceof Error ? error.message : String(error),
+          error: formatError(error),
         },
         'QuestionManager'
       );
@@ -1023,10 +1047,10 @@ ${s.involvedOrganizations?.length ? `Organizations: ${s.involvedOrganizations.jo
         )
         .orderBy(desc(questions.updatedAt))
         .limit(10),
-      // Get actors (main and supporting roles) from static registry
+      // Get actors (main and supporting roles, with tier fallback) from static registry
       Promise.resolve(
         StaticDataRegistry.getAllActors()
-          .filter((a) => a.role === 'main' || a.role === 'supporting')
+          .filter(isEligibleActor)
           .slice(0, 30)
           .map((a) => ({
             id: a.id,
@@ -1403,7 +1427,10 @@ XML: <response><questions><question><text>...</text><resolutionCriteria>...</res
           updatedAt: now,
         })
         .returning();
-      const question = questionResults[0]!;
+      const question = firstOrThrow(
+        questionResults,
+        'Question insert returned empty'
+      );
 
       // Ensure market exists via core service (keeps creation logic portable)
       const market = await marketService.ensureMarketExists({
@@ -1426,7 +1453,7 @@ XML: <response><questions><question><text>...</text><resolutionCriteria>...</res
 
       // Create and persist arc plan for this question
       const allActors = StaticDataRegistry.getAllActors()
-        .filter((a) => a.role === 'main' || a.role === 'supporting')
+        .filter(isEligibleActor)
         .slice(0, 30)
         .map((a) => ({
           id: a.id,
@@ -1602,10 +1629,10 @@ XML: <response><questions><question><text>...</text><resolutionCriteria>...</res
         .where(eq(questions.status, 'active'))
         .orderBy(desc(questions.createdAt))
         .limit(20),
-      // Get actors
+      // Get actors (with tier fallback since many actors don't have role defined)
       Promise.resolve(
         StaticDataRegistry.getAllActors()
-          .filter((a) => a.role === 'main' || a.role === 'supporting')
+          .filter(isEligibleActor)
           .slice(0, 20)
           .map((a) => ({
             id: a.id,
@@ -1806,7 +1833,7 @@ XML: <response><question><text>Your question here</text><resolutionCriteria>How 
       logger.error(
         'Failed to generate timeframe question',
         {
-          error: error instanceof Error ? error.message : String(error),
+          error: formatError(error),
           timeframe,
         },
         'QuestionManager'

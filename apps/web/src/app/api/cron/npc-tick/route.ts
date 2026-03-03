@@ -38,8 +38,7 @@ import {
   getRecentlyMentionedActorIds,
   getTrendingPromptContext,
   isActiveHour,
-  MarketContextService,
-  MarketDecisionEngine,
+  NPC_DIVERSITY_CONFIG,
   NPC_ENGAGEMENT_CONFIG,
   NPC_TICK_CONFIG,
   NPCInvestmentManager,
@@ -49,14 +48,47 @@ import {
   postingProbabilityService,
   processNPCSocialEngagements,
   StaticDataRegistry,
-  TradeExecutionService,
-  updateMarketPricesFromTrades,
+  secureRandom,
   worldFactsService,
 } from '@babylon/engine';
 import { logger } from '@babylon/shared';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { ensureEngineServices } from '@/lib/engine/ensure-engine-services';
+
+// =============================================================================
+// TIMESTAMP STAGGERING (Organic pacing)
+// =============================================================================
+
+/**
+ * Creates a timestamp staggering function for organic action distribution.
+ * Inspired by organization-tick implementation.
+ *
+ * Posts/actions created within a tick get timestamps spread across the
+ * configured window, so they appear gradually in the feed rather than all at once.
+ *
+ * STAGGERING CONVENTION:
+ * - Engagement (likes/shares/comments): Staggered INTERNALLY by processNPCSocialEngagements
+ *   Pass the original `now` timestamp - the service handles its own staggering.
+ *
+ * - Discourse (quotes/replies): Staggered via getTimestamp option passed to
+ *   generateNPCRepliesFromPreviousTicks. The caller provides a staggerer function
+ *   that is called per-action inside the service.
+ *
+ * This separation exists because:
+ * - Engagement uses `now` for both window calculations AND action timestamps
+ * - Discourse needs separate base timestamp (for 2-hour lookback) vs action timestamps
+ *
+ * @param baseTime Base timestamp (start of tick)
+ * @returns Function that generates staggered timestamps, each call returns a unique time
+ */
+function createTimestampStaggerer(baseTime: Date): () => Date {
+  const staggerWindowMs = NPC_DIVERSITY_CONFIG.timestampStaggerMs;
+  return () => {
+    const randomOffset = Math.floor(secureRandom() * staggerWindowMs);
+    return new Date(baseTime.getTime() + randomOffset);
+  };
+}
 
 /** Game state shape for cache */
 interface GameState {
@@ -115,21 +147,14 @@ export async function POST(_req: NextRequest) {
   const processId = `npc-tick-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   logger.info('NPC tick started', { processId }, 'NPCTick');
 
-  // Relay to staging if configured
+  // Relay to staging if configured (fan-out)
   const relayResult = await relayCronToStaging(_req, 'npc-tick');
   if (relayResult.forwarded) {
     logger.info(
-      'Cron execution relayed to staging - skipping local execution',
+      'Cron execution relayed to staging (fan-out: continuing local execution)',
       { status: relayResult.status, error: relayResult.error },
       'NPCTick'
     );
-    return NextResponse.json({
-      success: true,
-      skipped: true,
-      reason: 'Relayed to staging environment',
-      relayStatus: relayResult.status,
-      processed: 0,
-    });
   }
 
   // Acquire global lock to prevent overlapping cron invocations
@@ -289,7 +314,7 @@ export async function POST(_req: NextRequest) {
     const actorIds = allNpcs.map((a) => a.id);
     const stateMap = await postingProbabilityService.getStateMap(actorIds);
 
-    // Filter to NPCs in their active hours (simple ID-based rotation, ~1/3 active at any time)
+    // Filter to NPCs in their active hours (simple ID-based rotation)
     // Game day is used for daily rotation - different actors active on different game days
     // Days are 1-indexed (Day 1 is first day of game), default to 1 if not set
     const gameDay = gameState.currentDay ?? 1;
@@ -313,12 +338,65 @@ export async function POST(_req: NextRequest) {
       ),
     }));
 
-    // Weighted random selection
-    const selected = postingProbabilityService.weightedSample(
-      candidates,
-      NPCS_PER_TICK
+    // =======================================================================
+    // DIVERSITY GUARANTEE: Reserve 30% of batch for NPCs that haven't posted today
+    // This ensures broader coverage across all NPCs instead of same ones repeatedly
+    // =======================================================================
+    const today = now.toISOString().split('T')[0];
+    const neverPostedToday = activeNpcs.filter((npc) => {
+      const state = stateMap.get(npc.id);
+      const lastPost = state?.lastPostAt;
+      return !lastPost || lastPost.toISOString().split('T')[0] !== today;
+    });
+
+    // Reserve 30% of batch for diversity (NPCs that haven't posted today)
+    const diversitySlotsReserved = Math.max(1, Math.floor(NPCS_PER_TICK * 0.3));
+
+    // Shuffle never-posted NPCs for fair selection among them using Fisher-Yates
+    const fisherYatesShuffle = <T>(arr: T[]): T[] => {
+      const shuffled = [...arr];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(secureRandom() * (i + 1));
+        const temp = shuffled[i]!;
+        shuffled[i] = shuffled[j]!;
+        shuffled[j] = temp;
+      }
+      return shuffled;
+    };
+    const shuffledNeverPosted = fisherYatesShuffle(neverPostedToday);
+    const diversitySelection = shuffledNeverPosted.slice(
+      0,
+      diversitySlotsReserved
     );
-    const npcsThisTick = selected.map((s) => s.npc);
+
+    // Remaining slots go to weighted random (exclude diversity picks)
+    const diversityIds = new Set(diversitySelection.map((n) => n.id));
+    const remainingCandidates = candidates.filter(
+      (c) => !diversityIds.has(c.npc.id)
+    );
+    const regularSlots = NPCS_PER_TICK - diversitySelection.length;
+    const regularSelection = postingProbabilityService.weightedSample(
+      remainingCandidates,
+      regularSlots
+    );
+
+    const npcsThisTick = [
+      ...diversitySelection,
+      ...regularSelection.map((s) => s.npc),
+    ];
+
+    // Log diversity stats
+    logger.info(
+      `Diversity guarantee: ${diversitySelection.length} diversity slots, ${regularSelection.length} regular slots`,
+      {
+        diversitySlotsActual: diversitySelection.length,
+        regularSlotsActual: regularSelection.length,
+        neverPostedTodayCount: neverPostedToday.length,
+        remainingCandidatesCount: remainingCandidates.length,
+        diversityNpcs: diversitySelection.map((n) => n.name),
+      },
+      'NPCTick'
+    );
 
     logger.info(
       `NPC tick processing ${npcsThisTick.length} NPCs (random selection with spam prevention)`,
@@ -476,74 +554,14 @@ export async function POST(_req: NextRequest) {
     }
 
     // =======================================================================
-    // NPC BATCH TRADING (MarketDecisionEngine)
-    // Generate and execute batch trading decisions for market liquidity
+    // NPC BATCH TRADING - NOW HANDLED BY game-tick
     // =======================================================================
-    let npcTradesExecuted = 0;
-    let marketsUpdated = 0;
-    const tradeDeadline = startTime + 240000; // 4 minute budget
+    // NPC trading (MarketDecisionEngine, batch decisions, trade execution) is now
+    // handled by game-tick for consistent 1-minute interval trading.
+    // See: packages/engine/src/game-tick.ts
+    // =======================================================================
 
-    if (Date.now() < tradeDeadline && !abortedDueToCircuitBreaker) {
-      try {
-        logger.info('Starting NPC batch trading', {}, 'NPCTick');
-
-        // Initialize trading infrastructure
-        const marketDecisionLLM = BabylonLLMClient.forGameTick();
-        const contextService = new MarketContextService();
-
-        // Configure decision engine
-        const modelName = process.env.MARKET_DECISION_MODEL || 'qwen/qwen3-32b';
-        const isKimiModel = modelName.toLowerCase().includes('kimi');
-        const defaultMaxOutput = isKimiModel ? 16000 : 32000;
-        const maxOutputTokens = Number.parseInt(
-          process.env.MARKET_DECISION_MAX_OUTPUT_TOKENS ||
-            defaultMaxOutput.toString(),
-          10
-        );
-
-        const decisionEngine = new MarketDecisionEngine(
-          marketDecisionLLM,
-          contextService,
-          { model: modelName, maxOutputTokens }
-        );
-        const executionService = new TradeExecutionService();
-
-        // Generate batch decisions
-        const marketDecisions = await decisionEngine.generateBatchDecisions();
-
-        if (marketDecisions.length === 0) {
-          logger.info('No NPC batch trades generated', {}, 'NPCTick');
-        } else {
-          const executionResult =
-            await executionService.executeDecisionBatch(marketDecisions);
-
-          npcTradesExecuted = executionResult.successfulTrades;
-
-          logger.info(
-            `NPC Batch Trading: ${executionResult.successfulTrades} trades executed`,
-            {
-              successful: executionResult.successfulTrades,
-              failed: executionResult.failedTrades,
-              holds: executionResult.holdDecisions,
-            },
-            'NPCTick'
-          );
-
-          // Update prices based on NPC trades
-          const timestamp = new Date();
-          marketsUpdated = await updateMarketPricesFromTrades(
-            timestamp,
-            executionResult
-          );
-        }
-      } catch (error) {
-        logger.error(
-          'NPC batch trading failed',
-          { error: error instanceof Error ? error.message : String(error) },
-          'NPCTick'
-        );
-      }
-    }
+    const tradeDeadline = startTime + 240000; // 4 minute budget (used by other sections)
 
     // -------------------------------------------------------------------------
     // NPC-TO-NPC FEED INTERACTIONS (discourse + comments/likes/shares)
@@ -598,8 +616,10 @@ export async function POST(_req: NextRequest) {
         .trim();
 
       // Comment threads + lightweight engagement (likes/shares)
+      // Pass original `now` - processNPCSocialEngagements handles staggering internally
       npcSocialEngagementService.setLLMClient(llmClient);
       const engagementResult = await processNPCSocialEngagements({
+        now, // Original timestamp - service handles internal staggering
         currentDay: gameDay,
         promptContext: interactionPromptContext,
       });
@@ -619,14 +639,20 @@ export async function POST(_req: NextRequest) {
         role: a.role ?? null,
       }));
 
+      // Create timestamp staggerer for organic feed pacing
+      // Pass function reference so each discourse action gets its own staggered timestamp
+      const getStaggeredTimestamp = createTimestampStaggerer(now);
       discourseCreated = await generateNPCRepliesFromPreviousTicks(
         llmClient,
         discourseActors,
         interactionPromptContext,
-        now,
+        now, // Base timestamp for window calculations
         NPC_TICK_CONFIG.maxDiscourseReplies,
         gameDay,
-        { quoteProbability: NPC_ENGAGEMENT_CONFIG.discourseQuoteProbability }
+        {
+          quoteProbability: NPC_ENGAGEMENT_CONFIG.discourseQuoteProbability,
+          getTimestamp: getStaggeredTimestamp, // Function called per-action
+        }
       );
 
       if (
@@ -732,43 +758,11 @@ export async function POST(_req: NextRequest) {
     }
 
     // =======================================================================
-    // NPC BASELINE INVESTMENTS
-    // Ensure each NPC pool has an initial baseline allocation across aligned companies
+    // NPC BASELINE INVESTMENTS - NOW HANDLED BY game-tick
     // =======================================================================
-    let baselineInvestmentsExecuted = 0;
-
-    if (Date.now() < tradeDeadline && !abortedDueToCircuitBreaker) {
-      try {
-        const baselineResult =
-          await NPCInvestmentManager.executeBaselineInvestments(new Date());
-
-        if (baselineResult) {
-          baselineInvestmentsExecuted = baselineResult.successfulTrades;
-
-          logger.info(
-            'NPC baseline investments executed',
-            {
-              successful: baselineResult.successfulTrades,
-              failed: baselineResult.failedTrades,
-            },
-            'NPCTick'
-          );
-
-          // Update prices based on baseline investments
-          const baselineMarketsUpdated = await updateMarketPricesFromTrades(
-            new Date(),
-            baselineResult
-          );
-          marketsUpdated += baselineMarketsUpdated;
-        }
-      } catch (error) {
-        logger.error(
-          'NPC baseline investments failed',
-          { error: error instanceof Error ? error.message : String(error) },
-          'NPCTick'
-        );
-      }
-    }
+    // Baseline investments are now handled by game-tick for consistent timing.
+    // See: packages/engine/src/game-tick.ts
+    // =======================================================================
 
     // =======================================================================
     // NPC PORTFOLIO REBALANCING
@@ -865,22 +859,54 @@ export async function POST(_req: NextRequest) {
 
     const duration = Date.now() - startTime;
 
+    // =======================================================================
+    // DIVERSITY MONITORING: Track unique NPC posting distribution
+    // =======================================================================
+    const npcsWhoPostedThisTick = results.filter(
+      (r) => r.actions && r.actions > 0 && r.status === 'success'
+    );
+    const uniquePostersThisTick = npcsWhoPostedThisTick.length;
+
+    // Count how many NPCs haven't posted today (diversity pool remaining)
+    // Use actual selection length, not diversitySlots, since selection may be smaller
+    const neverPostedTodayRemaining =
+      neverPostedToday.length - diversitySelection.length;
+
+    // Log diversity metrics separately for easy monitoring
+    logger.info(
+      'NPC posting diversity metrics',
+      {
+        uniquePostersThisTick,
+        diversitySlotsUsed: diversitySelection.length,
+        regularSlotsUsed: regularSelection.length,
+        neverPostedTodayCount: neverPostedToday.length,
+        neverPostedTodayRemaining:
+          neverPostedTodayRemaining > 0 ? neverPostedTodayRemaining : 0,
+        totalActiveNpcs: activeNpcs.length,
+        totalNpcs: allNpcs.length,
+      },
+      'NPCTick'
+    );
+
     logger.info(
       `NPC tick completed in ${duration}ms`,
       {
         npcsProcessed: results.length - skippedDueToLock,
         npcsSkippedLocked: skippedDueToLock,
         totalActions: totalActionsExecuted,
-        npcTradesExecuted,
-        marketsUpdated,
         npcSocialActionsProcessed,
         npcFollowsCreated,
         npcUnfollows,
-        baselineInvestmentsExecuted,
         rebalanceActionsExecuted,
         discourseCreated,
         socialEngagement,
         errors,
+        diversityMetrics: {
+          uniquePostersThisTick,
+          diversitySlotsUsed: diversitySelection.length,
+          regularSlotsUsed: regularSelection.length,
+          neverPostedTodayCount: neverPostedToday.length,
+        },
       },
       'NPCTick'
     );
@@ -890,12 +916,9 @@ export async function POST(_req: NextRequest) {
       success: !abortedDueToCircuitBreaker,
       processed: results.length - skippedDueToLock,
       totalActions: totalActionsExecuted,
-      npcTradesExecuted,
-      marketsUpdated,
       npcSocialActionsProcessed,
       npcFollowsCreated,
       npcUnfollows,
-      baselineInvestmentsExecuted,
       rebalanceActionsExecuted,
       discourseCreated: discourseCreated,
       socialEngagement: socialEngagement
@@ -909,6 +932,13 @@ export async function POST(_req: NextRequest) {
       errorCount: errors,
       skippedLocked: skippedDueToLock,
       abortedDueToCircuitBreaker,
+      // Diversity metrics for monitoring NPC posting distribution
+      diversityMetrics: {
+        uniquePostersThisTick,
+        diversitySlotsUsed: diversitySelection.length,
+        regularSlotsUsed: regularSelection.length,
+        neverPostedTodayCount: neverPostedToday.length,
+      },
     });
 
     return NextResponse.json({
@@ -917,17 +947,22 @@ export async function POST(_req: NextRequest) {
       skippedLocked: skippedDueToLock,
       duration,
       totalActions: totalActionsExecuted,
-      npcTradesExecuted,
-      marketsUpdated,
       npcSocialActionsProcessed,
       npcFollowsCreated,
       npcUnfollows,
-      baselineInvestmentsExecuted,
       rebalanceActionsExecuted,
       discourseCreated,
       socialEngagement,
       errors,
       abortedDueToCircuitBreaker,
+      // Diversity metrics for monitoring NPC posting distribution
+      diversityMetrics: {
+        uniquePostersThisTick,
+        diversitySlotsUsed: diversitySelection.length,
+        regularSlotsUsed: regularSelection.length,
+        neverPostedTodayCount: neverPostedToday.length,
+        totalActiveNpcs: activeNpcs.length,
+      },
       results,
     });
   } finally {

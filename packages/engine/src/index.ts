@@ -23,6 +23,15 @@ export {
 } from './actors-loader';
 // State Store Adapters
 export { DbStateStore, InMemoryStateStore } from './adapters';
+// Alpha Group Configuration
+export {
+  ALPHA_GROUP_CONFIG,
+  type AlphaGroupConfig,
+  calculateNextEligibleDate,
+  DOMAIN_FOCUS_WEIGHTS,
+  getFocusWeightsForDomains,
+  shouldResetDeclineCount,
+} from './config/alpha-group-config';
 // Content Pacing Configuration
 export {
   CONTENT_PACING,
@@ -47,6 +56,7 @@ export {
   NPC_ACTIVITY_CONFIG,
   NPC_ACTIVITY_PRESETS,
   NPC_CONTENT_PACING_CONFIG,
+  NPC_DIVERSITY_CONFIG,
   NPC_ENGAGEMENT_CONFIG,
   NPC_FOLLOWING_CONFIG,
   NPC_GROUP_DYNAMICS_CONFIG,
@@ -161,6 +171,11 @@ export {
   setTokenUsageCallback,
   type TokenUsageCallback,
 } from './llm/openai-client';
+export {
+  type LLMGenerateJSONOptions,
+  type LLMJsonClient,
+  type LLMJsonSchema,
+} from './llm/types';
 export { parseXML, type XMLParseResult } from './llm/xml-parser';
 // Market Decision Engine
 export { MarketDecisionEngine } from './MarketDecisionEngine';
@@ -203,6 +218,7 @@ export {
 export * from './prompts';
 // Question Manager
 export {
+  isEligibleActor,
   type QuestionCreationParams,
   QuestionManager,
 } from './QuestionManager';
@@ -249,6 +265,27 @@ export {
 } from './reputation';
 // Services (all exported from services/index.ts)
 export * from './services';
+// Tier Configuration
+export {
+  ALL_TIERS,
+  getEffectiveTierConfig,
+  getHigherTier,
+  getLowerTier,
+  getNpcFocusWeights,
+  getTierConfig,
+  getTierForEngagementScore,
+  getTierForEngagementScoreWithNpc,
+  getTierGroupName,
+  getTierMessageGuidance,
+  getTierSuffix,
+  getTotalNpcCapacity,
+  isEligibleForPromotion,
+  isValidTier,
+  shouldDemote,
+  TIER_CONFIG,
+  TIER_MESSAGE_GUIDANCE,
+  type TierConfig,
+} from './services/tier-config';
 // Storage Bridge (database-agnostic storage abstraction)
 export {
   db,
