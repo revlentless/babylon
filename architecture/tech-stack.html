@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -240,8 +240,13 @@
 │   ├── ArchetypeConfigService.ts
 │   └── index.ts                 # Exports
 ├── benchmark/
-│   └── BenchmarkDataGenerator.ts  # Synthetic data
-└── index.ts                     # Public exports
+│   ├── BenchmarkDataGenerator.ts  # Synthetic data generation
+│   ├── BenchmarkRunner.ts         # Run model against scenarios
+│   ├── ScenarioLoader.ts          # Load fixed scenarios
+│   ├── ArchetypeFitCalculator.ts  # Archetype alignment scoring
+│   ├── StakeholderReport.ts       # Generate HTML/JSON/text reports
+│   └── SimulationEngine.ts        # Run simulations
+└── index.ts                       # Public exports
 </code></pre>
 <h2 id="python-stack"><a class="header" href="#python-stack">Python Stack</a></h2>
 <div class="table-wrapper">

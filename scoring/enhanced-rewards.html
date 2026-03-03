@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -562,6 +562,72 @@ reward = enhanced_composite_reward(
 )
 # reward &gt; 0 (positive despite negative P&amp;L due to outperformance)
 </code></pre>
+<h2 id="social--narrative-rewards"><a class="header" href="#social--narrative-rewards">Social &amp; Narrative Rewards</a></h2>
+<p>For non-trading archetypes like <strong>Social Butterfly</strong> and <strong>Information Trader</strong>, financial performance is not the primary success metric. The social reward system provides PnL-independent scoring based on:</p>
+<h3 id="components"><a class="header" href="#components">Components</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Description</th><th>Key Metrics</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Engagement</strong></td><td>Volume and diversity of social activity</td><td>Posts, comments, DMs, group chats</td></tr>
+<tr><td><strong>Information Spread</strong></td><td>Content that reaches and engages others</td><td>Reactions, shares, spread count</td></tr>
+<tr><td><strong>Network</strong></td><td>Building connections and reputation</td><td>Unique users, follower gains, reputation</td></tr>
+<tr><td><strong>Narrative Alignment</strong></td><td>Actions aligned with ground truth events</td><td>Prediction accuracy, timing</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="archetype-specific-weights"><a class="header" href="#archetype-specific-weights">Archetype-Specific Weights</a></h3>
+<p>Different archetypes weight these components differently:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Archetype</th><th>Engagement</th><th>Spread</th><th>Network</th><th>Narrative</th></tr>
+</thead>
+<tbody>
+<tr><td>Social Butterfly</td><td>30%</td><td>20%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Information Trader</td><td>15%</td><td>25%</td><td>20%</td><td><strong>40%</strong></td></tr>
+<tr><td>Scammer/Liar</td><td>20%</td><td><strong>40%</strong></td><td>25%</td><td>15%</td></tr>
+<tr><td>Goody Two-Shoes</td><td>25%</td><td>20%</td><td>30%</td><td>25%</td></tr>
+<tr><td>Ass-Kisser</td><td>35%</td><td>15%</td><td><strong>40%</strong></td><td>10%</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="usage"><a class="header" href="#usage">Usage</a></h3>
+<pre><code class="language-python">from training.rewards import calculate_social_reward, social_only_composite_reward
+
+# Get component breakdown
+result = calculate_social_reward(metrics, "social-butterfly")
+print(result.engagement_score)      # 0.85
+print(result.network_score)         # 0.92
+print(result.total_score)           # 0.78
+
+# Use social-focused composite reward
+reward = social_only_composite_reward(
+    inputs=trajectory_inputs,
+    archetype="social-butterfly",
+    behavior_metrics=metrics,
+)
+# Social Butterfly with $0 PnL but great social metrics can score &gt; 0.6
+</code></pre>
+<h3 id="key-insight"><a class="header" href="#key-insight">Key Insight</a></h3>
+<p>A Social Butterfly with no trading but 15+ unique connections, 5+ group chats, and positive reputation can <strong>outscore</strong> a passive trader who just holds their balance. This enables training agents specialized in community building rather than trading.</p>
+<h3 id="wb-metrics-1"><a class="header" href="#wb-metrics-1">W&amp;B Metrics</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/social_reward_mean</code></td><td>Average total social reward</td></tr>
+<tr><td><code>train/social_engagement_mean</code></td><td>Average engagement score</td></tr>
+<tr><td><code>train/social_spread_mean</code></td><td>Average information spread score</td></tr>
+<tr><td><code>train/social_network_mean</code></td><td>Average network score</td></tr>
+<tr><td><code>train/social_narrative_mean</code></td><td>Average narrative alignment score</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
 <li><a href="./reward-system.html">Reward System</a> - Basic reward components</li>

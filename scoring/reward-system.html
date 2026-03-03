@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -423,12 +423,24 @@ logger.info(f"  Mean: {np.mean(scores):.3f}")
 logger.info(f"  Std:  {np.std(scores):.3f}")
 logger.info(f"  Components: pnl={pnl:.3f}, fmt={fmt:.3f}, rsn={rsn:.3f}")
 </code></pre>
+<h2 id="social-rewards"><a class="header" href="#social-rewards">Social Rewards</a></h2>
+<p>For non-trading archetypes (Social Butterfly, Ass-Kisser, Goody Two-Shoes), financial performance is not the primary goal. These archetypes use <strong>social reward scoring</strong> via <code>SOCIAL_COMPOSITE_WEIGHTS</code> in <code>rewards.py</code>:</p>
+<pre><code class="language-python"># Social Butterfly (most social-focused)
+"social-butterfly": {"social": 0.55, "format": 0.20, "reasoning": 0.15, "pnl": 0.10}
+
+# Ass-Kisser and Goody Two-Shoes (slightly more balanced)
+"ass-kisser":       {"social": 0.50, "format": 0.25, "reasoning": 0.15, "pnl": 0.10}
+"goody-twoshoes":   {"social": 0.50, "format": 0.25, "reasoning": 0.15, "pnl": 0.10}
+</code></pre>
+<p>This allows a Social Butterfly with zero P&amp;L but strong network building to score higher than a passive trader.</p>
+<p>See <a href="./enhanced-rewards.html#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a> for details.</p>
 <h2 id="enhanced-rewards"><a class="header" href="#enhanced-rewards">Enhanced Rewards</a></h2>
 <p>For more sophisticated reward calculation that accounts for market conditions, see <a href="./enhanced-rewards.html">Enhanced Rewards</a>:</p>
 <ul>
 <li><strong>Market Regime Detection</strong> - Classify bull/bear/sideways conditions</li>
 <li><strong>Counterfactual Alpha</strong> - Measure skill vs luck</li>
 <li><strong>Temporal Credit</strong> - Attribute delayed outcomes to decisions</li>
+<li><strong>Social &amp; Narrative Rewards</strong> - PnL-independent scoring for social archetypes</li>
 <li><strong>Configurable Weights</strong> - YAML-based weight profiles</li>
 </ul>
 

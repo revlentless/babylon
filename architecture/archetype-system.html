@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -396,6 +396,36 @@ class BehaviorMetrics:
     
     return clamp(composite, -1.0, 1.0)
 </code></pre>
+<h2 id="social-archetypes"><a class="header" href="#social-archetypes">Social Archetypes</a></h2>
+<p>Some archetypes (Social Butterfly, Ass-Kisser, Goody Two-Shoes) succeed through social interaction rather than trading. These use a <strong>social reward system</strong> with different scoring components:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Engagement</strong></td><td>Volume of posts, DMs, comments, group activity</td></tr>
+<tr><td><strong>Information Spread</strong></td><td>Content that gets reactions/shares</td></tr>
+<tr><td><strong>Network</strong></td><td>Unique connections, group memberships, reputation</td></tr>
+<tr><td><strong>Narrative Alignment</strong></td><td>Actions aligned with ground truth events</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each social archetype weights these differently:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Archetype</th><th>Engagement</th><th>Spread</th><th>Network</th><th>Narrative</th></tr>
+</thead>
+<tbody>
+<tr><td>Social Butterfly</td><td>30%</td><td>20%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Ass-Kisser</td><td>35%</td><td>15%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Goody Two-Shoes</td><td>25%</td><td>20%</td><td>30%</td><td>25%</td></tr>
+</tbody>
+</table>
+</div>
+<p>A Social Butterfly with 15+ unique connections and positive reputation can outscore a passive trader with zero P&amp;L.</p>
+<p>See <a href="../scoring/enhanced-rewards.html#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a> for implementation details.</p>
 <h2 id="adding-a-new-archetype"><a class="header" href="#adding-a-new-archetype">Adding a New Archetype</a></h2>
 <p>See <a href="../development/adding-archetypes.html">Adding Archetypes</a> for the step-by-step guide.</p>
 <p>Key files to modify:</p>
@@ -403,6 +433,7 @@ class BehaviorMetrics:
 <li><code>config/rubrics.json</code> - Add rubric and priority metrics</li>
 <li><code>python/src/training/rewards.py</code> - Add weights and bonus function</li>
 <li><code>src/archetypes/</code> - Add TypeScript definition</li>
+<li>(For social archetypes) Add to <code>SOCIAL_REWARD_WEIGHTS</code> in <code>rewards.py</code></li>
 </ol>
 
                     </main>

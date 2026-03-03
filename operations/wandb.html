@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -267,6 +267,38 @@ python scripts/run_training.py --profile 12gb
 </tbody>
 </table>
 </div>
+<h3 id="social-metrics"><a class="header" href="#social-metrics">Social Metrics</a></h3>
+<p>For non-trading archetypes (Social Butterfly, Information Trader, etc.):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/social_reward_mean</code></td><td>Combined social reward</td></tr>
+<tr><td><code>train/social_engagement_mean</code></td><td>Posts, comments, DMs activity</td></tr>
+<tr><td><code>train/social_spread_mean</code></td><td>Content reach and reactions</td></tr>
+<tr><td><code>train/social_network_mean</code></td><td>Connections and reputation</td></tr>
+<tr><td><code>train/social_narrative_mean</code></td><td>Alignment with ground truth</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="enhanced-reward-metrics"><a class="header" href="#enhanced-reward-metrics">Enhanced Reward Metrics</a></h3>
+<p>When training with causal scenarios (price context available):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/regime_bull_pct</code></td><td>% of trajectories in bull market</td></tr>
+<tr><td><code>train/regime_bear_pct</code></td><td>% of trajectories in bear market</td></tr>
+<tr><td><code>train/regime_sideways_pct</code></td><td>% of trajectories in sideways market</td></tr>
+<tr><td><code>train/counterfactual_alpha_mean</code></td><td>Skill signal (actual vs expected)</td></tr>
+<tr><td><code>train/market_volatility_mean</code></td><td>Average market volatility</td></tr>
+</tbody>
+</table>
+</div>
 <h3 id="grpo-specific"><a class="header" href="#grpo-specific">GRPO-Specific</a></h3>
 <div class="table-wrapper">
 <table>
@@ -426,7 +458,7 @@ WANDB_ENTITY ?=
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../operations/data-management.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../operations/benchmarking.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
@@ -440,7 +472,7 @@ WANDB_ENTITY ?=
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../operations/data-management.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../operations/benchmarking.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 

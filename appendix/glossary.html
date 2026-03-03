@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -259,6 +259,23 @@
 </ul>
 <h3 id="temporal-credit"><a class="header" href="#temporal-credit">Temporal Credit</a></h3>
 <p>Attribution of final P&amp;L back to individual trading decisions. Decisions closer to the outcome receive more credit (exponential decay).</p>
+<h3 id="social-reward"><a class="header" href="#social-reward">Social Reward</a></h3>
+<p>PnL-independent scoring for non-trading archetypes (Social Butterfly, Ass-Kisser, etc.). Composed of:</p>
+<ul>
+<li><strong>Engagement</strong>: Volume/diversity of social actions (posts, DMs, comments)</li>
+<li><strong>Spread</strong>: How well content reaches others (reactions, shares)</li>
+<li><strong>Network</strong>: Connections built (unique users, groups, reputation)</li>
+<li><strong>Narrative</strong>: Alignment with ground truth events</li>
+</ul>
+<h3 id="narrative-event"><a class="header" href="#narrative-event">Narrative Event</a></h3>
+<p>A ground truth event in the simulation that agents can react to. Contains:</p>
+<ul>
+<li>Tick when it occurred</li>
+<li>Affected tickers/markets</li>
+<li>Expected direction (up/down/volatile)</li>
+<li>Whether publicly revealed</li>
+</ul>
+<p>Used to score how well agents align actions with real events.</p>
 <h3 id="rubric"><a class="header" href="#rubric">Rubric</a></h3>
 <p>Detailed evaluation criteria for an archetype. Defines what makes excellent, good, average, and poor performance.</p>
 <h3 id="tiebreaker"><a class="header" href="#tiebreaker">Tiebreaker</a></h3>

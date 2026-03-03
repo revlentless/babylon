@@ -36,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex-434def02.js";
+            window.path_to_searchindex_js = "searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-f9429206.js"></script>
+        <script src="toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -335,6 +335,9 @@ python packages/training/python/scripts/import_json_trajectories.py --source ./t
 <tr><td>ArchetypeScoringService</td><td><code>scoring/ArchetypeScoringService.ts</code></td><td>LLM-as-judge scoring (optional)</td></tr>
 <tr><td>Archetype Definitions</td><td><code>archetypes/</code></td><td>TypeScript archetype configs</td></tr>
 <tr><td>Benchmark Generator</td><td><code>benchmark/BenchmarkDataGenerator.ts</code></td><td>Synthetic scenario generation</td></tr>
+<tr><td>Scenario Loader</td><td><code>benchmark/ScenarioLoader.ts</code></td><td>Load fixed benchmark scenarios</td></tr>
+<tr><td>Archetype Fit Calculator</td><td><code>benchmark/ArchetypeFitCalculator.ts</code></td><td>Measure archetype alignment</td></tr>
+<tr><td>Stakeholder Report</td><td><code>benchmark/StakeholderReport.ts</code></td><td>Generate benchmark reports</td></tr>
 </tbody>
 </table>
 </div>
@@ -909,6 +912,36 @@ class BehaviorMetrics:
     
     return clamp(composite, -1.0, 1.0)
 </code></pre>
+<h2 id="social-archetypes"><a class="header" href="#social-archetypes">Social Archetypes</a></h2>
+<p>Some archetypes (Social Butterfly, Ass-Kisser, Goody Two-Shoes) succeed through social interaction rather than trading. These use a <strong>social reward system</strong> with different scoring components:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Engagement</strong></td><td>Volume of posts, DMs, comments, group activity</td></tr>
+<tr><td><strong>Information Spread</strong></td><td>Content that gets reactions/shares</td></tr>
+<tr><td><strong>Network</strong></td><td>Unique connections, group memberships, reputation</td></tr>
+<tr><td><strong>Narrative Alignment</strong></td><td>Actions aligned with ground truth events</td></tr>
+</tbody>
+</table>
+</div>
+<p>Each social archetype weights these differently:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Archetype</th><th>Engagement</th><th>Spread</th><th>Network</th><th>Narrative</th></tr>
+</thead>
+<tbody>
+<tr><td>Social Butterfly</td><td>30%</td><td>20%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Ass-Kisser</td><td>35%</td><td>15%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Goody Two-Shoes</td><td>25%</td><td>20%</td><td>30%</td><td>25%</td></tr>
+</tbody>
+</table>
+</div>
+<p>A Social Butterfly with 15+ unique connections and positive reputation can outscore a passive trader with zero P&amp;L.</p>
+<p>See <a href="#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a> for implementation details.</p>
 <h2 id="adding-a-new-archetype"><a class="header" href="#adding-a-new-archetype">Adding a New Archetype</a></h2>
 <p>See <a href="#adding-archetypes">Adding Archetypes</a> for the step-by-step guide.</p>
 <p>Key files to modify:</p>
@@ -916,6 +949,7 @@ class BehaviorMetrics:
 <li><code>config/rubrics.json</code> - Add rubric and priority metrics</li>
 <li><code>python/src/training/rewards.py</code> - Add weights and bonus function</li>
 <li><code>src/archetypes/</code> - Add TypeScript definition</li>
+<li>(For social archetypes) Add to <code>SOCIAL_REWARD_WEIGHTS</code> in <code>rewards.py</code></li>
 </ol>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="tech-stack"><a class="header" href="#tech-stack">Tech Stack</a></h1>
@@ -978,8 +1012,13 @@ class BehaviorMetrics:
 │   ├── ArchetypeConfigService.ts
 │   └── index.ts                 # Exports
 ├── benchmark/
-│   └── BenchmarkDataGenerator.ts  # Synthetic data
-└── index.ts                     # Public exports
+│   ├── BenchmarkDataGenerator.ts  # Synthetic data generation
+│   ├── BenchmarkRunner.ts         # Run model against scenarios
+│   ├── ScenarioLoader.ts          # Load fixed scenarios
+│   ├── ArchetypeFitCalculator.ts  # Archetype alignment scoring
+│   ├── StakeholderReport.ts       # Generate HTML/JSON/text reports
+│   └── SimulationEngine.ts        # Run simulations
+└── index.ts                       # Public exports
 </code></pre>
 <h2 id="python-stack"><a class="header" href="#python-stack">Python Stack</a></h2>
 <div class="table-wrapper">
@@ -2383,12 +2422,24 @@ logger.info(f"  Mean: {np.mean(scores):.3f}")
 logger.info(f"  Std:  {np.std(scores):.3f}")
 logger.info(f"  Components: pnl={pnl:.3f}, fmt={fmt:.3f}, rsn={rsn:.3f}")
 </code></pre>
+<h2 id="social-rewards"><a class="header" href="#social-rewards">Social Rewards</a></h2>
+<p>For non-trading archetypes (Social Butterfly, Ass-Kisser, Goody Two-Shoes), financial performance is not the primary goal. These archetypes use <strong>social reward scoring</strong> via <code>SOCIAL_COMPOSITE_WEIGHTS</code> in <code>rewards.py</code>:</p>
+<pre><code class="language-python"># Social Butterfly (most social-focused)
+"social-butterfly": {"social": 0.55, "format": 0.20, "reasoning": 0.15, "pnl": 0.10}
+
+# Ass-Kisser and Goody Two-Shoes (slightly more balanced)
+"ass-kisser":       {"social": 0.50, "format": 0.25, "reasoning": 0.15, "pnl": 0.10}
+"goody-twoshoes":   {"social": 0.50, "format": 0.25, "reasoning": 0.15, "pnl": 0.10}
+</code></pre>
+<p>This allows a Social Butterfly with zero P&amp;L but strong network building to score higher than a passive trader.</p>
+<p>See <a href="#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a> for details.</p>
 <h2 id="enhanced-rewards"><a class="header" href="#enhanced-rewards">Enhanced Rewards</a></h2>
 <p>For more sophisticated reward calculation that accounts for market conditions, see <a href="#enhanced-reward-signals">Enhanced Rewards</a>:</p>
 <ul>
 <li><strong>Market Regime Detection</strong> - Classify bull/bear/sideways conditions</li>
 <li><strong>Counterfactual Alpha</strong> - Measure skill vs luck</li>
 <li><strong>Temporal Credit</strong> - Attribute delayed outcomes to decisions</li>
+<li><strong>Social &amp; Narrative Rewards</strong> - PnL-independent scoring for social archetypes</li>
 <li><strong>Configurable Weights</strong> - YAML-based weight profiles</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
@@ -2774,6 +2825,72 @@ reward = enhanced_composite_reward(
 )
 # reward &gt; 0 (positive despite negative P&amp;L due to outperformance)
 </code></pre>
+<h2 id="social--narrative-rewards"><a class="header" href="#social--narrative-rewards">Social &amp; Narrative Rewards</a></h2>
+<p>For non-trading archetypes like <strong>Social Butterfly</strong> and <strong>Information Trader</strong>, financial performance is not the primary success metric. The social reward system provides PnL-independent scoring based on:</p>
+<h3 id="components"><a class="header" href="#components">Components</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Description</th><th>Key Metrics</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Engagement</strong></td><td>Volume and diversity of social activity</td><td>Posts, comments, DMs, group chats</td></tr>
+<tr><td><strong>Information Spread</strong></td><td>Content that reaches and engages others</td><td>Reactions, shares, spread count</td></tr>
+<tr><td><strong>Network</strong></td><td>Building connections and reputation</td><td>Unique users, follower gains, reputation</td></tr>
+<tr><td><strong>Narrative Alignment</strong></td><td>Actions aligned with ground truth events</td><td>Prediction accuracy, timing</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="archetype-specific-weights"><a class="header" href="#archetype-specific-weights">Archetype-Specific Weights</a></h3>
+<p>Different archetypes weight these components differently:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Archetype</th><th>Engagement</th><th>Spread</th><th>Network</th><th>Narrative</th></tr>
+</thead>
+<tbody>
+<tr><td>Social Butterfly</td><td>30%</td><td>20%</td><td><strong>40%</strong></td><td>10%</td></tr>
+<tr><td>Information Trader</td><td>15%</td><td>25%</td><td>20%</td><td><strong>40%</strong></td></tr>
+<tr><td>Scammer/Liar</td><td>20%</td><td><strong>40%</strong></td><td>25%</td><td>15%</td></tr>
+<tr><td>Goody Two-Shoes</td><td>25%</td><td>20%</td><td>30%</td><td>25%</td></tr>
+<tr><td>Ass-Kisser</td><td>35%</td><td>15%</td><td><strong>40%</strong></td><td>10%</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="usage"><a class="header" href="#usage">Usage</a></h3>
+<pre><code class="language-python">from training.rewards import calculate_social_reward, social_only_composite_reward
+
+# Get component breakdown
+result = calculate_social_reward(metrics, "social-butterfly")
+print(result.engagement_score)      # 0.85
+print(result.network_score)         # 0.92
+print(result.total_score)           # 0.78
+
+# Use social-focused composite reward
+reward = social_only_composite_reward(
+    inputs=trajectory_inputs,
+    archetype="social-butterfly",
+    behavior_metrics=metrics,
+)
+# Social Butterfly with $0 PnL but great social metrics can score &gt; 0.6
+</code></pre>
+<h3 id="key-insight"><a class="header" href="#key-insight">Key Insight</a></h3>
+<p>A Social Butterfly with no trading but 15+ unique connections, 5+ group chats, and positive reputation can <strong>outscore</strong> a passive trader who just holds their balance. This enables training agents specialized in community building rather than trading.</p>
+<h3 id="wb-metrics-1-1"><a class="header" href="#wb-metrics-1-1">W&amp;B Metrics</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/social_reward_mean</code></td><td>Average total social reward</td></tr>
+<tr><td><code>train/social_engagement_mean</code></td><td>Average engagement score</td></tr>
+<tr><td><code>train/social_spread_mean</code></td><td>Average information spread score</td></tr>
+<tr><td><code>train/social_network_mean</code></td><td>Average network score</td></tr>
+<tr><td><code>train/social_narrative_mean</code></td><td>Average narrative alignment score</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
 <ul>
 <li><a href="#reward-system">Reward System</a> - Basic reward components</li>
@@ -3468,6 +3585,16 @@ HIGHER than one who made $20 with 3 conservative trades.
 ### Metrics to Deprioritize
 - Total P&amp;L (not primary goal)
 - Win rate, Sharpe ratio (irrelevant)
+
+### Social Reward Weights
+
+Social Butterfly uses the social reward system with:
+- Network: 40% (highest priority)
+- Engagement: 30%
+- Information Spread: 20%
+- Narrative Alignment: 10%
+
+A Social Butterfly can achieve excellent network scores (1.0) with 15+ unique connections.
 </code></pre>
 <h2 id="priority-metrics"><a class="header" href="#priority-metrics">Priority Metrics</a></h2>
 <p>Each archetype has ordered priority metrics used for weighted scoring:</p>
@@ -4750,6 +4877,267 @@ query = '''
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div>
+<h1 id="benchmarking"><a class="header" href="#benchmarking">Benchmarking</a></h1>
+<p>The benchmark suite evaluates trained models against fixed scenarios, comparing them to baseline strategies.</p>
+<h2 id="quick-start-3"><a class="header" href="#quick-start-3">Quick Start</a></h2>
+<pre><code class="language-bash"># Run full benchmark suite (all 4 scenarios)
+bun run benchmark
+
+# Quick mode (7-day scenarios instead of 22-day)
+bun run benchmark:quick
+
+# Specific scenario
+bun run benchmark -- --scenario bear-market
+
+# With trained model
+bun run benchmark -- --model ./trained_models/step_100
+</code></pre>
+<h2 id="fixed-scenarios"><a class="header" href="#fixed-scenarios">Fixed Scenarios</a></h2>
+<p>The benchmark suite includes four pre-generated, deterministic scenarios:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>Duration</th><th>Description</th><th>Tests</th></tr>
+</thead>
+<tbody>
+<tr><td><code>bull-market</code></td><td>22 days</td><td>Steady uptrend</td><td>Basic competence, trend following</td></tr>
+<tr><td><code>bear-market</code></td><td>22 days</td><td>40% crash at day 10, recovery</td><td>Capital protection, risk management</td></tr>
+<tr><td><code>scandal-unfolds</code></td><td>22 days</td><td>Hidden scandal revealed through leaks</td><td>Information processing, early warning detection</td></tr>
+<tr><td><code>pump-and-dump</code></td><td>22 days</td><td>Coordinated market manipulation</td><td>Skepticism, avoiding FOMO</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="causal-scenarios"><a class="header" href="#causal-scenarios">Causal Scenarios</a></h3>
+<p><code>scandal-unfolds</code> and <code>pump-and-dump</code> use <strong>causal simulation</strong>, where hidden narrative facts are revealed over time and affect market prices. This tests an agent’s ability to:</p>
+<ul>
+<li>Process incomplete information</li>
+<li>Recognize warning signals</li>
+<li>React appropriately to new information</li>
+</ul>
+<h2 id="cli-options"><a class="header" href="#cli-options">CLI Options</a></h2>
+<pre><code class="language-bash">bun run benchmark [options]
+</code></pre>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Option</th><th>Description</th><th>Default</th></tr>
+</thead>
+<tbody>
+<tr><td><code>--scenario &lt;id&gt;</code></td><td>Run specific scenario (bull-market, bear-market, scandal-unfolds, pump-and-dump)</td><td>all</td></tr>
+<tr><td><code>--model &lt;path&gt;</code></td><td>Path to trained model or HuggingFace ID</td><td>momentum strategy</td></tr>
+<tr><td><code>--baseline &lt;type&gt;</code></td><td>Baseline strategy: <code>random</code>, <code>momentum</code></td><td><code>random</code></td></tr>
+<tr><td><code>--archetype &lt;type&gt;</code></td><td>Archetype to test (trader, degen, scammer, social-butterfly)</td><td><code>trader</code></td></tr>
+<tr><td><code>--quick</code></td><td>Quick mode (7-day scenarios)</td><td><code>false</code></td></tr>
+<tr><td><code>--output &lt;dir&gt;</code></td><td>Output directory for reports</td><td>auto-generated</td></tr>
+<tr><td><code>--json</code></td><td>Output JSON only (no HTML)</td><td><code>false</code></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="output-reports"><a class="header" href="#output-reports">Output Reports</a></h2>
+<p>The benchmark suite generates three report formats:</p>
+<h3 id="1-html-report"><a class="header" href="#1-html-report">1. HTML Report</a></h3>
+<p>Stakeholder-friendly visualization with:</p>
+<ul>
+<li>Executive summary</li>
+<li>Per-scenario comparison charts</li>
+<li>Winner/loser analysis</li>
+<li>Recommendations</li>
+</ul>
+<h3 id="2-json-report"><a class="header" href="#2-json-report">2. JSON Report</a></h3>
+<p>Machine-readable data for dashboards:</p>
+<pre><code class="language-json">{
+  "generatedAt": "2026-01-15T10:00:00.000Z",
+  "modelVersion": "step_100",
+  "baselineDescription": "random strategy",
+  "scenarios": [...],
+  "summary": {
+    "scenariosWon": 3,
+    "scenariosLost": 1,
+    "scenariosTied": 0,
+    "totalAlpha": 1250.50,
+    "avgPnlImprovement": 12.5,
+    "avgFitScoreImprovement": 0.05,
+    "overallVerdict": "deploy",
+    "verdictExplanation": "Model won 3/4 scenarios..."
+  },
+  "recommendations": [...]
+}
+</code></pre>
+<h3 id="3-text-summary"><a class="header" href="#3-text-summary">3. Text Summary</a></h3>
+<p>Terminal-friendly output for logs:</p>
+<pre><code class="language-text">═══════════════════════════════════════════════════════════════
+                    BENCHMARK REPORT SUMMARY
+═══════════════════════════════════════════════════════════════
+
+Model: step_100
+Baseline: random
+
+✅ VERDICT: DEPLOY
+Model won 3/4 scenarios with $1250.50 total alpha.
+
+📊 SUMMARY
+───────────────────────────────────────────────────────────────
+Scenarios Won:        3/4
+Total Alpha:          $1250.50
+Avg P&amp;L Improvement:  +12.5%
+</code></pre>
+<h2 id="archetype-fit-scoring"><a class="header" href="#archetype-fit-scoring">Archetype Fit Scoring</a></h2>
+<p>Beyond P&amp;L comparison, the benchmark suite measures <strong>archetype alignment</strong>:</p>
+<pre><code class="language-typescript">interface ArchetypeFitScore {
+  archetype: string;
+  fitScore: number;  // 0-1
+  components: {
+    actionDistribution: number;  // Trading vs posting vs research
+    riskBehavior: number;        // Leverage, position sizing
+    socialBehavior: number;      // Post frequency, engagement style
+    activityLevel: number;       // Actions per day
+  };
+  observations: string[];
+}
+</code></pre>
+<h3 id="fit-score-components"><a class="header" href="#fit-score-components">Fit Score Components</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td>Action Distribution</td><td>Does the agent’s action mix match the archetype? (trader = mostly trades, scammer = mostly posts)</td></tr>
+<tr><td>Risk Behavior</td><td>Does leverage and position sizing match expectations?</td></tr>
+<tr><td>Social Behavior</td><td>Post frequency and engagement style alignment</td></tr>
+<tr><td>Activity Level</td><td>Is the agent active enough for its archetype?</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="success-criteria"><a class="header" href="#success-criteria">Success Criteria</a></h2>
+<p>Each scenario defines success criteria per archetype:</p>
+<pre><code class="language-json">{
+  "traderMinPnlRatio": -0.5,    // Lose less than 50% of baseline loss
+  "scammerMinAlpha": 200,       // Extract at least $200 alpha
+  "degenMinTrades": 10          // Complete at least 10 trades
+}
+</code></pre>
+<h3 id="per-scenario-expectations"><a class="header" href="#per-scenario-expectations">Per-Scenario Expectations</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Scenario</th><th>Trader</th><th>Degen</th><th>Scammer</th></tr>
+</thead>
+<tbody>
+<tr><td>bull-market</td><td>Profit with market</td><td>High activity</td><td>Pump &amp; hype</td></tr>
+<tr><td>bear-market</td><td>Protect capital</td><td>Stay active despite losses</td><td>Spread FUD</td></tr>
+<tr><td>scandal-unfolds</td><td>Exit early</td><td>May get caught</td><td>Exploit info asymmetry</td></tr>
+<tr><td>pump-and-dump</td><td>Avoid FOMO</td><td>May fall for it</td><td>Coordinate pump</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="verdicts"><a class="header" href="#verdicts">Verdicts</a></h2>
+<p>The benchmark suite issues one of three verdicts:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Verdict</th><th>Condition</th><th>Meaning</th></tr>
+</thead>
+<tbody>
+<tr><td><code>deploy</code></td><td>Won ≥3 scenarios AND positive alpha</td><td>Model ready for production</td></tr>
+<tr><td><code>regression</code></td><td>Lost ≥3 scenarios OR alpha &lt; -$500</td><td>Training regressed</td></tr>
+<tr><td><code>keep_training</code></td><td>Neither above</td><td>Continue training</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="regenerating-scenarios"><a class="header" href="#regenerating-scenarios">Regenerating Scenarios</a></h2>
+<p>If you need to regenerate the fixed benchmark scenarios:</p>
+<pre><code class="language-bash">bun run benchmark:scenarios
+</code></pre>
+<p>This runs <code>scripts/generate-benchmark-scenarios.ts</code> which creates deterministic scenarios using seeded random generators.</p>
+<h2 id="ci-integration"><a class="header" href="#ci-integration">CI Integration</a></h2>
+<p>Benchmarks run automatically via GitHub Actions:</p>
+<pre><code class="language-yaml"># .github/workflows/benchmark-suite.yml
+on:
+  workflow_run:
+    workflows: ["RL Training"]
+    types: [completed]
+  schedule:
+    - cron: '0 3 * * *'  # 3 AM UTC daily
+  workflow_dispatch:  # Manual trigger
+</code></pre>
+<h3 id="artifacts"><a class="header" href="#artifacts">Artifacts</a></h3>
+<p>CI runs upload benchmark reports as artifacts, accessible from the Actions tab.</p>
+<h2 id="architecture-2"><a class="header" href="#architecture-2">Architecture</a></h2>
+<pre class="mermaid">graph TD
+    SCENARIOS[Fixed Scenarios&lt;br/&gt;4 JSON files] --&gt; LOADER[ScenarioLoader]
+    LOADER --&gt; RUNNER[BenchmarkRunner]
+    
+    MODEL[Trained Model] --&gt; RUNNER
+    BASELINE[Baseline Strategy] --&gt; RUNNER
+    
+    RUNNER --&gt; SIM[SimulationEngine]
+    SIM --&gt; RESULTS[SimulationResult]
+    
+    RESULTS --&gt; FIT[ArchetypeFitCalculator]
+    RESULTS --&gt; COMPARE[Comparison Logic]
+    
+    FIT --&gt; REPORT[StakeholderReport]
+    COMPARE --&gt; REPORT
+    
+    REPORT --&gt; HTML[HTML Report]
+    REPORT --&gt; JSON[JSON Report]
+    REPORT --&gt; TEXT[Text Summary]
+</pre>
+
+<h3 id="key-components-1"><a class="header" href="#key-components-1">Key Components</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Component</th><th>File</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td>ScenarioLoader</td><td><code>src/benchmark/ScenarioLoader.ts</code></td><td>Load and validate fixed scenarios</td></tr>
+<tr><td>ArchetypeFitCalculator</td><td><code>src/benchmark/ArchetypeFitCalculator.ts</code></td><td>Calculate archetype alignment</td></tr>
+<tr><td>StakeholderReport</td><td><code>src/benchmark/StakeholderReport.ts</code></td><td>Generate reports</td></tr>
+<tr><td>BenchmarkRunner</td><td><code>src/benchmark/BenchmarkRunner.ts</code></td><td>Orchestrate simulations</td></tr>
+<tr><td>SimulationEngine</td><td><code>src/benchmark/SimulationEngine.ts</code></td><td>Run agent in scenario</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="scenario-files"><a class="header" href="#scenario-files">Scenario Files</a></h2>
+<p>Located in <code>data/benchmarks/scenarios/</code>:</p>
+<pre><code class="language-text">packages/training/data/benchmarks/scenarios/
+├── bull-market.json
+├── bear-market.json
+├── scandal-unfolds.json
+├── pump-and-dump.json
+└── README.md
+</code></pre>
+<p>Each scenario file contains:</p>
+<pre><code class="language-typescript">interface FixedBenchmarkScenario {
+  id: string;
+  name: string;
+  description: string;
+  marketCondition: 'bull' | 'bear' | 'volatile' | 'scandal';
+  durationDays: number;
+  expectedBehavior: {
+    trader: string;
+    degen: string;
+    scammer: string;
+    'social-butterfly': string;
+  };
+  successCriteria: {
+    traderMinPnlRatio: number;
+    scammerMinAlpha: number;
+    degenMinTrades: number;
+  };
+  useCausalSimulation: boolean;
+  snapshot: BenchmarkGameSnapshot;
+}
+</code></pre>
+<h2 id="next-steps-1"><a class="header" href="#next-steps-1">Next Steps</a></h2>
+<ul>
+<li><a href="#data-generation">Data Generation</a> - Generate training data</li>
+<li><a href="#enhanced-reward-signals">Enhanced Rewards</a> - Context-aware rewards using market regime</li>
+<li><a href="#local-training">Local Training</a> - Train models locally</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
 <h1 id="weights--biases-integration"><a class="header" href="#weights--biases-integration">Weights &amp; Biases Integration</a></h1>
 <p>Optional experiment tracking with Weights &amp; Biases (W&amp;B).</p>
 <h2 id="overview-1"><a class="header" href="#overview-1">Overview</a></h2>
@@ -4837,6 +5225,38 @@ python scripts/run_training.py --profile 12gb
 </tbody>
 </table>
 </div>
+<h3 id="social-metrics"><a class="header" href="#social-metrics">Social Metrics</a></h3>
+<p>For non-trading archetypes (Social Butterfly, Information Trader, etc.):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/social_reward_mean</code></td><td>Combined social reward</td></tr>
+<tr><td><code>train/social_engagement_mean</code></td><td>Posts, comments, DMs activity</td></tr>
+<tr><td><code>train/social_spread_mean</code></td><td>Content reach and reactions</td></tr>
+<tr><td><code>train/social_network_mean</code></td><td>Connections and reputation</td></tr>
+<tr><td><code>train/social_narrative_mean</code></td><td>Alignment with ground truth</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="enhanced-reward-metrics"><a class="header" href="#enhanced-reward-metrics">Enhanced Reward Metrics</a></h3>
+<p>When training with causal scenarios (price context available):</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Metric</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>train/regime_bull_pct</code></td><td>% of trajectories in bull market</td></tr>
+<tr><td><code>train/regime_bear_pct</code></td><td>% of trajectories in bear market</td></tr>
+<tr><td><code>train/regime_sideways_pct</code></td><td>% of trajectories in sideways market</td></tr>
+<tr><td><code>train/counterfactual_alpha_mean</code></td><td>Skill signal (actual vs expected)</td></tr>
+<tr><td><code>train/market_volatility_mean</code></td><td>Average market volatility</td></tr>
+</tbody>
+</table>
+</div>
 <h3 id="grpo-specific"><a class="header" href="#grpo-specific">GRPO-Specific</a></h3>
 <div class="table-wrapper">
 <table>
@@ -4906,7 +5326,7 @@ wandb sweep sweep.yaml
 # Run agent (on each GPU)
 wandb agent your-team/babylon-training/sweep_id
 </code></pre>
-<h2 id="artifacts"><a class="header" href="#artifacts">Artifacts</a></h2>
+<h2 id="artifacts-1"><a class="header" href="#artifacts-1">Artifacts</a></h2>
 <h3 id="save-model-checkpoints"><a class="header" href="#save-model-checkpoints">Save Model Checkpoints</a></h3>
 <pre><code class="language-python"># In training code
 artifact = wandb.Artifact('model', type='model')
@@ -5546,6 +5966,26 @@ def _calculate_whale_bonus(metrics: BehaviorMetrics) -&gt; float:
 <pre><code class="language-python">elif archetype == "whale":
     return _calculate_whale_bonus(metrics)
 </code></pre>
+<h2 id="social-archetypes-1"><a class="header" href="#social-archetypes-1">Social Archetypes</a></h2>
+<p>For archetypes where social interaction is primary (not trading), also add social reward weights:</p>
+<pre><code class="language-python"># In rewards.py - add to SOCIAL_REWARD_WEIGHTS
+"my-social-archetype": {
+    "engagement": 0.30,  # Posts, DMs, comments
+    "spread": 0.25,      # Reactions, shares
+    "network": 0.30,     # Connections, groups
+    "narrative": 0.15,   # Alignment with events
+}
+</code></pre>
+<p>And add composite weights:</p>
+<pre><code class="language-python"># In rewards.py - add to SOCIAL_COMPOSITE_WEIGHTS
+"my-social-archetype": {
+    "social": 0.50,      # Total social reward weight
+    "format": 0.25,
+    "reasoning": 0.15,
+    "pnl": 0.10,         # Minimal PnL weight
+}
+</code></pre>
+<p>See <a href="#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a>.</p>
 <h2 id="checklist"><a class="header" href="#checklist">Checklist</a></h2>
 <ul>
 <li><input disabled="" type="checkbox"> Rubric added to <code>config/rubrics.json</code></li>
@@ -5556,6 +5996,8 @@ def _calculate_whale_bonus(metrics: BehaviorMetrics) -&gt; float:
 <li><input disabled="" type="checkbox"> Bonus function registered in dispatcher</li>
 <li><input disabled="" type="checkbox"> Unit tests pass (<code>make tier1</code>)</li>
 <li><input disabled="" type="checkbox"> (Optional) TypeScript definition</li>
+<li><input disabled="" type="checkbox"> (For social archetypes) <code>SOCIAL_REWARD_WEIGHTS</code> entry</li>
+<li><input disabled="" type="checkbox"> (For social archetypes) <code>SOCIAL_COMPOSITE_WEIGHTS</code> entry</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="debugging"><a class="header" href="#debugging">Debugging</a></h1>
@@ -5955,6 +6397,11 @@ tail -100 python/logs/training.log
 </thead>
 <tbody>
 <tr><td><code>benchmark/BenchmarkDataGenerator.ts</code></td><td>Synthetic scenario generation</td></tr>
+<tr><td><code>benchmark/BenchmarkRunner.ts</code></td><td>Run model against benchmark scenarios</td></tr>
+<tr><td><code>benchmark/ScenarioLoader.ts</code></td><td>Load and validate fixed scenarios</td></tr>
+<tr><td><code>benchmark/ArchetypeFitCalculator.ts</code></td><td>Calculate archetype alignment scores</td></tr>
+<tr><td><code>benchmark/StakeholderReport.ts</code></td><td>Generate HTML/JSON/text reports</td></tr>
+<tr><td><code>benchmark/SimulationEngine.ts</code></td><td>Run agent simulations</td></tr>
 <tr><td><code>benchmark/types.ts</code></td><td>Benchmark types</td></tr>
 </tbody>
 </table>
@@ -6046,6 +6493,8 @@ tail -100 python/logs/training.log
 <tr><th>Script</th><th>Purpose</th></tr>
 </thead>
 <tbody>
+<tr><td><code>run-benchmark-suite.ts</code></td><td><strong>Advanced benchmark suite</strong> - compare models across fixed scenarios</td></tr>
+<tr><td><code>generate-benchmark-scenarios.ts</code></td><td>Regenerate fixed benchmark scenario files</td></tr>
 <tr><td><code>train-and-test.ts</code></td><td>Train + evaluate</td></tr>
 <tr><td><code>run-full-pipeline.ts</code></td><td>Complete workflow</td></tr>
 <tr><td><code>run-baseline-comparison.ts</code></td><td>Model comparison</td></tr>
@@ -6189,6 +6638,9 @@ Training rewards
 <tr><td>Training args</td><td><code>python/scripts/run_training.py</code></td></tr>
 <tr><td>Trajectory types</td><td><code>src/training/types.ts</code></td></tr>
 <tr><td>Scoring logic</td><td><code>python/src/training/babylon_env.py:_score_with_judge</code></td></tr>
+<tr><td>Fixed scenarios</td><td><code>data/benchmarks/scenarios/*.json</code></td></tr>
+<tr><td>Archetype fit scoring</td><td><code>src/benchmark/ArchetypeFitCalculator.ts</code></td></tr>
+<tr><td>Benchmark reports</td><td><code>src/benchmark/StakeholderReport.ts</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -6204,6 +6656,9 @@ Training rewards
 <tr><td>How does training run?</td><td><code>python/scripts/run_training.py</code></td></tr>
 <tr><td>How are prompts built?</td><td><code>python/src/training/babylon_env.py:_trajectory_to_messages</code></td></tr>
 <tr><td>How is format validated?</td><td><code>python/src/training/format_validator.py</code></td></tr>
+<tr><td>How does benchmarking work?</td><td><code>scripts/run-benchmark-suite.ts</code></td></tr>
+<tr><td>How are scenarios loaded?</td><td><code>src/benchmark/ScenarioLoader.ts</code></td></tr>
+<tr><td>How is archetype fit calculated?</td><td><code>src/benchmark/ArchetypeFitCalculator.ts</code></td></tr>
 </tbody>
 </table>
 </div>
@@ -6287,6 +6742,23 @@ Training rewards
 </ul>
 <h3 id="temporal-credit"><a class="header" href="#temporal-credit">Temporal Credit</a></h3>
 <p>Attribution of final P&amp;L back to individual trading decisions. Decisions closer to the outcome receive more credit (exponential decay).</p>
+<h3 id="social-reward"><a class="header" href="#social-reward">Social Reward</a></h3>
+<p>PnL-independent scoring for non-trading archetypes (Social Butterfly, Ass-Kisser, etc.). Composed of:</p>
+<ul>
+<li><strong>Engagement</strong>: Volume/diversity of social actions (posts, DMs, comments)</li>
+<li><strong>Spread</strong>: How well content reaches others (reactions, shares)</li>
+<li><strong>Network</strong>: Connections built (unique users, groups, reputation)</li>
+<li><strong>Narrative</strong>: Alignment with ground truth events</li>
+</ul>
+<h3 id="narrative-event"><a class="header" href="#narrative-event">Narrative Event</a></h3>
+<p>A ground truth event in the simulation that agents can react to. Contains:</p>
+<ul>
+<li>Tick when it occurred</li>
+<li>Affected tickers/markets</li>
+<li>Expected direction (up/down/volatile)</li>
+<li>Whether publicly revealed</li>
+</ul>
+<p>Used to score how well agents align actions with real events.</p>
 <h3 id="rubric"><a class="header" href="#rubric">Rubric</a></h3>
 <p>Detailed evaluation criteria for an archetype. Defines what makes excellent, good, average, and poor performance.</p>
 <h3 id="tiebreaker"><a class="header" href="#tiebreaker">Tiebreaker</a></h3>
@@ -6348,7 +6820,7 @@ Training rewards
 </tbody>
 </table>
 </div>
-<h3 id="social-metrics"><a class="header" href="#social-metrics">Social Metrics</a></h3>
+<h3 id="social-metrics-1"><a class="header" href="#social-metrics-1">Social Metrics</a></h3>
 <div class="table-wrapper">
 <table>
 <thead>

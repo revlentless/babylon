@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "navy";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex-434def02.js";
+            window.path_to_searchindex_js = "../searchindex-81959e7f.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f9429206.js"></script>
+        <script src="../toc-046831d4.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -421,6 +421,26 @@ def _calculate_whale_bonus(metrics: BehaviorMetrics) -&gt; float:
 <pre><code class="language-python">elif archetype == "whale":
     return _calculate_whale_bonus(metrics)
 </code></pre>
+<h2 id="social-archetypes"><a class="header" href="#social-archetypes">Social Archetypes</a></h2>
+<p>For archetypes where social interaction is primary (not trading), also add social reward weights:</p>
+<pre><code class="language-python"># In rewards.py - add to SOCIAL_REWARD_WEIGHTS
+"my-social-archetype": {
+    "engagement": 0.30,  # Posts, DMs, comments
+    "spread": 0.25,      # Reactions, shares
+    "network": 0.30,     # Connections, groups
+    "narrative": 0.15,   # Alignment with events
+}
+</code></pre>
+<p>And add composite weights:</p>
+<pre><code class="language-python"># In rewards.py - add to SOCIAL_COMPOSITE_WEIGHTS
+"my-social-archetype": {
+    "social": 0.50,      # Total social reward weight
+    "format": 0.25,
+    "reasoning": 0.15,
+    "pnl": 0.10,         # Minimal PnL weight
+}
+</code></pre>
+<p>See <a href="../scoring/enhanced-rewards.html#social--narrative-rewards">Enhanced Rewards - Social &amp; Narrative</a>.</p>
 <h2 id="checklist"><a class="header" href="#checklist">Checklist</a></h2>
 <ul>
 <li><input disabled="" type="checkbox"> Rubric added to <code>config/rubrics.json</code></li>
@@ -431,6 +451,8 @@ def _calculate_whale_bonus(metrics: BehaviorMetrics) -&gt; float:
 <li><input disabled="" type="checkbox"> Bonus function registered in dispatcher</li>
 <li><input disabled="" type="checkbox"> Unit tests pass (<code>make tier1</code>)</li>
 <li><input disabled="" type="checkbox"> (Optional) TypeScript definition</li>
+<li><input disabled="" type="checkbox"> (For social archetypes) <code>SOCIAL_REWARD_WEIGHTS</code> entry</li>
+<li><input disabled="" type="checkbox"> (For social archetypes) <code>SOCIAL_COMPOSITE_WEIGHTS</code> entry</li>
 </ul>
 
                     </main>
