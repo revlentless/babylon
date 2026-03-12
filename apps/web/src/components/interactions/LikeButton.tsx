@@ -3,7 +3,7 @@
 import type { LikeButtonProps } from '@babylon/shared';
 import { cn } from '@babylon/shared';
 import { Frown, Heart, Laugh } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocialTracking } from '@/hooks/usePostHog';
@@ -159,7 +159,7 @@ export function LikeButton({
     };
   }, []);
 
-  const handleClick = async () => {
+  const handleClick = useCallback(async () => {
     if (!authenticated) {
       login();
       return;
@@ -179,7 +179,16 @@ export function LikeButton({
     } else {
       await toggleCommentLike(targetId);
     }
-  };
+  }, [
+    authenticated,
+    login,
+    isLiked,
+    targetType,
+    targetId,
+    toggleLike,
+    trackPostLike,
+    toggleCommentLike,
+  ]);
 
   const handleReactionSelect = async (reactionType: ReactionType) => {
     if (!authenticated) {
@@ -204,14 +213,17 @@ export function LikeButton({
     }
   };
 
-  const handleMouseDown = () => {
+  // Track whether a touch event is active to prevent mouse event double-firing
+  const isTouchActive = useRef(false);
+
+  const startLongPress = useCallback(() => {
     longPressStartTime.current = Date.now();
     longPressTimer.current = setTimeout(() => {
       setShowReactionPicker(true);
     }, 500); // 500ms long press
-  };
+  }, []);
 
-  const handleMouseUp = () => {
+  const endLongPress = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
@@ -222,13 +234,64 @@ export function LikeButton({
     if (pressDuration < 500 && !showReactionPicker) {
       handleClick();
     }
-  };
+  }, [showReactionPicker, handleClick]);
 
-  const handleMouseLeave = () => {
+  const cancelLongPress = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
     }
-  };
+  }, []);
+
+  // Mouse event handlers — skipped when a touch interaction is active
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (isTouchActive.current) return;
+      e.preventDefault();
+      startLongPress();
+    },
+    [startLongPress]
+  );
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      if (isTouchActive.current) return;
+      e.preventDefault();
+      endLongPress();
+    },
+    [endLongPress]
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    if (isTouchActive.current) return;
+    cancelLongPress();
+  }, [cancelLongPress]);
+
+  // Touch event handlers — set flag to suppress subsequent synthetic mouse events
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      isTouchActive.current = true;
+      e.preventDefault();
+      startLongPress();
+    },
+    [startLongPress]
+  );
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      endLongPress();
+      // Reset touch flag after a short delay to allow synthetic mouse events to be suppressed
+      setTimeout(() => {
+        isTouchActive.current = false;
+      }, 300);
+    },
+    [endLongPress]
+  );
+
+  const handleTouchCancel = useCallback(() => {
+    cancelLongPress();
+    isTouchActive.current = false;
+  }, [cancelLongPress]);
 
   const reaction = REACTION_TYPES[currentReaction];
   if (!reaction) {
@@ -278,8 +341,9 @@ export function LikeButton({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onTouchStart={handleMouseDown}
-        onTouchEnd={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
         disabled={isLoading}
         className={cn(
           'flex items-center transition-all duration-200',
