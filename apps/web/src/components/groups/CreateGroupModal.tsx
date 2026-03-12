@@ -1,6 +1,12 @@
 'use client';
 
-import { cn, GROUP_CONFIG, getCurrentChainId, logger } from '@babylon/shared';
+import {
+  CHAIN_NAMES,
+  cn,
+  GROUP_CONFIG,
+  getCurrentChainId,
+  logger,
+} from '@babylon/shared';
 import { usePrivy } from '@privy-io/react-auth';
 import { Check, Loader2, Search, Shield, Users, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -523,11 +529,11 @@ export function CreateGroupModal({
                       className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm transition-colors focus:border-primary focus:outline-none"
                       disabled={creating}
                     >
-                      <option value={31337}>Local (Hardhat)</option>
-                      <option value={84532}>Base Sepolia</option>
-                      <option value={8453}>Base Mainnet</option>
-                      <option value={1}>Ethereum Mainnet</option>
-                      <option value={11155111}>Ethereum Sepolia</option>
+                      {Object.entries(CHAIN_NAMES).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
                     </select>
                     <p className="mt-1 text-muted-foreground text-xs">
                       Blockchain network for the NFT contract
