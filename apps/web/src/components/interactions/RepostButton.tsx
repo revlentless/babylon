@@ -3,6 +3,7 @@
 import type { FeedPost, RepostButtonProps } from '@babylon/shared';
 import { cn } from '@babylon/shared';
 import { Repeat2, X } from 'lucide-react';
+import type { ChangeEvent } from 'react';
 import { useState } from 'react';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -55,6 +56,192 @@ const skeletonSizes = {
   lg: 'w-5 h-5',
 };
 
+interface RepostModalHeaderProps {
+  quoteComment: string;
+  isLoading: boolean;
+  onClose: () => void;
+  onSubmit: () => void;
+  variant: 'mobile' | 'desktop';
+}
+
+function RepostModalHeader({
+  quoteComment,
+  isLoading,
+  onClose,
+  onSubmit,
+  variant,
+}: RepostModalHeaderProps) {
+  return (
+    <div className="flex shrink-0 items-center justify-between border-border border-b px-6 py-4">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X size={20} />
+        </button>
+        <h2 className="font-semibold text-foreground text-lg">
+          {quoteComment.trim() ? 'Quote' : 'Repost'}
+        </h2>
+      </div>
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={isLoading}
+        aria-label={quoteComment.trim() ? 'Post quote' : 'Post repost'}
+        className={cn(
+          'rounded-full font-semibold text-sm',
+          'bg-green-600 text-primary-foreground',
+          'transition-colors hover:bg-green-700',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          variant === 'mobile'
+            ? 'px-4 py-1.5'
+            : 'flex items-center gap-2 px-5 py-2'
+        )}
+      >
+        {isLoading ? (
+          <span
+            role="status"
+            aria-live="polite"
+            className={
+              variant === 'desktop' ? 'flex items-center gap-2' : undefined
+            }
+          >
+            {variant === 'desktop' && (
+              <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+            )}
+            Posting...
+          </span>
+        ) : (
+          'Post'
+        )}
+      </button>
+    </div>
+  );
+}
+
+interface RepostModalContentProps {
+  quoteComment: string;
+  onQuoteChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
+  postData: RepostButtonProps['postData'];
+  formatTime: (timestamp: string) => string;
+  variant: 'mobile' | 'desktop';
+}
+
+function RepostModalContent({
+  quoteComment,
+  onQuoteChange,
+  postData,
+  formatTime,
+  variant,
+}: RepostModalContentProps) {
+  const isMobile = variant === 'mobile';
+  const charCountId = `char-count-${variant}`;
+
+  return (
+    <>
+      {/* Quote Comment Textarea */}
+      <textarea
+        value={quoteComment}
+        onChange={onQuoteChange}
+        placeholder="Add your thoughts (optional)"
+        maxLength={500}
+        rows={isMobile ? 3 : 4}
+        aria-label="Quote comment"
+        aria-describedby={charCountId}
+        className={cn(
+          'mb-1 w-full border-0 bg-transparent',
+          'text-foreground placeholder:text-muted-foreground',
+          'resize-none transition-colors focus:outline-none',
+          isMobile
+            ? 'overflow-hidden rounded-xl py-3 pr-3'
+            : 'rounded-xl py-4 pr-4 text-base'
+        )}
+        autoFocus
+      />
+
+      {/* Character Count */}
+      <div className={cn('flex justify-end', isMobile ? 'mb-3' : 'mb-4')}>
+        <span
+          id={charCountId}
+          className={cn(
+            isMobile ? 'text-xs' : 'text-sm',
+            quoteComment.length === 0
+              ? 'invisible'
+              : quoteComment.length > 450
+                ? 'text-red-400'
+                : 'text-muted-foreground'
+          )}
+        >
+          {quoteComment.length || 0}/500
+        </span>
+      </div>
+
+      {/* Original Post Preview */}
+      {postData && (
+        <div
+          className={cn(
+            'mt-4 rounded-xl border border-border',
+            'bg-muted/30',
+            isMobile ? 'p-4' : 'p-5'
+          )}
+        >
+          {/* Original Post Author */}
+          <div className="mb-3 flex items-start gap-3">
+            <Avatar
+              id={postData.authorId}
+              name={postData.authorName}
+              type="user"
+              src={postData.authorProfileImageUrl || undefined}
+              size={isMobile ? 'sm' : 'md'}
+              className="shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'truncate font-semibold text-foreground',
+                    isMobile && 'text-sm'
+                  )}
+                >
+                  {postData.authorName}
+                </span>
+                <span
+                  className={cn(
+                    'text-muted-foreground',
+                    isMobile ? 'text-xs' : 'text-sm'
+                  )}
+                >
+                  {formatTime(postData.timestamp)}
+                </span>
+              </div>
+              <span
+                className={cn(
+                  'text-muted-foreground',
+                  isMobile ? 'text-xs' : 'text-sm'
+                )}
+              >
+                @{postData.authorUsername || postData.authorId}
+              </span>
+            </div>
+          </div>
+
+          {/* Original Post Content */}
+          <p
+            className={cn(
+              'whitespace-pre-wrap break-words text-foreground leading-relaxed',
+              isMobile && 'text-sm'
+            )}
+          >
+            {postData.content}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function RepostButton({
   postId,
   shareCount,
@@ -82,6 +269,21 @@ export function RepostButton({
   const isLoading = loadingStates.get(`share-${postId}`) ?? false;
 
   const { authenticated, login } = useAuth();
+
+  const handleCloseModal = () => {
+    setShowConfirmation(false);
+    setQuoteComment('');
+  };
+
+  const handleMobileQuoteChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setQuoteComment(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = `${e.target.scrollHeight}px`;
+  };
+
+  const handleDesktopQuoteChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setQuoteComment(e.target.value);
+  };
 
   const handleClick = () => {
     if (!authenticated) {
@@ -207,264 +409,47 @@ export function RepostButton({
           {/* Backdrop */}
           <div
             className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm"
-            onClick={() => {
-              setShowConfirmation(false);
-              setQuoteComment('');
-            }}
+            onClick={handleCloseModal}
           />
 
           {/* Modal - Mobile (Full Screen) */}
           <div className="fixed inset-0 z-[110] flex flex-col bg-sidebar md:hidden">
-            {/* Header - Fixed */}
-            <div className="flex shrink-0 items-center justify-between border-border border-b px-6 py-4">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowConfirmation(false);
-                    setQuoteComment('');
-                  }}
-                  className="text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <X size={20} />
-                </button>
-                <h2 className="font-semibold text-foreground text-lg">
-                  {quoteComment.trim() ? 'Quote' : 'Repost'}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={handleShare}
-                disabled={isLoading}
-                aria-label={quoteComment.trim() ? 'Post quote' : 'Post repost'}
-                className={cn(
-                  'rounded-full px-4 py-1.5 font-semibold text-sm',
-                  'bg-green-600 text-primary-foreground',
-                  'transition-colors hover:bg-green-700',
-                  'disabled:cursor-not-allowed disabled:opacity-50'
-                )}
-              >
-                {isLoading ? (
-                  <span role="status" aria-live="polite">
-                    Posting...
-                  </span>
-                ) : (
-                  'Post'
-                )}
-              </button>
-            </div>
-
-            {/* Content - Whole area scrolls */}
+            <RepostModalHeader
+              quoteComment={quoteComment}
+              isLoading={isLoading}
+              onClose={handleCloseModal}
+              onSubmit={handleShare}
+              variant="mobile"
+            />
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
-              {/* Quote Comment Textarea - auto-grows, never scrolls internally */}
-              <textarea
-                value={quoteComment}
-                onChange={(e) => {
-                  setQuoteComment(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${e.target.scrollHeight}px`;
-                }}
-                placeholder="Add your thoughts (optional)"
-                maxLength={500}
-                rows={3}
-                aria-label="Quote comment"
-                aria-describedby="char-count-mobile"
-                className={cn(
-                  'mb-1 w-full overflow-hidden rounded-xl py-3 pr-3',
-                  'border-0 bg-transparent',
-                  'text-foreground placeholder:text-muted-foreground',
-                  'resize-none focus:outline-none',
-                  'transition-colors'
-                )}
-                autoFocus
+              <RepostModalContent
+                quoteComment={quoteComment}
+                onQuoteChange={handleMobileQuoteChange}
+                postData={postData}
+                formatTime={formatTime}
+                variant="mobile"
               />
-
-              {/* Character Count */}
-              <div className="mb-3 flex justify-end">
-                <span
-                  id="char-count-mobile"
-                  className={cn(
-                    'text-xs',
-                    quoteComment.length === 0
-                      ? 'invisible'
-                      : quoteComment.length > 450
-                        ? 'text-red-400'
-                        : 'text-muted-foreground'
-                  )}
-                >
-                  {quoteComment.length || 0}/500
-                </span>
-              </div>
-
-              {/* Original Post Preview */}
-              {postData && (
-                <div
-                  className={cn(
-                    'mt-4 rounded-xl border border-border p-4',
-                    'bg-muted/30'
-                  )}
-                >
-                  {/* Original Post Author */}
-                  <div className="mb-3 flex items-start gap-3">
-                    <Avatar
-                      id={postData.authorId}
-                      name={postData.authorName}
-                      type="user"
-                      src={postData.authorProfileImageUrl || undefined}
-                      size="sm"
-                      className="shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-semibold text-foreground text-sm">
-                          {postData.authorName}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {formatTime(postData.timestamp)}
-                        </span>
-                      </div>
-                      <span className="text-muted-foreground text-xs">
-                        @{postData.authorUsername || postData.authorId}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Original Post Content */}
-                  <p className="whitespace-pre-wrap break-words text-foreground text-sm leading-relaxed">
-                    {postData.content}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Modal - Desktop */}
           <div className="fixed inset-0 z-[110] hidden items-center justify-center p-4 md:flex">
             <div className="flex max-h-[85vh] w-full max-w-[580px] flex-col overflow-hidden rounded-2xl border border-border bg-sidebar shadow-2xl">
-              {/* Header */}
-              <div className="flex items-center justify-between border-border border-b px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowConfirmation(false);
-                      setQuoteComment('');
-                    }}
-                    className="text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <X size={20} />
-                  </button>
-                  <h2 className="font-semibold text-foreground text-lg">
-                    {quoteComment.trim() ? 'Quote' : 'Repost'}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  disabled={isLoading}
-                  aria-label={
-                    quoteComment.trim() ? 'Post quote' : 'Post repost'
-                  }
-                  className={cn(
-                    'rounded-full px-5 py-2 font-semibold text-sm',
-                    'bg-green-600 text-primary-foreground',
-                    'transition-colors hover:bg-green-700',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                    'flex items-center gap-2'
-                  )}
-                >
-                  {isLoading ? (
-                    <span
-                      role="status"
-                      aria-live="polite"
-                      className="flex items-center gap-2"
-                    >
-                      <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                      Posting...
-                    </span>
-                  ) : (
-                    'Post'
-                  )}
-                </button>
-              </div>
-
-              {/* Content - Scrollable */}
+              <RepostModalHeader
+                quoteComment={quoteComment}
+                isLoading={isLoading}
+                onClose={handleCloseModal}
+                onSubmit={handleShare}
+                variant="desktop"
+              />
               <div className="flex-1 overflow-y-auto px-6 pb-6">
-                {/* Quote Comment Textarea */}
-                <textarea
-                  value={quoteComment}
-                  onChange={(e) => setQuoteComment(e.target.value)}
-                  placeholder="Add your thoughts (optional)"
-                  maxLength={500}
-                  rows={4}
-                  aria-label="Quote comment"
-                  aria-describedby="char-count-desktop"
-                  className={cn(
-                    'mb-1 w-full rounded-xl py-4 pr-4',
-                    'border-0 bg-transparent',
-                    'text-base text-foreground placeholder:text-muted-foreground',
-                    'resize-none focus:outline-none',
-                    'transition-colors'
-                  )}
-                  autoFocus
+                <RepostModalContent
+                  quoteComment={quoteComment}
+                  onQuoteChange={handleDesktopQuoteChange}
+                  postData={postData}
+                  formatTime={formatTime}
+                  variant="desktop"
                 />
-
-                {/* Character Count */}
-                <div className="mb-4 flex justify-end">
-                  <span
-                    id="char-count-desktop"
-                    className={cn(
-                      'text-sm',
-                      quoteComment.length === 0
-                        ? 'invisible'
-                        : quoteComment.length > 450
-                          ? 'text-red-400'
-                          : 'text-muted-foreground'
-                    )}
-                  >
-                    {quoteComment.length || 0}/500
-                  </span>
-                </div>
-
-                {/* Original Post Preview */}
-                {postData && (
-                  <div
-                    className={cn(
-                      'mt-4 rounded-xl border border-border p-5',
-                      'bg-muted/30'
-                    )}
-                  >
-                    {/* Original Post Author */}
-                    <div className="mb-3 flex items-start gap-3">
-                      <Avatar
-                        id={postData.authorId}
-                        name={postData.authorName}
-                        type="user"
-                        src={postData.authorProfileImageUrl || undefined}
-                        size="md"
-                        className="shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate font-semibold text-foreground">
-                            {postData.authorName}
-                          </span>
-                          <span className="text-muted-foreground text-sm">
-                            {formatTime(postData.timestamp)}
-                          </span>
-                        </div>
-                        <span className="text-muted-foreground text-sm">
-                          @{postData.authorUsername || postData.authorId}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Original Post Content */}
-                    <p className="whitespace-pre-wrap break-words text-foreground leading-relaxed">
-                      {postData.content}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
