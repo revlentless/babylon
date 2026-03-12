@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { formatChatTimestamp } from '@/lib/format-date';
 import type { ChatParticipant, Message } from './types';
 import { getProfilePath } from './types';
 
@@ -221,15 +222,7 @@ export function MessageBubble({
           )}
           {!isCurrentUser && <span className="text-muted-foreground">·</span>}
           <span className="text-muted-foreground text-xs">
-            {msgDate.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })}{' '}
-            at{' '}
-            {msgDate.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatChatTimestamp(msgDate)}
           </span>
           {onViewSettings && (
             <button

@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
+import { formatMediumDate, formatTime } from '@/lib/format-date';
 import type { WalletTransaction } from '@/stores/onchainWalletStore';
 import { WalletEmptyState } from './WalletEmptyState';
 
@@ -108,10 +109,7 @@ function TransactionRow({
   const label = getTransactionLabel(tx.type, isSend);
   const counterparty = isSend ? tx.to : tx.from;
   const truncatedCounterparty = `${counterparty.slice(0, 6)}...${counterparty.slice(-4)}`;
-  const time = new Date(tx.timestamp).toLocaleTimeString(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const time = formatTime(tx.timestamp);
 
   return (
     <div className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-muted/50">
@@ -253,11 +251,7 @@ function groupTransactionsByDate(
     } else if (txDate === yesterday) {
       label = 'Yesterday';
     } else {
-      label = new Date(tx.timestamp).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+      label = formatMediumDate(tx.timestamp);
     }
     const existing = groups.get(label);
     if (existing) {

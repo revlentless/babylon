@@ -4,6 +4,7 @@ import { cn, logger } from '@babylon/shared';
 import { FileText, Filter } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Log structure for agent logs.
@@ -206,7 +207,7 @@ export function AgentLogs({ agentId }: AgentLogsProps) {
                       </span>
                       <span className="text-muted-foreground text-xs">•</span>
                       <span className="text-muted-foreground text-xs">
-                        {new Date(log.createdAt).toLocaleString()}
+                        {formatDateTime(log.createdAt)}
                       </span>
                     </div>
                     <div className="text-sm">{log.message}</div>

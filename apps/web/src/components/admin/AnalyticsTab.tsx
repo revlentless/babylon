@@ -47,6 +47,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatChartDate } from '@/lib/format-date';
 
 type PeriodType = 'day' | 'week' | 'month';
 
@@ -111,16 +112,7 @@ export function AnalyticsTab() {
     return () => clearInterval(interval);
   }, [fetchAnalytics]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    if (period === 'month') {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        year: '2-digit',
-      });
-    }
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (dateStr: string) => formatChartDate(dateStr, period);
 
   const formatNumber = (value: number) => {
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -253,8 +245,7 @@ export function AnalyticsTab() {
             Platform Analytics
           </h2>
           <p className="mt-1 text-muted-foreground">
-            {new Date(data.startDate).toLocaleDateString()} -{' '}
-            {new Date(data.endDate).toLocaleDateString()}
+            {formatChartDate(data.startDate)} - {formatChartDate(data.endDate)}
           </p>
         </div>
 

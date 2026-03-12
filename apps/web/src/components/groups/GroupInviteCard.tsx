@@ -4,6 +4,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { Check, Loader2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { formatShortDate } from '@/lib/format-date';
 
 /**
  * Group invite card component for displaying and responding to group invitations.
@@ -176,12 +177,7 @@ export function GroupInviteCard({
             <div className="flex items-center gap-3 text-muted-foreground text-xs">
               <span>{memberCount} members</span>
               <span>·</span>
-              <span>
-                {new Date(invitedAt).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </span>
+              <span>{formatShortDate(invitedAt)}</span>
             </div>
           </div>
         </div>

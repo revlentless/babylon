@@ -17,6 +17,7 @@ import {
   VerifiedBadge,
 } from '@/components/shared/VerifiedBadge';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDateTime, formatTimeAgo } from '@/lib/format-date';
 import { useInteractionStore } from '@/stores/interactionStore';
 
 type PostPreviewData = {
@@ -33,37 +34,9 @@ function PostPreview({ post }: { post: PostPreviewData }) {
   const router = useRouter();
 
   const postDate = new Date(post.timestamp);
-  const now = new Date();
-
-  // Defensive check for invalid timestamps
   const isValidDate =
     !isNaN(postDate.getTime()) && isFinite(postDate.getTime());
-
-  let timeAgo: string;
-  if (!isValidDate) {
-    timeAgo = 'Unknown time';
-  } else {
-    // Clamp to 0 to handle future timestamps deterministically (treat as "Just now")
-    const diffMs = Math.max(0, now.getTime() - postDate.getTime());
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    timeAgo =
-      diffMinutes < 1
-        ? 'Just now'
-        : diffMinutes < 60
-          ? `${diffMinutes}m ago`
-          : diffHours < 24
-            ? `${diffHours}h ago`
-            : postDate.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year:
-                  postDate.getFullYear() !== now.getFullYear()
-                    ? 'numeric'
-                    : undefined,
-              });
-  }
+  const timeAgo = formatTimeAgo(postDate);
 
   const authorIsNPC = isNpcIdentifier(post.authorId);
 
@@ -107,7 +80,7 @@ function PostPreview({ post }: { post: PostPreviewData }) {
 
           <time
             className="shrink-0 text-foreground/50 text-sm"
-            title={isValidDate ? postDate.toLocaleString() : 'Unknown time'}
+            title={isValidDate ? formatDateTime(postDate) : 'Unknown time'}
           >
             {timeAgo}
           </time>

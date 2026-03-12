@@ -26,6 +26,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Report evaluation structure from AI.
@@ -240,15 +241,7 @@ export function ReportsTab() {
     setEvaluatingReportId(null);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
+  const formatDate = (date: string) => formatDateTime(date);
 
   const getCategoryColor = (category: string) => {
     switch (category) {

@@ -32,6 +32,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTimeShort } from '@/lib/format-date';
 
 type ContentType = 'all' | 'posts' | 'comments';
 
@@ -210,14 +211,7 @@ export function ContentModerationTab() {
     });
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
+  const formatDate = (dateStr: string) => formatDateTimeShort(dateStr);
 
   const truncateContent = (content: string, maxLength = 200) => {
     if (content.length <= maxLength) return content;

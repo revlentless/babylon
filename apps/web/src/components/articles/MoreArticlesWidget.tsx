@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatTimeAgo } from '@/lib/format-date';
 
 interface ArticlePreview {
   id: string;
@@ -61,26 +62,6 @@ export function MoreArticlesWidget({
 
     fetchArticles();
   }, [currentArticleId, limit]);
-
-  // Format relative time
-  const formatTimeAgo = (timestamp: string): string => {
-    const now = new Date();
-    const date = new Date(timestamp);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   if (isLoading) {
     return (

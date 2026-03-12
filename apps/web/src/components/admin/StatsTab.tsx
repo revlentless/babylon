@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { formatCurrencyCompact } from '@/lib/format';
+import { formatMediumDate } from '@/lib/format-date';
 
 /**
  * User stats schema for validation.
@@ -771,7 +772,7 @@ export function StatsTab() {
                     {user.displayName || user.username || 'Anonymous'}
                   </div>
                   <div className="text-muted-foreground text-xs">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                    {formatMediumDate(user.createdAt)}
                   </div>
                 </div>
                 <div className="flex gap-1">

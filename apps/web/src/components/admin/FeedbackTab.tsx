@@ -35,6 +35,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime, formatMediumDate } from '@/lib/format-date';
 
 /**
  * Feedback item structure from API
@@ -465,9 +466,7 @@ export function FeedbackTab() {
                           </span>
                         </div>
                       )}
-                      <span>
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </span>
+                      <span>{formatMediumDate(item.createdAt)}</span>
                     </div>
                   </div>
                 </div>
@@ -665,8 +664,7 @@ export function FeedbackTab() {
               <div className="flex justify-between">
                 <span>Score: {selectedFeedback.score}</span>
                 <span>
-                  Submitted:{' '}
-                  {new Date(selectedFeedback.createdAt).toLocaleString()}
+                  Submitted: {formatDateTime(selectedFeedback.createdAt)}
                 </span>
               </div>
             </div>

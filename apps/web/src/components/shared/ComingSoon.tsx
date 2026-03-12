@@ -34,6 +34,7 @@ import { MarketingFooter } from '@/components/shared/MarketingFooter';
 import { PlayerStatsModal } from '@/components/shared/PlayerStatsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { EXTERNAL_LINKS } from '@/lib/constants';
+import { formatMediumDate } from '@/lib/format-date';
 import type {
   EligibilityApiResponse,
   EligibilityResponse,
@@ -2874,9 +2875,7 @@ export function ComingSoon() {
 
                                     <p className="mt-0.5 text-muted-foreground text-xs">
                                       Signed up{' '}
-                                      {new Date(
-                                        user.createdAt
-                                      ).toLocaleDateString()}
+                                      {formatMediumDate(user.createdAt)}
                                     </p>
                                   </div>
 
@@ -2932,9 +2931,9 @@ export function ComingSoon() {
                                       </p>
                                     )}
                                     <p className="mt-0.5 text-muted-foreground text-xs">
-                                      {new Date(
+                                      {formatMediumDate(
                                         user.completedAt || user.createdAt
-                                      ).toLocaleDateString()}
+                                      )}
                                     </p>
                                   </div>
                                 </div>

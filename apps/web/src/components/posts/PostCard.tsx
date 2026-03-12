@@ -20,6 +20,7 @@ import {
 } from '@/components/shared/VerifiedBadge';
 import { useFontSize } from '@/contexts/FontSizeContext';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDateTime, formatTimeAgo } from '@/lib/format-date';
 
 /**
  * Post card component for displaying feed posts.
@@ -120,27 +121,7 @@ export const PostCard = memo(function PostCard({
   const densityScale = compact ? 0.9 : 1;
 
   const postDate = new Date(post.timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - postDate.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-
-  let timeAgo: string;
-  if (diffMinutes < 1) {
-    timeAgo = 'Just now';
-  } else if (diffMinutes < 60) {
-    timeAgo = `${diffMinutes}m ago`;
-  } else if (diffHours < 24) {
-    timeAgo = `${diffHours}h ago`;
-  } else {
-    // Show date for posts older than 24 hours
-    timeAgo = postDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year:
-        postDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-    });
-  }
+  const timeAgo = formatTimeAgo(postDate);
 
   const initialInteractions: PostInteraction = {
     postId: post.id,
@@ -332,7 +313,7 @@ export const PostCard = memo(function PostCard({
             <div className="flex items-start gap-2 sm:items-center">
               <time
                 className="text-[15px] text-muted-foreground leading-tight"
-                title={postDate.toLocaleString()}
+                title={formatDateTime(postDate)}
               >
                 {timeAgo}
               </time>

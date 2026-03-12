@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatMediumDate } from '@/lib/format-date';
 
 /**
  * Admin user structure for admin management tab.
@@ -167,13 +168,7 @@ export function AdminManagementTab() {
     setProcessing(false);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (date: string) => formatMediumDate(date);
 
   const AdminRow = ({ admin }: { admin: AdminUser }) => {
     const displayName = admin.displayName || admin.username || 'Anonymous';

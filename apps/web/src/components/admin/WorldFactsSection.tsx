@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * World fact structure for world facts section.
@@ -391,8 +392,7 @@ export function WorldFactsSection() {
                       </div>
                     )}
                     <div className="mt-1 text-muted-foreground text-xs">
-                      Last updated:{' '}
-                      {new Date(fact.lastUpdated).toLocaleString()}
+                      Last updated: {formatDateTime(fact.lastUpdated)}
                     </div>
                   </div>
 
@@ -480,7 +480,7 @@ export function WorldFactsSection() {
                   Original: {parody.originalTitle}
                 </div>
                 <div className="mt-1 text-muted-foreground text-xs">
-                  Generated: {new Date(parody.generatedAt).toLocaleString()}
+                  Generated: {formatDateTime(parody.generatedAt)}
                 </div>
               </div>
             ))}

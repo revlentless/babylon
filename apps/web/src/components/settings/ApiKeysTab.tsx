@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDateTime } from '@/lib/format-date';
 
 interface ApiKey {
   id: string;
@@ -166,15 +167,7 @@ export function ApiKeysTab() {
     toast.success('API key copied to clipboard');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatDate = (dateString: string) => formatDateTime(dateString);
 
   return (
     <div className="space-y-6">

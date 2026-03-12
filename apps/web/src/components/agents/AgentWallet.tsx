@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Transaction structure for agent wallet.
@@ -285,7 +286,7 @@ export function AgentWallet({ agent, onUpdate }: AgentWalletProps) {
                     {tx.description}
                   </div>
                   <div className="text-muted-foreground text-xs">
-                    {new Date(tx.createdAt).toLocaleString()}
+                    {formatDateTime(tx.createdAt)}
                   </div>
                 </div>
                 <div className="text-right">

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime } from '@/lib/format-date';
 
 type SystemStatusLevel = 'healthy' | 'warning' | 'critical';
 
@@ -568,9 +569,7 @@ export function SystemHealthTab() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg bg-muted/40 px-4 py-3">
             <div className="text-muted-foreground text-xs">Snapshot time</div>
-            <div className="mt-1 text-sm">
-              {new Date(data.timestamp).toLocaleString()}
-            </div>
+            <div className="mt-1 text-sm">{formatDateTime(data.timestamp)}</div>
           </div>
           <div className="rounded-lg bg-muted/40 px-4 py-3">
             <div className="text-muted-foreground text-xs">Game uptime</div>
