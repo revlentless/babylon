@@ -699,21 +699,33 @@ export function useChatPage() {
     pendingScrollAdjustRef.current = null;
   }, [isLoadingMore]);
 
-  // Track scroll position for auto-scroll behavior
+  // Track scroll position for auto-scroll behavior (debounced with rAF)
+  const scrollRafIdRef = useRef<number | null>(null);
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      const threshold = 50;
-      const maxScrollTop = container.scrollHeight - container.clientHeight;
-      const atBottom = container.scrollTop >= maxScrollTop - threshold;
-      setIsAtBottom(atBottom);
+      if (scrollRafIdRef.current !== null) {
+        cancelAnimationFrame(scrollRafIdRef.current);
+      }
+      scrollRafIdRef.current = requestAnimationFrame(() => {
+        const threshold = 50;
+        const maxScrollTop = container.scrollHeight - container.clientHeight;
+        const atBottom = container.scrollTop >= maxScrollTop - threshold;
+        setIsAtBottom(atBottom);
+        scrollRafIdRef.current = null;
+      });
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollRafIdRef.current !== null) {
+        cancelAnimationFrame(scrollRafIdRef.current);
+      }
+    };
   }, []);
 
   // Check for chat ID in URL
