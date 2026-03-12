@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { StarRatingBase, scoreToStars } from '../feedback/StarRatingBase';
 
 /**
  * Feedback item structure for feedback history.
@@ -106,8 +107,12 @@ export function FeedbackHistory({
   }, [userId, limit, showAutoFeedback]);
 
   const getStarRating = (score: number): number => {
-    // Convert 0-100 score to 0-5 stars
+    // Convert 0-100 score to 0-5 stars (1 decimal place for display)
     return Math.round((score / 100) * 5 * 10) / 10;
+  };
+
+  const getStarRatingHalf = (score: number): number => {
+    return scoreToStars(score);
   };
 
   const getCategoryIcon = (category: string | null) => {
@@ -220,19 +225,10 @@ export function FeedbackHistory({
 
                 {/* Star Rating */}
                 <div className="mb-2 flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`h-4 w-4 ${
-                        star <= Math.floor(starRating)
-                          ? 'text-yellow-500'
-                          : star <= starRating
-                            ? 'text-yellow-500/50'
-                            : 'text-gray-600'
-                      }`}
-                      fill={star <= starRating ? 'currentColor' : 'none'}
-                    />
-                  ))}
+                  <StarRatingBase
+                    stars={getStarRatingHalf(feedback.score)}
+                    starClassName="h-4 w-4"
+                  />
                   <span className="ml-1 text-muted-foreground text-sm">
                     {starRating.toFixed(1)}/5 ({feedback.score}/100)
                   </span>
