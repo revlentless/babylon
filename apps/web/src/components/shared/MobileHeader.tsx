@@ -1,6 +1,11 @@
 'use client';
 
-import { cn, getDisplayReferralUrl, getReferralUrl } from '@babylon/shared';
+import {
+  COPY_FEEDBACK_DURATION_MS,
+  cn,
+  getDisplayReferralUrl,
+  getReferralUrl,
+} from '@babylon/shared';
 import {
   Check,
   Copy,
@@ -159,7 +164,7 @@ function MobileHeaderContent() {
     const referralUrl = getReferralUrl(user.referralCode);
     await navigator.clipboard.writeText(referralUrl);
     setCopiedReferral(true);
-    setTimeout(() => setCopiedReferral(false), 2000);
+    setTimeout(() => setCopiedReferral(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   // Render nothing if should be hidden (after all hooks)

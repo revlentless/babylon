@@ -17,7 +17,7 @@
  * ```
  */
 
-import { trackExternalShare } from '@babylon/shared';
+import { COPY_FEEDBACK_DURATION_MS, trackExternalShare } from '@babylon/shared';
 import { Check, Link as LinkIcon, Share2, Twitter } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
@@ -122,7 +122,7 @@ export function ExternalShareButton({
     // If already earned, skip verification
     if (earnedPlatforms.has('twitter')) {
       setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      setTimeout(() => setShared(false), COPY_FEEDBACK_DURATION_MS);
       setShowMenu(false);
       return;
     }
@@ -139,7 +139,7 @@ export function ExternalShareButton({
         : { shareActionId: null, pointsAwarded: 0, alreadyAwarded: false };
     if (result.pointsAwarded > 0) {
       setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      setTimeout(() => setShared(false), COPY_FEEDBACK_DURATION_MS);
     }
     const shareId = result.shareActionId;
     setShowMenu(false);
@@ -164,7 +164,7 @@ export function ExternalShareButton({
     // If already earned, skip verification
     if (earnedPlatforms.has('farcaster')) {
       setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      setTimeout(() => setShared(false), COPY_FEEDBACK_DURATION_MS);
       setShowMenu(false);
       return;
     }
@@ -181,7 +181,7 @@ export function ExternalShareButton({
         : { shareActionId: null, pointsAwarded: 0, alreadyAwarded: false };
     if (result.pointsAwarded > 0) {
       setShared(true);
-      setTimeout(() => setShared(false), 2000);
+      setTimeout(() => setShared(false), COPY_FEEDBACK_DURATION_MS);
     }
     const shareId = result.shareActionId;
     setShowMenu(false);
@@ -207,7 +207,7 @@ export function ExternalShareButton({
       });
     }
     setShared(true);
-    setTimeout(() => setShared(false), 2000);
+    setTimeout(() => setShared(false), COPY_FEEDBACK_DURATION_MS);
     setShowMenu(false);
   };
 

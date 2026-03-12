@@ -1,6 +1,10 @@
 'use client';
 
-import { getDisplayReferralUrl, getReferralUrl } from '@babylon/shared';
+import {
+  COPY_FEEDBACK_DURATION_MS,
+  getDisplayReferralUrl,
+  getReferralUrl,
+} from '@babylon/shared';
 import {
   BookOpen,
   Check,
@@ -88,7 +92,7 @@ export function UserMenu() {
     const referralUrl = getReferralUrl(user.referralCode);
     await navigator.clipboard.writeText(referralUrl);
     setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+    setTimeout(() => setCopiedCode(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   if (!user) {

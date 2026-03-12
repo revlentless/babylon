@@ -30,7 +30,7 @@
  */
 'use client';
 
-import { getProfileUrl } from '@babylon/shared';
+import { getProfileUrl, POLL_INTERVAL_MS } from '@babylon/shared';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
@@ -100,8 +100,7 @@ export function FeedbackHistory({
     };
 
     fetchFeedbackHistory();
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchFeedbackHistory, 60000);
+    const interval = setInterval(fetchFeedbackHistory, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [userId, limit, showAutoFeedback]);
 

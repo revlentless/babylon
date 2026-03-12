@@ -2,6 +2,13 @@
 
 import { cn } from '@babylon/shared';
 
+/** Streak day thresholds for color tier changes */
+const STREAK_TIERS = {
+  ONE_WEEK: 7,
+  TWO_WEEKS: 14,
+  ONE_MONTH: 30,
+} as const;
+
 interface StreakBadgeProps {
   streak: number;
   size?: 'sm' | 'md' | 'lg';
@@ -31,9 +38,9 @@ export function StreakBadge({
 
   const getColorClass = (streak: number): string => {
     if (streak === 0) return 'bg-muted text-muted-foreground';
-    if (streak < 7) return 'bg-[#0066FF] text-white';
-    if (streak < 14) return 'bg-green-600 text-white';
-    if (streak < 30) return 'bg-purple-600 text-white';
+    if (streak < STREAK_TIERS.ONE_WEEK) return 'bg-[#0066FF] text-white';
+    if (streak < STREAK_TIERS.TWO_WEEKS) return 'bg-green-600 text-white';
+    if (streak < STREAK_TIERS.ONE_MONTH) return 'bg-purple-600 text-white';
     return 'bg-gradient-to-r from-yellow-500 to-amber-600 text-white';
   };
 

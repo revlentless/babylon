@@ -19,7 +19,7 @@
  */
 'use client';
 
-import { cn } from '@babylon/shared';
+import { cn, POLL_INTERVAL_MS } from '@babylon/shared';
 import {
   ArrowDown,
   ArrowUp,
@@ -105,9 +105,8 @@ export function AnalyticsTab() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  // Auto-refresh every 60 seconds
   useEffect(() => {
-    const interval = setInterval(() => fetchAnalytics(), 60000);
+    const interval = setInterval(() => fetchAnalytics(), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchAnalytics]);
 

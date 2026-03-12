@@ -4,6 +4,7 @@ import {
   BABYLON_POINTS_SYMBOL,
   getReferralUrl,
   logger,
+  MAX_POST_CHAR_LIMIT,
   trackExternalShare,
 } from '@babylon/shared';
 import { usePrivy } from '@privy-io/react-auth';
@@ -540,7 +541,7 @@ export function PnLShareModal({
                   id="tweet-text"
                   value={tweetText}
                   onChange={(e) => setTweetText(e.target.value)}
-                  maxLength={280}
+                  maxLength={MAX_POST_CHAR_LIMIT}
                   rows={4}
                   disabled={isPostingToTwitter}
                   className="w-full resize-none rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground placeholder-muted-foreground focus:border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
@@ -548,9 +549,9 @@ export function PnLShareModal({
                 />
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-muted-foreground text-xs">
-                    {tweetText.length} / 280 characters
+                    {tweetText.length} / {MAX_POST_CHAR_LIMIT} characters
                   </span>
-                  {tweetText.length > 280 && (
+                  {tweetText.length > MAX_POST_CHAR_LIMIT && (
                     <span className="text-red-400 text-xs">
                       Text is too long
                     </span>
@@ -574,7 +575,7 @@ export function PnLShareModal({
                   disabled={
                     isPostingToTwitter ||
                     !tweetText.trim() ||
-                    tweetText.length > 280
+                    tweetText.length > MAX_POST_CHAR_LIMIT
                   }
                   className="flex items-center gap-2 rounded-lg bg-sky-500 px-6 py-2.5 font-medium text-foreground transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >

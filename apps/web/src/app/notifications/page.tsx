@@ -1,6 +1,6 @@
 'use client';
 
-import { cn, logger } from '@babylon/shared';
+import { cn, logger, POLL_INTERVAL_MS } from '@babylon/shared';
 import { Bell } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -151,7 +151,7 @@ export default function NotificationsPage() {
       if (document.visibilityState === 'visible') {
         fetchNotifications(false, true); // Silent refresh, no loading indicator, no toast
       }
-    }, 60000); // 60 seconds = 1 minute
+    }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
   }, [authenticated, user, fetchNotifications]);

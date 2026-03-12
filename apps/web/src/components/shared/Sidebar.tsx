@@ -1,6 +1,11 @@
 'use client';
 
-import { cn, getReferralUrl } from '@babylon/shared';
+import {
+  COPY_FEEDBACK_DURATION_MS,
+  cn,
+  getReferralUrl,
+  POLL_INTERVAL_MS,
+} from '@babylon/shared';
 import {
   Bell,
   Check,
@@ -115,7 +120,7 @@ function SidebarContent() {
     fetchUnreadCount();
 
     // Refresh every 1 minute
-    const interval = setInterval(fetchUnreadCount, 60000); // 60 seconds = 1 minute
+    const interval = setInterval(fetchUnreadCount, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [authenticated, user]);
 
@@ -146,7 +151,7 @@ function SidebarContent() {
     const referralUrl = getReferralUrl(user.referralCode);
     await navigator.clipboard.writeText(referralUrl);
     setCopiedReferral(true);
-    setTimeout(() => setCopiedReferral(false), 2000);
+    setTimeout(() => setCopiedReferral(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   // Render nothing if sidebar should be hidden (after all hooks)

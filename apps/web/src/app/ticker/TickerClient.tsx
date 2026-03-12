@@ -1,5 +1,6 @@
 'use client';
 
+import { POLL_INTERVAL_MS } from '@babylon/shared';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   TickerNewsItem,
@@ -199,7 +200,7 @@ export function TickerClient() {
 
   useEffect(() => {
     fetchTicker();
-    const interval = setInterval(fetchTicker, 60_000);
+    const interval = setInterval(fetchTicker, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchTicker]);
 

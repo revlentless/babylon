@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  COPY_FEEDBACK_DURATION_MS,
   getProfileUrl,
   getReferralShareText,
   getReferralUrl,
@@ -209,7 +210,7 @@ export default function RewardsPage() {
     const referralUrl = getReferralUrl(referralData.user.referralCode);
     await navigator.clipboard.writeText(referralUrl);
     setCopiedUrl(true);
-    setTimeout(() => setCopiedUrl(false), 2000);
+    setTimeout(() => setCopiedUrl(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   // Calculate total points earned from all sources
