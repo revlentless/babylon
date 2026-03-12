@@ -28,7 +28,7 @@
 
 import { cn } from '@babylon/shared';
 import { Activity, DollarSign, MessageSquare } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /**
  * Breakdown data structure from API.
@@ -106,35 +106,38 @@ export function ReputationBreakdown({
     );
   }
 
-  const components = [
-    {
-      name: 'PNL Performance',
-      value: breakdown.breakdown.pnlComponent,
-      weight: breakdown.weights.pnl * 100,
-      icon: DollarSign,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      metric: `${breakdown.metrics.normalizedPnL.toFixed(2)} normalized PNL`,
-    },
-    {
-      name: 'Feedback Score',
-      value: breakdown.breakdown.feedbackComponent,
-      weight: breakdown.weights.feedback * 100,
-      icon: MessageSquare,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      metric: `${breakdown.metrics.averageFeedbackScore.toFixed(0)}/100 avg (${breakdown.metrics.totalFeedbackCount} reviews)`,
-    },
-    {
-      name: 'Activity Level',
-      value: breakdown.breakdown.activityComponent,
-      weight: breakdown.weights.activity * 100,
-      icon: Activity,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-      metric: `${breakdown.metrics.gamesPlayed} games played`,
-    },
-  ];
+  const components = useMemo(
+    () => [
+      {
+        name: 'PNL Performance',
+        value: breakdown.breakdown.pnlComponent,
+        weight: breakdown.weights.pnl * 100,
+        icon: DollarSign,
+        color: 'text-green-500',
+        bgColor: 'bg-green-500/10',
+        metric: `${breakdown.metrics.normalizedPnL.toFixed(2)} normalized PNL`,
+      },
+      {
+        name: 'Feedback Score',
+        value: breakdown.breakdown.feedbackComponent,
+        weight: breakdown.weights.feedback * 100,
+        icon: MessageSquare,
+        color: 'text-blue-500',
+        bgColor: 'bg-blue-500/10',
+        metric: `${breakdown.metrics.averageFeedbackScore.toFixed(0)}/100 avg (${breakdown.metrics.totalFeedbackCount} reviews)`,
+      },
+      {
+        name: 'Activity Level',
+        value: breakdown.breakdown.activityComponent,
+        weight: breakdown.weights.activity * 100,
+        icon: Activity,
+        color: 'text-purple-500',
+        bgColor: 'bg-purple-500/10',
+        metric: `${breakdown.metrics.gamesPlayed} games played`,
+      },
+    ],
+    [breakdown]
+  );
 
   return (
     <div className={cn('space-y-4 rounded-lg bg-sidebar p-4', className)}>
