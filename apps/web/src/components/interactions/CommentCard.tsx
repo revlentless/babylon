@@ -12,7 +12,6 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { ModerationMenu } from '@/components/moderation/ModerationMenu';
 import { formatTimeAgo } from '@/components/posts/CommentPreview';
 import { Avatar } from '@/components/shared/Avatar';
@@ -21,15 +20,16 @@ import {
   isNpcIdentifier,
   VerifiedBadge,
 } from '@/components/shared/VerifiedBadge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
-import { useMenuPosition } from '@/hooks/useMenuPosition';
 import { MAX_REPLY_COUNT } from '@/lib/constants';
 import { CommentInput } from './CommentInput';
 import { LikeButton } from './LikeButton';
-
-// Menu dimensions for edit/delete dropdown
-const MENU_HEIGHT = 100;
-const MENU_WIDTH = 120;
 
 /**
  * Recursive reply type for counting
@@ -83,22 +83,9 @@ export function CommentCard({
 }: CommentCardProps) {
   const router = useRouter();
   const { user, authenticated, login } = useAuth();
-  const [showActions, setShowActions] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
-
-  // Use custom hook for menu positioning
-  const {
-    buttonRef: actionButtonRef,
-    menuPosition,
-    updatePosition,
-    mounted,
-  } = useMenuPosition(showActions, {
-    menuHeight: MENU_HEIGHT,
-    menuWidth: MENU_WIDTH,
-    padding: 4,
-  });
 
   const hasReplies = comment.replies && comment.replies.length > 0;
   const replyCount = hasReplies ? countAllReplies(comment.replies) : 0;
@@ -120,7 +107,6 @@ export function CommentCard({
 
   const handleEdit = () => {
     setIsEditing(true);
-    setShowActions(false);
   };
 
   const handleSaveEdit = () => {
@@ -139,7 +125,6 @@ export function CommentCard({
     if (onDelete && confirm('Are you sure you want to delete this comment?')) {
       onDelete(comment.id);
     }
-    setShowActions(false);
   };
 
   // Navigate to comment thread page
@@ -201,66 +186,31 @@ export function CommentCard({
               {/* Actions menu - different for own vs others' comments */}
               {isOwnComment ? (
                 // Own comment: Show Edit/Delete
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    ref={actionButtonRef}
-                    type="button"
-                    onClick={() => {
-                      if (!showActions) {
-                        updatePosition();
-                      }
-                      setShowActions(!showActions);
-                    }}
-                    className="rounded-lg p-2 transition-colors hover:bg-muted"
-                    aria-label="More options"
-                  >
-                    <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-                  </button>
-
-                  {/* Only render portal on client side (mounted check for SSR compatibility) */}
-                  {showActions &&
-                    mounted &&
-                    createPortal(
-                      <>
-                        {/* Backdrop */}
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setShowActions(false)}
-                        />
-
-                        {/* Dropdown */}
-                        <div
-                          className="fade-in slide-in-from-top-2 fixed z-50 min-w-[120px] animate-in rounded-md border border-border bg-popover py-1 shadow-lg duration-150"
-                          style={{
-                            top: menuPosition.openUpward
-                              ? 'auto'
-                              : menuPosition.top,
-                            bottom: menuPosition.openUpward
-                              ? menuPosition.windowHeight - menuPosition.top
-                              : 'auto',
-                            left: menuPosition.left,
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={handleEdit}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                          >
-                            <Edit2 size={14} />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDelete}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-destructive text-sm transition-colors hover:bg-muted"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
-                        </div>
-                      </>,
-                      document.body
-                    )}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 transition-colors hover:bg-muted"
+                        aria-label="More options"
+                      >
+                        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={4}>
+                      <DropdownMenuItem onClick={handleEdit}>
+                        <Edit2 size={14} className="mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleDelete}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 size={14} className="mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ) : user ? (
                 // Other user's comment: Show ModerationMenu (Follow/Mute/Block/Report)
