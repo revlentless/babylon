@@ -11,7 +11,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { toast } from 'sonner';
 import type { Address } from 'viem';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -80,6 +80,106 @@ interface PaymentRequest {
   amount: string;
 }
 
+/**
+ * Payment flow reducer state — groups the related state variables that
+ * transition together during the multi-step payment lifecycle.
+ */
+type PaymentFlowState = {
+  step: PaymentStep;
+  loading: boolean;
+  txHash: string | null;
+  error: string | null;
+  pointsAwarded: number;
+  walletInitializing: boolean;
+  amountUSD: string;
+  paymentMethod: PaymentMethod;
+  userSelectedMethod: boolean;
+};
+
+type PaymentFlowAction =
+  | { type: 'SET_STEP'; step: PaymentStep }
+  | { type: 'SET_LOADING'; loading: boolean }
+  | { type: 'SET_TX_HASH'; hash: string | null }
+  | { type: 'SET_ERROR'; error: string | null }
+  | { type: 'SET_POINTS_AWARDED'; points: number }
+  | { type: 'SET_WALLET_INITIALIZING'; value: boolean }
+  | { type: 'SET_AMOUNT_USD'; amount: string }
+  | { type: 'SELECT_PAYMENT_METHOD'; method: PaymentMethod }
+  | { type: 'AUTO_SWITCH_PAYMENT_METHOD'; method: PaymentMethod }
+  | { type: 'START_PAYMENT' }
+  | { type: 'PAYMENT_ERROR'; error: string }
+  | { type: 'PAYMENT_SUCCESS'; pointsAwarded: number }
+  | { type: 'VERIFICATION_STARTED'; txHash: string }
+  | { type: 'RESET'; defaultMethod: PaymentMethod };
+
+function createInitialPaymentState(
+  defaultMethod: PaymentMethod
+): PaymentFlowState {
+  return {
+    step: 'input',
+    loading: false,
+    txHash: null,
+    error: null,
+    pointsAwarded: 0,
+    walletInitializing: false,
+    amountUSD: '10',
+    paymentMethod: defaultMethod,
+    userSelectedMethod: false,
+  };
+}
+
+function paymentFlowReducer(
+  state: PaymentFlowState,
+  action: PaymentFlowAction
+): PaymentFlowState {
+  switch (action.type) {
+    case 'SET_STEP':
+      return { ...state, step: action.step };
+    case 'SET_LOADING':
+      return { ...state, loading: action.loading };
+    case 'SET_TX_HASH':
+      return { ...state, txHash: action.hash };
+    case 'SET_ERROR':
+      return { ...state, error: action.error };
+    case 'SET_POINTS_AWARDED':
+      return { ...state, pointsAwarded: action.points };
+    case 'SET_WALLET_INITIALIZING':
+      return { ...state, walletInitializing: action.value };
+    case 'SET_AMOUNT_USD':
+      return { ...state, amountUSD: action.amount };
+    case 'SELECT_PAYMENT_METHOD':
+      return {
+        ...state,
+        paymentMethod: action.method,
+        userSelectedMethod: true,
+      };
+    case 'AUTO_SWITCH_PAYMENT_METHOD':
+      return { ...state, paymentMethod: action.method };
+    case 'START_PAYMENT':
+      return { ...state, loading: true, error: null };
+    case 'PAYMENT_ERROR':
+      return {
+        ...state,
+        error: action.error,
+        step: 'error',
+        loading: false,
+      };
+    case 'PAYMENT_SUCCESS':
+      return {
+        ...state,
+        pointsAwarded: action.pointsAwarded,
+        step: 'success',
+        loading: false,
+      };
+    case 'VERIFICATION_STARTED':
+      return { ...state, txHash: action.txHash, step: 'verifying' };
+    case 'RESET':
+      return createInitialPaymentState(action.defaultMethod);
+    default:
+      return state;
+  }
+}
+
 export function BuyPointsModal({
   isOpen,
   onClose,
@@ -90,14 +190,6 @@ export function BuyPointsModal({
   const { sendPointsPayment } = useBuyPointsTx();
   const { ensureFunds } = useWalletFunding();
 
-  const [amountUSD, setAmountUSD] = useState('10');
-  const [step, setStep] = useState<PaymentStep>('input');
-  const [loading, setLoading] = useState(false);
-  const [txHash, setTxHash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pointsAwarded, setPointsAwarded] = useState(0);
-  const [walletInitializing, setWalletInitializing] = useState(false);
-
   // Check if Stripe is available
   const stripeAvailable = isStripeEnabled();
 
@@ -106,21 +198,29 @@ export function BuyPointsModal({
   const canUseStripe = stripeAvailable;
   const hasAnyPaymentMethod = canUseCrypto || canUseStripe;
 
-  // Track if user has manually selected a payment method
-  const [userSelectedMethod, setUserSelectedMethod] = useState(false);
+  const defaultMethod: PaymentMethod =
+    stripeAvailable && !embeddedWalletAddress ? 'stripe' : 'crypto';
 
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
-    // Default to Stripe if available and user has no wallet, otherwise crypto
-    if (stripeAvailable && !embeddedWalletAddress) {
-      return 'stripe';
-    }
-    return 'crypto';
-  });
+  const [state, dispatch] = useReducer(
+    paymentFlowReducer,
+    defaultMethod,
+    createInitialPaymentState
+  );
+  const {
+    amountUSD,
+    step,
+    loading,
+    txHash,
+    error,
+    pointsAwarded,
+    walletInitializing,
+    paymentMethod,
+    userSelectedMethod,
+  } = state;
 
   // Handle user selecting a payment method
   const handlePaymentMethodChange = (method: PaymentMethod) => {
-    setUserSelectedMethod(true);
-    setPaymentMethod(method);
+    dispatch({ type: 'SELECT_PAYMENT_METHOD', method });
   };
 
   // Only auto-switch if user hasn't manually selected AND no payment methods available
@@ -130,7 +230,7 @@ export function BuyPointsModal({
     if (!userSelectedMethod) {
       // If currently on crypto but no wallet, switch to stripe if available
       if (paymentMethod === 'crypto' && !canUseCrypto && canUseStripe) {
-        setPaymentMethod('stripe');
+        dispatch({ type: 'AUTO_SWITCH_PAYMENT_METHOD', method: 'stripe' });
       }
     }
   }, [canUseCrypto, canUseStripe, paymentMethod, userSelectedMethod]);
@@ -169,16 +269,10 @@ export function BuyPointsModal({
       // Reset state after animation completes
       const timeoutId = setTimeout(() => {
         if (isMountedRef.current) {
-          setAmountUSD('10');
-          setStep('input');
-          setLoading(false);
-          setTxHash(null);
-          setError(null);
-          setPointsAwarded(0);
-          setWalletInitializing(false);
-          // Reset payment method selection - stripe preferred if available
-          setPaymentMethod(stripeAvailable ? 'stripe' : 'crypto');
-          setUserSelectedMethod(false);
+          dispatch({
+            type: 'RESET',
+            defaultMethod: stripeAvailable ? 'stripe' : 'crypto',
+          });
         }
       }, 300);
 
@@ -303,16 +397,14 @@ export function BuyPointsModal({
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'START_PAYMENT' });
 
     try {
       const token = await getAccessToken();
 
       if (!token) {
         logger.error('Authentication required', undefined, 'BuyPointsModal');
-        setError('Authentication required');
-        setStep('error');
+        dispatch({ type: 'PAYMENT_ERROR', error: 'Authentication required' });
         toast.error('Please sign in to continue');
         return;
       }
@@ -335,8 +427,7 @@ export function BuyPointsModal({
           { error: errorMessage },
           'BuyPointsModal'
         );
-        setError(errorMessage);
-        setStep('error');
+        dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
         toast.error('Failed to start checkout');
         return;
       }
@@ -351,11 +442,10 @@ export function BuyPointsModal({
         { error: errorMessage },
         'BuyPointsModal'
       );
-      setError(errorMessage);
-      setStep('error');
+      dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
       toast.error('Failed to connect to payment server');
     } finally {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', loading: false });
     }
   };
 
@@ -381,18 +471,18 @@ export function BuyPointsModal({
 
     // Check if embedded wallet is ready, if not wait for initialization
     if (!embeddedWalletReady) {
-      setWalletInitializing(true);
+      dispatch({ type: 'SET_WALLET_INITIALIZING', value: true });
       toast.info('Initializing wallet...');
 
       const isReady = await waitForWalletReady(signal);
 
       // Check if cancelled during wait
       if (signal.aborted || !isMountedRef.current) {
-        setWalletInitializing(false);
+        dispatch({ type: 'SET_WALLET_INITIALIZING', value: false });
         return;
       }
 
-      setWalletInitializing(false);
+      dispatch({ type: 'SET_WALLET_INITIALIZING', value: false });
 
       if (!isReady) {
         toast.error(
@@ -405,24 +495,22 @@ export function BuyPointsModal({
       toast.success('Wallet ready!');
     }
 
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'START_PAYMENT' });
 
     try {
       const token = await getAccessToken();
 
       // Check if cancelled after getting token
       if (signal.aborted || !isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
       if (!token) {
         logger.error('Authentication required', undefined, 'BuyPointsModal');
-        setError('Authentication required');
-        setStep('error');
+        dispatch({ type: 'PAYMENT_ERROR', error: 'Authentication required' });
         toast.error('Failed to create payment request');
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         abortControllerRef.current = null;
         return;
       }
@@ -443,7 +531,7 @@ export function BuyPointsModal({
 
       // Check if cancelled after fetch
       if (signal.aborted || !isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
@@ -456,22 +544,21 @@ export function BuyPointsModal({
           { error: errorMessage },
           'BuyPointsModal'
         );
-        setError(errorMessage);
-        setStep('error');
+        dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
         toast.error('Failed to create payment request');
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         abortControllerRef.current = null;
         return;
       }
 
-      setStep('payment');
+      dispatch({ type: 'SET_STEP', step: 'payment' });
 
       // Initiate blockchain transaction
       await handleSendPayment(data.paymentRequest, signal);
     } catch (err) {
       // Handle abort errors silently
       if (err instanceof Error && err.name === 'AbortError') {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
@@ -484,14 +571,13 @@ export function BuyPointsModal({
           'BuyPointsModal'
         );
         if (isMountedRef.current) {
-          setError(errorMessage);
-          setStep('error');
+          dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
           toast.error('Payment transaction failed');
         }
       }
     } finally {
       if (isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
       }
       // Clean up abort controller after operation completes
       abortControllerRef.current = null;
@@ -502,17 +588,15 @@ export function BuyPointsModal({
     paymentRequest: PaymentRequest,
     signal: AbortSignal
   ) => {
-    setLoading(true);
-    setStep('payment');
+    dispatch({ type: 'SET_LOADING', loading: true });
+    dispatch({ type: 'SET_STEP', step: 'payment' });
 
     // Use ref for consistent check (avoids stale closure)
     if (!embeddedWalletReadyRef.current || !embeddedWalletAddress) {
       const errorMessage = WALLET_ERROR_MESSAGES.NO_EMBEDDED_WALLET;
       logger.error('Payment failed', { error: errorMessage }, 'BuyPointsModal');
-      setError(errorMessage);
-      setStep('error');
+      dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
       toast.error('Payment transaction failed');
-      setLoading(false);
       return;
     }
 
@@ -524,7 +608,7 @@ export function BuyPointsModal({
 
       // Check if operation was cancelled after funding
       if (signal.aborted || !isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
@@ -535,12 +619,11 @@ export function BuyPointsModal({
 
       // Check if cancelled after payment
       if (signal.aborted || !isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
-      setTxHash(hash);
-      setStep('verifying');
+      dispatch({ type: 'VERIFICATION_STARTED', txHash: hash });
 
       // Verify payment and credit points
       await handleVerifyPayment(
@@ -552,7 +635,7 @@ export function BuyPointsModal({
     } catch (err) {
       // Don't show error if operation was cancelled
       if (err instanceof Error && err.message === 'Operation cancelled') {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
       throw err;
@@ -567,17 +650,15 @@ export function BuyPointsModal({
   ) => {
     // Check if cancelled before starting
     if (signal.aborted || !isMountedRef.current) {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', loading: false });
       return;
     }
 
     const token = await getAccessToken();
     if (!token) {
       logger.error('Authentication required', undefined, 'BuyPointsModal');
-      setError('Authentication required');
-      setStep('error');
+      dispatch({ type: 'PAYMENT_ERROR', error: 'Authentication required' });
       toast.error('Failed to verify payment');
-      setLoading(false);
       return;
     }
 
@@ -593,7 +674,7 @@ export function BuyPointsModal({
 
     // Check if cancelled after wait
     if (signal.aborted || !isMountedRef.current) {
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', loading: false });
       return;
     }
 
@@ -616,7 +697,7 @@ export function BuyPointsModal({
 
       // Check if cancelled after fetch
       if (signal.aborted || !isMountedRef.current) {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
 
@@ -629,26 +710,23 @@ export function BuyPointsModal({
           { error: errorMessage },
           'BuyPointsModal'
         );
-        setError(errorMessage);
-        setStep('error');
+        dispatch({ type: 'PAYMENT_ERROR', error: errorMessage });
         toast.error('Failed to verify payment');
-        setLoading(false);
         return;
       }
 
-      setPointsAwarded(data.pointsAwarded);
-      setStep('success');
+      dispatch({ type: 'PAYMENT_SUCCESS', pointsAwarded: data.pointsAwarded });
       toast.success(`Successfully purchased ${data.pointsAwarded} points!`);
 
       // Call onSuccess callback
       if (onSuccess) {
         onSuccess();
       }
-      setLoading(false);
+      dispatch({ type: 'SET_LOADING', loading: false });
     } catch (err) {
       // Handle abort errors silently
       if (err instanceof Error && err.name === 'AbortError') {
-        setLoading(false);
+        dispatch({ type: 'SET_LOADING', loading: false });
         return;
       }
       throw err;
@@ -768,11 +846,14 @@ export function BuyPointsModal({
                       const noLeadingZeros = sanitized.replace(/^0+/, '') || '';
                       const num = parseInt(noLeadingZeros, 10);
                       if (noLeadingZeros === '' || isNaN(num)) {
-                        setAmountUSD('');
+                        dispatch({ type: 'SET_AMOUNT_USD', amount: '' });
                       } else if (num > 1000) {
-                        setAmountUSD('1000');
+                        dispatch({ type: 'SET_AMOUNT_USD', amount: '1000' });
                       } else {
-                        setAmountUSD(noLeadingZeros);
+                        dispatch({
+                          type: 'SET_AMOUNT_USD',
+                          amount: noLeadingZeros,
+                        });
                       }
                     }}
                     className="w-full rounded-lg border-2 border-border bg-background py-3 pr-4 pl-10 font-medium text-lg transition-colors focus:border-primary focus:outline-none"
@@ -785,7 +866,12 @@ export function BuyPointsModal({
                   {[10, 25, 50, 100].map((amt) => (
                     <button
                       key={amt}
-                      onClick={() => setAmountUSD(amt.toString())}
+                      onClick={() =>
+                        dispatch({
+                          type: 'SET_AMOUNT_USD',
+                          amount: amt.toString(),
+                        })
+                      }
                       className={cn(
                         'rounded-lg border-2 py-2.5 font-medium transition-all',
                         amountNum === amt
@@ -1009,8 +1095,8 @@ export function BuyPointsModal({
               </button>
               <button
                 onClick={() => {
-                  setStep('input');
-                  setError(null);
+                  dispatch({ type: 'SET_STEP', step: 'input' });
+                  dispatch({ type: 'SET_ERROR', error: null });
                 }}
                 className="flex-1 rounded-lg bg-primary py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >

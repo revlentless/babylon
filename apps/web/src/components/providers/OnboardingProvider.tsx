@@ -3,7 +3,7 @@
 import type { OnboardingProfilePayload } from '@babylon/shared';
 import { logger, POINTS } from '@babylon/shared';
 import { useIdentityToken, usePrivy } from '@privy-io/react-auth';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import {
   type ImportedProfileData,
   OnboardingModal,
@@ -19,6 +19,112 @@ import { clearReferralCode, getReferralCode } from './ReferralCaptureProvider';
  * Onboarding stage type for multi-step onboarding flow.
  */
 type OnboardingStage = 'PROFILE' | 'COMPLETED';
+
+/**
+ * Onboarding reducer state — groups the related state variables that
+ * change together during the onboarding lifecycle (submission, reset,
+ * social import, display readiness).
+ */
+type OnboardingState = {
+  stage: OnboardingStage;
+  isSubmitting: boolean;
+  error: string | null;
+  submittedProfile: OnboardingProfilePayload | null;
+  importedProfileData: ImportedProfileData | null;
+  hasProgressedPastSocialImport: boolean;
+  socialAutoSubmitAttempted: boolean;
+  isReadyToShow: boolean;
+  hasInitialized: boolean;
+};
+
+type OnboardingAction =
+  | { type: 'SET_STAGE'; stage: OnboardingStage }
+  | { type: 'SET_SUBMITTING'; isSubmitting: boolean }
+  | { type: 'SET_ERROR'; error: string | null }
+  | { type: 'SET_SUBMITTED_PROFILE'; profile: OnboardingProfilePayload | null }
+  | { type: 'SET_IMPORTED_PROFILE'; data: ImportedProfileData | null }
+  | { type: 'SET_PROGRESSED_PAST_SOCIAL_IMPORT'; value: boolean }
+  | { type: 'SET_SOCIAL_AUTO_SUBMIT_ATTEMPTED'; value: boolean }
+  | { type: 'SET_READY_TO_SHOW'; value: boolean }
+  | { type: 'SET_INITIALIZED'; value: boolean }
+  | { type: 'MARK_READY_AND_INITIALIZED' }
+  | { type: 'RESET_DISPLAY' }
+  | { type: 'RESET_ON_LOGOUT' }
+  | {
+      type: 'SUBMIT_SUCCESS';
+      profile: OnboardingProfilePayload;
+    }
+  | {
+      type: 'IMPORT_SOCIAL_PROFILE';
+      data: ImportedProfileData;
+    };
+
+const initialOnboardingState: OnboardingState = {
+  stage: 'PROFILE',
+  isSubmitting: false,
+  error: null,
+  submittedProfile: null,
+  importedProfileData: null,
+  hasProgressedPastSocialImport: false,
+  socialAutoSubmitAttempted: false,
+  isReadyToShow: false,
+  hasInitialized: false,
+};
+
+function onboardingReducer(
+  state: OnboardingState,
+  action: OnboardingAction
+): OnboardingState {
+  switch (action.type) {
+    case 'SET_STAGE':
+      return { ...state, stage: action.stage };
+    case 'SET_SUBMITTING':
+      return { ...state, isSubmitting: action.isSubmitting };
+    case 'SET_ERROR':
+      return { ...state, error: action.error };
+    case 'SET_SUBMITTED_PROFILE':
+      return { ...state, submittedProfile: action.profile };
+    case 'SET_IMPORTED_PROFILE':
+      return { ...state, importedProfileData: action.data };
+    case 'SET_PROGRESSED_PAST_SOCIAL_IMPORT':
+      return { ...state, hasProgressedPastSocialImport: action.value };
+    case 'SET_SOCIAL_AUTO_SUBMIT_ATTEMPTED':
+      return { ...state, socialAutoSubmitAttempted: action.value };
+    case 'SET_READY_TO_SHOW':
+      return { ...state, isReadyToShow: action.value };
+    case 'SET_INITIALIZED':
+      return { ...state, hasInitialized: action.value };
+    case 'MARK_READY_AND_INITIALIZED':
+      return { ...state, isReadyToShow: true, hasInitialized: true };
+    case 'RESET_DISPLAY':
+      return { ...state, isReadyToShow: false, hasInitialized: false };
+    case 'RESET_ON_LOGOUT':
+      return {
+        ...state,
+        stage: 'PROFILE',
+        submittedProfile: null,
+        error: null,
+        importedProfileData: null,
+        hasProgressedPastSocialImport: false,
+        socialAutoSubmitAttempted: false,
+      };
+    case 'SUBMIT_SUCCESS':
+      return {
+        ...state,
+        submittedProfile: action.profile,
+        stage: 'COMPLETED',
+        isSubmitting: false,
+      };
+    case 'IMPORT_SOCIAL_PROFILE':
+      return {
+        ...state,
+        importedProfileData: action.data,
+        hasProgressedPastSocialImport: true,
+      };
+    default:
+      return state;
+  }
+}
 
 /**
  * Onboarding provider component for managing user onboarding flow.
@@ -71,45 +177,40 @@ export function OnboardingProvider({
   const { trackSignupStarted, trackSignupCompleted, trackOnboardingStep } =
     useSignupTracking();
 
-  const [stage, setStage] = useState<OnboardingStage>('PROFILE');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [_submittedProfile, setSubmittedProfile] =
-    useState<OnboardingProfilePayload | null>(null);
-  const [importedProfileData, setImportedProfileData] =
-    useState<ImportedProfileData | null>(null);
-  const [_hasProgressedPastSocialImport, setHasProgressedPastSocialImport] =
-    useState(false);
+  const [state, dispatch] = useReducer(
+    onboardingReducer,
+    initialOnboardingState
+  );
+  const {
+    stage,
+    isSubmitting,
+    error,
+    importedProfileData,
+    socialAutoSubmitAttempted,
+    isReadyToShow,
+    hasInitialized,
+  } = state;
+
   // Track if social user auto-submit is currently in-flight (prevents StrictMode double-invoke)
   const socialAutoSubmitRef = useRef(false);
-  // Persistent flag to prevent repeated auto-submit attempts after failure
-  // (only reset on explicit logout/cleanup, NOT on failure)
-  const [socialAutoSubmitAttempted, setSocialAutoSubmitAttempted] =
-    useState(false);
-
-  // Delay onboarding display to prevent flickering
-  const [isReadyToShow, setIsReadyToShow] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Wait for app to stabilize before showing onboarding
   useEffect(() => {
     if (!authenticated || loadingProfile) {
-      setIsReadyToShow(false);
-      setHasInitialized(false);
+      dispatch({ type: 'RESET_DISPLAY' });
       return;
     }
 
     // If already initialized and conditions change, show immediately
     if (hasInitialized) {
-      setIsReadyToShow(true);
+      dispatch({ type: 'SET_READY_TO_SHOW', value: true });
       return;
     }
 
     // First time: wait 1 second for app to load (shorter delay for blocking UI)
     const delay = 1000; // Fixed 1 second delay for consistent UX
     const timer = setTimeout(() => {
-      setIsReadyToShow(true);
-      setHasInitialized(true);
+      dispatch({ type: 'MARK_READY_AND_INITIALIZED' });
     }, delay);
 
     return () => clearTimeout(timer);
@@ -118,8 +219,7 @@ export function OnboardingProvider({
   // If needsOnboarding is manually set to true, show onboarding immediately
   useEffect(() => {
     if (needsOnboarding && authenticated && !loadingProfile) {
-      setIsReadyToShow(true);
-      setHasInitialized(true);
+      dispatch({ type: 'MARK_READY_AND_INITIALIZED' });
     }
   }, [needsOnboarding, authenticated, loadingProfile]);
 
@@ -175,8 +275,8 @@ export function OnboardingProvider({
 
   const handleProfileSubmit = useCallback(
     async (payload: OnboardingProfilePayload) => {
-      setIsSubmitting(true);
-      setError(null);
+      dispatch({ type: 'SET_SUBMITTING', isSubmitting: true });
+      dispatch({ type: 'SET_ERROR', error: null });
       trackSignupStarted();
 
       const referralCode = getReferralCode();
@@ -208,7 +308,7 @@ export function OnboardingProvider({
           const message =
             data?.error ||
             `Failed to complete signup (status ${response.status})`;
-          setIsSubmitting(false);
+          dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
           throw new Error(message);
         }
 
@@ -241,17 +341,15 @@ export function OnboardingProvider({
         setNeedsOnboarding(false);
 
         clearReferralCode();
-        setSubmittedProfile(payload);
         trackOnboardingStep('profile', true);
         trackSignupCompleted(data.user?.id ?? '', {
           hasReferrer: Boolean(referralCode),
           hasFarcaster: data.user?.hasFarcaster ?? false,
           hasTwitter: data.user?.hasTwitter ?? false,
         });
-        setStage('COMPLETED');
-        setIsSubmitting(false);
+        dispatch({ type: 'SUBMIT_SUCCESS', profile: payload });
       } catch (err) {
-        setIsSubmitting(false);
+        dispatch({ type: 'SET_SUBMITTING', isSubmitting: false });
         // Re-throw to let caller handle the error
         throw err;
       }
@@ -269,13 +367,8 @@ export function OnboardingProvider({
 
   useEffect(() => {
     if (!authenticated) {
-      setStage('PROFILE');
-      setSubmittedProfile(null);
-      setError(null);
-      setImportedProfileData(null);
-      setHasProgressedPastSocialImport(false);
+      dispatch({ type: 'RESET_ON_LOGOUT' });
       socialAutoSubmitRef.current = false;
-      setSocialAutoSubmitAttempted(false);
       return;
     }
 
@@ -293,7 +386,7 @@ export function OnboardingProvider({
         !socialAutoSubmitAttempted
       ) {
         // Mark as attempted BEFORE submission to prevent retries on failure
-        setSocialAutoSubmitAttempted(true);
+        dispatch({ type: 'SET_SOCIAL_AUTO_SUBMIT_ATTEMPTED', value: true });
         // Mark as in-flight to prevent StrictMode double-invoke
         socialAutoSubmitRef.current = true;
         logger.info(
@@ -333,14 +426,14 @@ export function OnboardingProvider({
             },
             'OnboardingProvider'
           );
-          setError(submitError.message);
+          dispatch({ type: 'SET_ERROR', error: submitError.message });
           socialAutoSubmitRef.current = false;
-          setStage('PROFILE');
+          dispatch({ type: 'SET_STAGE', stage: 'PROFILE' });
         });
         return;
       }
       // Non-social users: start at profile setup
-      setStage('PROFILE');
+      dispatch({ type: 'SET_STAGE', stage: 'PROFILE' });
       return;
     }
 
@@ -418,8 +511,7 @@ export function OnboardingProvider({
         'OnboardingProvider'
       );
 
-      setImportedProfileData(profileData);
-      setHasProgressedPastSocialImport(true);
+      dispatch({ type: 'IMPORT_SOCIAL_PROFILE', data: profileData });
       return;
     }
 
@@ -455,8 +547,7 @@ export function OnboardingProvider({
         'OnboardingProvider'
       );
 
-      setImportedProfileData(profileData);
-      setHasProgressedPastSocialImport(true);
+      dispatch({ type: 'IMPORT_SOCIAL_PROFILE', data: profileData });
       return;
     }
 
@@ -512,9 +603,8 @@ export function OnboardingProvider({
           'OnboardingProvider'
         );
 
-        setImportedProfileData(profileData);
-        setHasProgressedPastSocialImport(true);
-        setStage('PROFILE');
+        dispatch({ type: 'IMPORT_SOCIAL_PROFILE', data: profileData });
+        dispatch({ type: 'SET_STAGE', stage: 'PROFILE' });
       } catch (parseError) {
         logger.warn(
           'Failed to parse social profile data from URL',
@@ -544,7 +634,7 @@ export function OnboardingProvider({
       'OnboardingProvider'
     );
     // Reset stage to allow re-entry if needed (defensive)
-    setStage('PROFILE');
+    dispatch({ type: 'SET_STAGE', stage: 'PROFILE' });
   }, [stage, user]);
 
   // Full-screen blocking onboarding - user cannot access app until complete
