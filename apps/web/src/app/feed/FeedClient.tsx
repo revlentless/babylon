@@ -112,8 +112,12 @@ export function FeedClient() {
   const router = useRouter();
   const { authenticated } = useAuth();
   const { refreshAll: refreshWidgets } = useWidgetRefresh();
-  const { registerOptimisticPostCallback, unregisterOptimisticPostCallback } =
-    useFeedStore();
+  const {
+    registerOptimisticPostCallback,
+    unregisterOptimisticPostCallback,
+    registerPostDeletedCallback,
+    unregisterPostDeletedCallback,
+  } = useFeedStore();
 
   // Tab state
   const [tab, setTab] = useState<FeedTab>('forYou');
@@ -137,6 +141,7 @@ export function FeedClient() {
     fetchPosts,
     refresh: refreshLatest,
     addOptimisticPost,
+    removePost,
   } = useFeedPosts({ enabled: tab === 'latest' });
 
   const { posts: followingPosts, loading: followingLoading } =
@@ -269,6 +274,16 @@ export function FeedClient() {
     unregisterOptimisticPostCallback,
     addOptimisticPost,
   ]);
+
+  // Register post deleted callback
+  useEffect(() => {
+    registerPostDeletedCallback((postId: string) => {
+      removePost(postId);
+    });
+    return () => {
+      unregisterPostDeletedCallback();
+    };
+  }, [registerPostDeletedCallback, unregisterPostDeletedCallback, removePost]);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {

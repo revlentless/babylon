@@ -17,6 +17,7 @@ interface UseFeedPostsResult {
   fetchPosts: (cursor: string | null, append?: boolean) => Promise<void>;
   refresh: () => Promise<void>;
   addOptimisticPost: (post: FeedPost) => void;
+  removePost: (postId: string) => void;
 }
 
 /**
@@ -154,6 +155,11 @@ export function useFeedPosts(
     setLocalPosts((prev) => [post, ...prev]);
   }, []);
 
+  const removePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setLocalPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   // Initial fetch - only run once when enabled
   useEffect(() => {
     if (!enabled) {
@@ -200,5 +206,6 @@ export function useFeedPosts(
     fetchPosts,
     refresh,
     addOptimisticPost,
+    removePost,
   };
 }

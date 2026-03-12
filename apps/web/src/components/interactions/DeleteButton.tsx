@@ -4,13 +4,14 @@ import { cn, logger } from '@babylon/shared';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useFeedStore } from '@/stores/feedStore';
 
 /**
  * Delete button component for post deletion.
  *
  * Displays a delete button that only shows for the post author.
- * Includes confirmation modal before deletion. Refreshes the page
- * after successful deletion to remove the post from view.
+ * Includes confirmation modal before deletion. Removes the post
+ * from the feed via the feed store after successful deletion.
  *
  * @param props - DeleteButton component props
  * @returns Delete button element or null if user is not the author
@@ -54,6 +55,7 @@ export function DeleteButton({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { user } = useAuth();
+  const { removePost } = useFeedStore();
 
   // Only show delete button if user is the author
   if (!user || user.id !== postAuthorId) {
@@ -83,13 +85,16 @@ export function DeleteButton({
       'DeleteButton'
     );
 
+    // Remove the post from the feed immediately
+    removePost(postId);
+
     // Call callback if provided
     if (onDeleted) {
       onDeleted();
     }
 
-    // Refresh the page to remove the post from view
-    window.location.reload();
+    setShowConfirmation(false);
+    setIsDeleting(false);
   };
 
   const handleClick = () => {
