@@ -1,9 +1,9 @@
 'use client';
 
 import { logger } from '@babylon/shared';
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle } from 'lucide-react';
 import { Component, type ReactNode } from 'react';
+import { trackError } from '@/lib/errorTracking';
 
 interface Props {
   children: ReactNode;
@@ -30,13 +30,10 @@ export class PanelErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    Sentry.withScope((scope) => {
-      scope.setTag('errorBoundary', 'panel');
-      scope.setTag('surface', 'agent-team-panel');
-      scope.setContext('panelErrorBoundary', {
-        componentStack: errorInfo.componentStack,
-      });
-      Sentry.captureException(error);
+    trackError(error, {
+      errorBoundary: 'panel',
+      componentStack: errorInfo.componentStack,
+      tags: { surface: 'agent-team-panel' },
     });
 
     if (process.env.NODE_ENV !== 'production') {

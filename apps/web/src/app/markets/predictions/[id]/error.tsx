@@ -5,10 +5,10 @@
  * Catches chart rendering errors and provides recovery UI.
  */
 
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { trackError } from '@/lib/errorTracking';
 
 export default function PredictionDetailError({
   error,
@@ -20,13 +20,10 @@ export default function PredictionDetailError({
   const router = useRouter();
 
   useEffect(() => {
-    Sentry.withScope((scope) => {
-      scope.setTag('errorBoundary', 'prediction-detail');
-      scope.setTag('page', 'markets/predictions/[id]');
-      if (error.digest) {
-        scope.setTag('errorDigest', error.digest);
-      }
-      Sentry.captureException(error);
+    trackError(error, {
+      errorBoundary: 'prediction-detail',
+      digest: error.digest,
+      tags: { page: 'markets/predictions/[id]' },
     });
   }, [error]);
 
