@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { z } from 'zod';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatTimeAgo } from '@/lib/formatTimeAgo';
 
 /**
  * Trade type schema for validation.
@@ -262,21 +263,6 @@ export function TradingFeedTab() {
     return formatCompactCurrency(Number.isNaN(num) ? 0 : num);
   };
 
-  const formatTime = (timestamp: Date | string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    if (minutes > 0) return `${minutes}m ago`;
-    return 'Just now';
-  };
-
   const TradeCard = ({ trade }: { trade: Trade }) => {
     // Handle null user (should not happen, but be safe)
     if (!trade.user) return null;
@@ -303,7 +289,7 @@ export function TradingFeedTab() {
                 </span>
               )}
               <span className="text-muted-foreground text-xs">
-                {formatTime(trade.timestamp)}
+                {formatTimeAgo(trade.timestamp)}
               </span>
             </div>
 
