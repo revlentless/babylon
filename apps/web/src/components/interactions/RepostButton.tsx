@@ -9,6 +9,10 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeedStore } from '@/stores/feedStore';
 import { useInteractionStore } from '@/stores/interactionStore';
+import {
+  interactionSizeClasses,
+  interactionSkeletonSizes,
+} from './interaction-button-styles';
 
 /**
  * Repost/share button component for sharing posts.
@@ -37,22 +41,10 @@ import { useInteractionStore } from '@/stores/interactionStore';
  * />
  * ```
  */
-const sizeClasses = {
-  sm: 'text-xs gap-1',
-  md: 'h-10 px-3 text-sm gap-1.5',
-  lg: 'h-12 px-4 text-base gap-2',
-};
-
 const iconSizes = {
   sm: 20,
   md: 22,
   lg: 24,
-};
-
-const skeletonSizes = {
-  sm: 'w-4 h-4',
-  md: 'w-5 h-5',
-  lg: 'w-5 h-5',
 };
 
 export function RepostButton({
@@ -179,14 +171,16 @@ export function RepostButton({
           'flex items-center transition-all duration-200',
           'bg-transparent hover:opacity-70',
           isShared ? 'text-green-600' : 'text-muted-foreground',
-          sizeClasses[sizeKey],
+          interactionSizeClasses[sizeKey],
           isAnimating && 'scale-110',
           isLoading && 'cursor-wait opacity-50',
           className
         )}
       >
         {isLoading ? (
-          <Skeleton className={cn('rounded', skeletonSizes[sizeKey])} />
+          <Skeleton
+            className={cn('rounded', interactionSkeletonSizes[sizeKey])}
+          />
         ) : (
           <Repeat2
             size={iconSizes[sizeKey]}

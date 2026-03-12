@@ -8,6 +8,10 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocialTracking } from '@/hooks/usePostHog';
 import { useInteractionStore } from '@/stores/interactionStore';
+import {
+  interactionSizeClasses,
+  interactionSkeletonSizes,
+} from './interaction-button-styles';
 
 /**
  * Reaction configuration type for like button reactions.
@@ -91,22 +95,10 @@ type ReactionType = keyof typeof REACTION_TYPES;
  * />
  * ```
  */
-const sizeClasses = {
-  sm: 'text-xs gap-1',
-  md: 'h-10 px-3 text-sm gap-1.5',
-  lg: 'h-12 px-4 text-base gap-2',
-};
-
 const iconSizes = {
   sm: 18,
   md: 20,
   lg: 22,
-};
-
-const skeletonSizes = {
-  sm: 'w-4 h-4',
-  md: 'w-5 h-5',
-  lg: 'w-5 h-5',
 };
 
 export function LikeButton({
@@ -248,13 +240,15 @@ export function LikeButton({
             'flex items-center transition-all duration-200',
             'bg-transparent hover:opacity-70',
             isLiked ? fallbackReaction.color : 'text-muted-foreground',
-            sizeClasses[sizeKey],
+            interactionSizeClasses[sizeKey],
             isLoading && 'cursor-wait opacity-50',
             className
           )}
         >
           {isLoading ? (
-            <Skeleton className={cn('rounded', skeletonSizes[sizeKey])} />
+            <Skeleton
+              className={cn('rounded', interactionSkeletonSizes[sizeKey])}
+            />
           ) : (
             <FallbackIcon
               size={iconSizes[sizeKey]}
@@ -285,14 +279,16 @@ export function LikeButton({
           'flex items-center transition-all duration-200',
           'bg-transparent hover:opacity-70',
           isLiked ? reaction.color : 'text-muted-foreground',
-          sizeClasses[sizeKey],
+          interactionSizeClasses[sizeKey],
           isAnimating && 'scale-110',
           isLoading && 'cursor-wait opacity-50',
           className
         )}
       >
         {isLoading ? (
-          <Skeleton className={cn('rounded', skeletonSizes[sizeKey])} />
+          <Skeleton
+            className={cn('rounded', interactionSkeletonSizes[sizeKey])}
+          />
         ) : (
           <Icon
             size={iconSizes[sizeKey]}
