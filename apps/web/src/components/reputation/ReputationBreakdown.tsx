@@ -26,7 +26,7 @@
  */
 'use client';
 
-import { cn } from '@babylon/shared';
+import { cn, logger } from '@babylon/shared';
 import { Activity, DollarSign, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -72,13 +72,25 @@ export function ReputationBreakdown({
   useEffect(() => {
     const fetchBreakdown = async () => {
       setLoading(true);
-      const response = await fetch(
-        `/api/reputation/breakdown/${encodeURIComponent(userId)}`
-      );
-      const data = await response.json();
+      try {
+        const response = await fetch(
+          `/api/reputation/breakdown/${encodeURIComponent(userId)}`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch reputation breakdown', {
+            status: response.status,
+            userId,
+          });
+          setLoading(false);
+          return;
+        }
+        const data = await response.json();
 
-      if (data.success) {
-        setBreakdown(data);
+        if (data.success) {
+          setBreakdown(data);
+        }
+      } catch (error) {
+        logger.error('Error fetching reputation breakdown', { error, userId });
       }
       setLoading(false);
     };

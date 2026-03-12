@@ -27,7 +27,7 @@
  */
 'use client';
 
-import { cn } from '@babylon/shared';
+import { cn, logger } from '@babylon/shared';
 import { Activity, Clock, TrendingDown, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -69,11 +69,22 @@ export function MarketBiasIndicator({
   useEffect(() => {
     const fetchBiases = async () => {
       setLoading(true);
-      const response = await fetch('/api/markets/bias/active');
-      const result = await response.json();
+      try {
+        const response = await fetch('/api/markets/bias/active');
+        if (!response.ok) {
+          logger.error('Failed to fetch market biases', {
+            status: response.status,
+          });
+          setLoading(false);
+          return;
+        }
+        const result = await response.json();
 
-      if (result.success) {
-        setData(result);
+        if (result.success) {
+          setData(result);
+        }
+      } catch (error) {
+        logger.error('Error fetching market biases', { error });
       }
       setLoading(false);
     };

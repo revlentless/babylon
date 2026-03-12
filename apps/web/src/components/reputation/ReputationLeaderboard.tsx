@@ -27,7 +27,7 @@
  */
 'use client';
 
-import { cn } from '@babylon/shared';
+import { cn, logger } from '@babylon/shared';
 import { Target, TrendingUp, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -82,13 +82,24 @@ export function ReputationLeaderboard({
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true);
-      const response = await fetch(
-        `/api/reputation/leaderboard?limit=${limit}&minGames=${minGames}`
-      );
-      const result = await response.json();
+      try {
+        const response = await fetch(
+          `/api/reputation/leaderboard?limit=${limit}&minGames=${minGames}`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch reputation leaderboard', {
+            status: response.status,
+          });
+          setLoading(false);
+          return;
+        }
+        const result = await response.json();
 
-      if (result.success) {
-        setData(result);
+        if (result.success) {
+          setData(result);
+        }
+      } catch (error) {
+        logger.error('Error fetching reputation leaderboard', { error });
       }
       setLoading(false);
     };
