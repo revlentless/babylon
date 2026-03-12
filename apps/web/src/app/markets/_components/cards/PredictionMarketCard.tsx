@@ -37,9 +37,7 @@ export const PredictionMarketCard = memo(function PredictionMarketCard({
       onClick={() => onClick(prediction)}
       className={cn(
         'w-full cursor-pointer rounded p-3 text-left transition-all',
-        position
-          ? 'bg-[#0066FF]/5 hover:bg-[#0066FF]/20'
-          : 'bg-muted/30 hover:bg-muted'
+        position ? 'bg-brand/5 hover:bg-brand/20' : 'bg-muted/30 hover:bg-muted'
       )}
     >
       <div className="mb-2 font-medium">

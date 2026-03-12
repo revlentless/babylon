@@ -121,7 +121,7 @@ export default function GamePage() {
               <div className="mb-1 text-muted-foreground text-xs">
                 Current Game Date
               </div>
-              <div className="font-bold text-2xl" style={{ color: '#0066FF' }}>
+              <div className="font-bold text-2xl text-brand">
                 {currentDate.toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -163,7 +163,7 @@ export default function GamePage() {
               <div className="mb-1 text-muted-foreground text-xs">
                 Total Posts
               </div>
-              <div className="font-bold text-2xl" style={{ color: '#0066FF' }}>
+              <div className="font-bold text-2xl text-brand">
                 {stats?.totalPosts?.toLocaleString() || '0'}
               </div>
             </div>
@@ -171,7 +171,7 @@ export default function GamePage() {
               <div className="mb-1 text-muted-foreground text-xs">
                 Active Questions
               </div>
-              <div className="font-bold text-2xl" style={{ color: '#0066FF' }}>
+              <div className="font-bold text-2xl text-brand">
                 {stats?.activeQuestions || '0'}
               </div>
             </div>
@@ -179,7 +179,7 @@ export default function GamePage() {
               <div className="mb-1 text-muted-foreground text-xs">
                 Companies
               </div>
-              <div className="font-bold text-2xl" style={{ color: '#0066FF' }}>
+              <div className="font-bold text-2xl text-brand">
                 {stats?.totalCompanies || '0'}
               </div>
             </div>

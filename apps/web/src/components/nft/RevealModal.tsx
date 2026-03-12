@@ -88,7 +88,7 @@ export function RevealModal({ isOpen, nft, onClose }: RevealModalProps) {
           >
             {/* Back of card (mystery) */}
             <div
-              className="absolute inset-0 flex items-center justify-center rounded-xl border border-[#0066FF]/50 bg-gradient-to-br from-[#0066FF]/10 to-[#0066FF]/5"
+              className="absolute inset-0 flex items-center justify-center rounded-xl border border-brand/50 bg-gradient-to-br from-brand/10 to-brand/5"
               style={{ backfaceVisibility: 'hidden' }}
             >
               <div className="text-center">
@@ -140,7 +140,7 @@ export function RevealModal({ isOpen, nft, onClose }: RevealModalProps) {
               </button>
               <Link
                 href={`/nft/${nft.tokenId}`}
-                className="flex-1 rounded-full bg-[#0066FF] py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg"
+                className="flex-1 rounded-full bg-brand py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg"
               >
                 View NFT
               </Link>

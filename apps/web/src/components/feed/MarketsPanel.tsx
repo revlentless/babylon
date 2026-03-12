@@ -155,7 +155,7 @@ export function MarketsPanel() {
           {topMovers.length > 0 && (
             <div className="mb-4">
               <div className="mb-2 flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-[#0066FF]" />
+                <TrendingUp className="h-4 w-4 text-brand" />
                 <h3 className="font-semibold text-foreground text-sm">
                   Top Movers (24h)
                 </h3>

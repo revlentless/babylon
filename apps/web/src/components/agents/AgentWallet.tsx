@@ -149,8 +149,8 @@ export function AgentWallet({ agent, onUpdate }: AgentWalletProps) {
   return (
     <div className="space-y-6">
       {/* Balance Card */}
-      <div className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/5 p-6">
-        <div className="mb-2 flex items-center gap-2 text-[#0066FF] text-sm">
+      <div className="rounded-lg border border-brand/30 bg-brand/5 p-6">
+        <div className="mb-2 flex items-center gap-2 text-brand text-sm">
           <Wallet className="h-4 w-4" />
           Agent Balance
         </div>
@@ -198,7 +198,7 @@ export function AgentWallet({ agent, onUpdate }: AgentWalletProps) {
             className={cn(
               'flex items-center justify-center gap-2 rounded-lg px-3 py-3 font-medium transition-all sm:px-4',
               action === 'deposit'
-                ? 'bg-[#0066FF] text-primary-foreground'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted text-foreground hover:bg-muted/80'
             )}
           >
@@ -210,7 +210,7 @@ export function AgentWallet({ agent, onUpdate }: AgentWalletProps) {
             className={cn(
               'flex items-center justify-center gap-2 rounded-lg px-3 py-3 font-medium transition-all sm:px-4',
               action === 'withdraw'
-                ? 'bg-[#0066FF] text-primary-foreground'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted text-foreground hover:bg-muted/80'
             )}
           >
@@ -238,7 +238,7 @@ export function AgentWallet({ agent, onUpdate }: AgentWalletProps) {
           <button
             onClick={handleTransaction}
             disabled={processing || !amount}
-            className="h-12 w-full rounded-lg bg-[#0066FF] px-6 font-medium text-white transition-all hover:bg-[#2952d9] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto"
+            className="h-12 w-full rounded-lg bg-brand px-6 font-medium text-white transition-all hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto"
           >
             {processing
               ? 'Processing...'

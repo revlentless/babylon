@@ -40,8 +40,8 @@ export function WalletHeader({ address, chainName }: WalletHeaderProps) {
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0066FF]/10">
-            <Wallet className="h-5 w-5 text-[#0066FF]" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
+            <Wallet className="h-5 w-5 text-brand" />
           </div>
           <div>
             <h1 className="font-bold text-foreground text-xl">Wallet</h1>
@@ -88,7 +88,7 @@ export function WalletHeader({ address, chainName }: WalletHeaderProps) {
         <div className="flex gap-2">
           <button
             onClick={handleFund}
-            className="rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-sm text-white hover:bg-[#0066FF]/90"
+            className="rounded-lg bg-brand px-4 py-2 font-medium text-sm text-white hover:bg-brand/90"
           >
             Fund Wallet
           </button>

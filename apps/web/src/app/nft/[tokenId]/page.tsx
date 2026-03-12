@@ -92,7 +92,7 @@ export default function NftDetailPage() {
           </p>
           <Link
             href="/nft"
-            className="inline-block rounded-full bg-[#0066FF] px-5 py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg"
+            className="inline-block rounded-full bg-brand px-5 py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg"
           >
             ← Back to Gallery
           </Link>
@@ -220,7 +220,7 @@ export default function NftDetailPage() {
                   {nft.currentOwner.user ? (
                     <Link
                       href={`/profile/${nft.currentOwner.user.username ?? nft.currentOwner.user.id}`}
-                      className="font-medium text-foreground hover:text-[#0066FF]"
+                      className="font-medium text-foreground hover:text-brand"
                     >
                       @
                       {nft.currentOwner.user.username ??
@@ -231,7 +231,7 @@ export default function NftDetailPage() {
                       onClick={() =>
                         handleCopy(nft.currentOwner!.walletAddress, 'Address')
                       }
-                      className="font-mono text-foreground text-sm hover:text-[#0066FF]"
+                      className="font-mono text-foreground text-sm hover:text-brand"
                     >
                       {ownerName}
                     </button>
@@ -287,7 +287,7 @@ export default function NftDetailPage() {
               </p>
               <div className="grid grid-cols-3 gap-2 text-center sm:gap-4">
                 <div>
-                  <p className="font-bold text-[#0066FF] text-base sm:text-lg">
+                  <p className="font-bold text-base text-brand sm:text-lg">
                     #{nft.originalClaim.snapshotRank}
                   </p>
                   <p className="text-[10px] text-muted-foreground sm:text-xs">
@@ -329,7 +329,7 @@ export default function NftDetailPage() {
                   onClick={() =>
                     handleCopy(nft.contractAddress, 'Contract address')
                   }
-                  className="font-mono text-foreground hover:text-[#0066FF]"
+                  className="font-mono text-foreground hover:text-brand"
                 >
                   {nft.contractAddress.slice(0, 6)}...
                   {nft.contractAddress.slice(-4)}

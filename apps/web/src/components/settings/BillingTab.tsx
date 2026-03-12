@@ -161,7 +161,7 @@ function PurchaseTransactionRow({ tx }: { tx: PointsTransaction }) {
               href={explorerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-[#0066FF] text-xs hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-brand text-xs hover:underline"
             >
               <ExternalLink className="h-3 w-3" />
               View on {getExplorerName()}
@@ -262,7 +262,7 @@ function TransactionSection({
     <div className="rounded-lg border border-border p-4">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-[#0066FF]" />
+          <Icon className="h-5 w-5 text-brand" />
           <h3 className="font-semibold">{title}</h3>
           {transactions.length > 0 && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground text-xs">
@@ -283,7 +283,7 @@ function TransactionSection({
           {emptyAction && (
             <button
               onClick={emptyAction.onClick}
-              className="mt-3 text-[#0066FF] text-sm hover:underline"
+              className="mt-3 text-brand text-sm hover:underline"
             >
               {emptyAction.label}
             </button>
@@ -418,7 +418,7 @@ export function BillingTab() {
       {/* Header */}
       <div className="space-y-2">
         <h2 className="flex items-center gap-2 font-bold text-2xl">
-          <Receipt className="h-6 w-6 text-[#0066FF]" />
+          <Receipt className="h-6 w-6 text-brand" />
           Billing & Transactions
         </h2>
         <p className="text-muted-foreground text-sm">
@@ -427,7 +427,7 @@ export function BillingTab() {
       </div>
 
       {/* Current Balance Card */}
-      <div className="rounded-lg border border-border bg-gradient-to-br from-[#0066FF]/10 to-transparent p-6">
+      <div className="rounded-lg border border-border bg-gradient-to-br from-brand/10 to-transparent p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-muted-foreground text-sm">Current Balance</p>
@@ -476,7 +476,7 @@ export function BillingTab() {
             <p className="text-red-500 text-sm">{error}</p>
             <button
               onClick={fetchTransactions}
-              className="mt-2 text-[#0066FF] text-sm hover:underline"
+              className="mt-2 text-brand text-sm hover:underline"
             >
               Try again
             </button>
@@ -524,7 +524,7 @@ export function BillingTab() {
       {/* Pricing Info */}
       <div className="rounded-lg border border-border bg-muted/30 p-4">
         <div className="flex items-start gap-3">
-          <Wallet className="mt-0.5 h-5 w-5 text-[#0066FF]" />
+          <Wallet className="mt-0.5 h-5 w-5 text-brand" />
           <div>
             <h3 className="font-semibold">Points Pricing</h3>
             <p className="mt-1 text-muted-foreground text-sm">

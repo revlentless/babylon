@@ -459,7 +459,7 @@ export function AgentEditModal({
                 }
                 className={cn(
                   'w-full rounded-lg border border-border bg-muted px-4 py-3',
-                  'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                  'focus:outline-none focus:ring-2 focus:ring-brand'
                 )}
                 placeholder="My Awesome Agent"
               />
@@ -491,7 +491,7 @@ export function AgentEditModal({
                 rows={3}
                 className={cn(
                   'w-full resize-none rounded-lg border border-border bg-muted px-4 py-3',
-                  'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                  'focus:outline-none focus:ring-2 focus:ring-brand'
                 )}
                 placeholder="A short description of your agent..."
               />
@@ -545,7 +545,7 @@ export function AgentEditModal({
               rows={4}
               className={cn(
                 'w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
-                'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                'focus:outline-none focus:ring-2 focus:ring-brand'
               )}
             />
             <p className="text-muted-foreground text-xs">
@@ -571,7 +571,7 @@ export function AgentEditModal({
               rows={3}
               className={cn(
                 'w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
-                'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                'focus:outline-none focus:ring-2 focus:ring-brand'
               )}
             />
             <p className="text-muted-foreground text-xs">
@@ -597,7 +597,7 @@ export function AgentEditModal({
               rows={3}
               className={cn(
                 'w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
-                'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                'focus:outline-none focus:ring-2 focus:ring-brand'
               )}
             />
             <p className="text-muted-foreground text-xs">
@@ -632,7 +632,7 @@ export function AgentEditModal({
             onClick={() => setCurrentStep(Step.Prompts)}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-              'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]'
+              'bg-brand text-primary-foreground hover:bg-brand-hover'
             )}
           >
             Continue
@@ -654,7 +654,7 @@ export function AgentEditModal({
             onClick={() => setCurrentStep(Step.Settings)}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-              'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]'
+              'bg-brand text-primary-foreground hover:bg-brand-hover'
             )}
           >
             Continue
@@ -679,7 +679,7 @@ export function AgentEditModal({
             disabled={saving}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-              'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+              'bg-brand text-primary-foreground hover:bg-brand-hover',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >

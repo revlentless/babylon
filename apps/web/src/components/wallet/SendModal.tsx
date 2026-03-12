@@ -266,7 +266,7 @@ function FormStep({
                 onClick={() => onSelectAsset(asset)}
                 className={`flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors ${
                   isSelected
-                    ? 'border-[#0066FF] bg-[#0066FF]/5'
+                    ? 'border-brand bg-brand/5'
                     : 'border-border hover:bg-muted/50'
                 }`}
               >
@@ -302,7 +302,7 @@ function FormStep({
           value={recipient}
           onChange={(e) => onRecipientChange(e.target.value)}
           placeholder="0x..."
-          className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 font-mono text-foreground text-sm placeholder:text-muted-foreground focus:border-[#0066FF] focus:outline-none"
+          className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 font-mono text-foreground text-sm placeholder:text-muted-foreground focus:border-brand focus:outline-none"
         />
       </div>
 
@@ -317,12 +317,12 @@ function FormStep({
             value={amount}
             onChange={(e) => onAmountChange(e.target.value)}
             placeholder="0.0"
-            className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 pr-16 font-mono text-foreground text-sm placeholder:text-muted-foreground focus:border-[#0066FF] focus:outline-none"
+            className="w-full rounded-lg border border-border bg-transparent px-3 py-2.5 pr-16 font-mono text-foreground text-sm placeholder:text-muted-foreground focus:border-brand focus:outline-none"
           />
           <button
             onClick={onSetMax}
             disabled={!selectedAsset}
-            className="-translate-y-1/2 absolute top-1/2 right-2 rounded bg-muted px-2 py-0.5 font-medium text-[#0066FF] text-xs hover:bg-muted/80 disabled:opacity-50"
+            className="-translate-y-1/2 absolute top-1/2 right-2 rounded bg-muted px-2 py-0.5 font-medium text-brand text-xs hover:bg-muted/80 disabled:opacity-50"
           >
             MAX
           </button>
@@ -339,7 +339,7 @@ function FormStep({
       <button
         onClick={onReview}
         disabled={!selectedAsset || !recipient || !amount}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2.5 font-medium text-sm text-white hover:bg-[#0066FF]/90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 font-medium text-sm text-white hover:bg-brand/90 disabled:opacity-50"
       >
         Review
         <ArrowRight className="h-4 w-4" />
@@ -409,7 +409,7 @@ function ReviewStep({
         </button>
         <button
           onClick={onConfirm}
-          className="flex-1 rounded-lg bg-[#0066FF] px-4 py-2.5 font-medium text-sm text-white hover:bg-[#0066FF]/90"
+          className="flex-1 rounded-lg bg-brand px-4 py-2.5 font-medium text-sm text-white hover:bg-brand/90"
         >
           Confirm & Send
         </button>
@@ -421,7 +421,7 @@ function ReviewStep({
 function SendingStep() {
   return (
     <div className="flex flex-col items-center py-8">
-      <Loader2 className="mb-4 h-10 w-10 animate-spin text-[#0066FF]" />
+      <Loader2 className="mb-4 h-10 w-10 animate-spin text-brand" />
       <h2 className="mb-1 font-bold text-foreground text-lg">
         Sending Transaction
       </h2>
@@ -469,7 +469,7 @@ function SuccessStep({
         )}
         <button
           onClick={onClose}
-          className="rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-sm text-white hover:bg-[#0066FF]/90"
+          className="rounded-lg bg-brand px-4 py-2 font-medium text-sm text-white hover:bg-brand/90"
         >
           Done
         </button>
@@ -506,7 +506,7 @@ function ErrorStep({
         </button>
         <button
           onClick={onClose}
-          className="rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-sm text-white hover:bg-[#0066FF]/90"
+          className="rounded-lg bg-brand px-4 py-2 font-medium text-sm text-white hover:bg-brand/90"
         >
           Close
         </button>

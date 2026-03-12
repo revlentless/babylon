@@ -239,7 +239,7 @@ export function AgentDetail({
         <div className="mt-6 grid grid-cols-2 place-items-center gap-4 border-border border-t pt-6 text-center">
           <div>
             <div className="mb-1 text-muted-foreground text-xs">Balance</div>
-            <div className="font-semibold text-[#0066FF] text-xl">
+            <div className="font-semibold text-brand text-xl">
               {(agent.virtualBalance ?? 0).toFixed(2)} pts
             </div>
           </div>
@@ -261,35 +261,35 @@ export function AgentDetail({
         <TabsList className="grid w-full grid-cols-5 bg-muted/50">
           <TabsTrigger
             value="activity"
-            className="data-[state=active]:bg-[#0066FF] data-[state=active]:text-primary-foreground"
+            className="data-[state=active]:bg-brand data-[state=active]:text-primary-foreground"
           >
             <Activity className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Activity</span>
           </TabsTrigger>
           <TabsTrigger
             value="performance"
-            className="data-[state=active]:bg-[#0066FF] data-[state=active]:text-primary-foreground"
+            className="data-[state=active]:bg-brand data-[state=active]:text-primary-foreground"
           >
             <TrendingUp className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Performance</span>
           </TabsTrigger>
           <TabsTrigger
             value="logs"
-            className="data-[state=active]:bg-[#0066FF] data-[state=active]:text-primary-foreground"
+            className="data-[state=active]:bg-brand data-[state=active]:text-primary-foreground"
           >
             <FileText className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Logs</span>
           </TabsTrigger>
           <TabsTrigger
             value="settings"
-            className="data-[state=active]:bg-[#0066FF] data-[state=active]:text-primary-foreground"
+            className="data-[state=active]:bg-brand data-[state=active]:text-primary-foreground"
           >
             <Settings className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
           </TabsTrigger>
           <TabsTrigger
             value="wallet"
-            className="data-[state=active]:bg-[#0066FF] data-[state=active]:text-primary-foreground"
+            className="data-[state=active]:bg-brand data-[state=active]:text-primary-foreground"
           >
             <Bot className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Wallet</span>
@@ -360,7 +360,7 @@ export function AgentDetailNotFound({
 }) {
   return (
     <div className="p-4">
-      <div className="flex flex-col items-center justify-center rounded-lg border border-[#0066FF]/20 bg-gradient-to-br from-[#0066FF]/10 to-purple-500/10 px-4 py-16">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-brand/20 bg-gradient-to-br from-brand/10 to-purple-500/10 px-4 py-16">
         <Bot className="mb-4 h-16 w-16 text-muted-foreground" />
         <h3 className="mb-2 font-bold text-2xl">Agent Not Found</h3>
         <p className="mb-6 text-muted-foreground text-sm">

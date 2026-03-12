@@ -26,10 +26,10 @@ export function MintBanner({ onMintClick }: MintBannerProps) {
   // Not authenticated
   if (!authenticated) {
     return (
-      <div className="border-border border-b bg-gradient-to-r from-[#0066FF]/10 via-purple-500/10 to-[#0066FF]/10 p-6">
+      <div className="border-border border-b bg-gradient-to-r from-brand/10 via-purple-500/10 to-brand/10 p-6">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-4 flex items-center justify-center gap-2">
-            <Sparkles className="h-6 w-6 text-[#0066FF]" />
+            <Sparkles className="h-6 w-6 text-brand" />
             <h2 className="font-bold text-foreground text-xl">
               Babylon Top 100 NFT Collection
             </h2>
@@ -50,7 +50,7 @@ export function MintBanner({ onMintClick }: MintBannerProps) {
   // Loading
   if (loading) {
     return (
-      <div className="border-border border-b bg-gradient-to-r from-[#0066FF]/10 via-purple-500/10 to-[#0066FF]/10 p-6">
+      <div className="border-border border-b bg-gradient-to-r from-brand/10 via-purple-500/10 to-brand/10 p-6">
         <div className="mx-auto max-w-4xl text-center">
           <Skeleton className="mx-auto mb-4 h-8 w-64" />
           <Skeleton className="mx-auto mb-4 h-4 w-96" />
@@ -133,7 +133,7 @@ export function MintBanner({ onMintClick }: MintBannerProps) {
 
   // Eligible to mint
   return (
-    <div className="border-border border-b bg-gradient-to-r from-[#0066FF]/20 via-purple-500/20 to-[#0066FF]/20 p-6">
+    <div className="border-border border-b bg-gradient-to-r from-brand/20 via-purple-500/20 to-brand/20 p-6">
       <div className="mx-auto max-w-4xl text-center">
         <div className="mb-4 flex items-center justify-center gap-2">
           <span className="text-3xl">🎉</span>
@@ -144,7 +144,7 @@ export function MintBanner({ onMintClick }: MintBannerProps) {
 
         <p className="mb-2 text-foreground text-lg">
           You ranked{' '}
-          <span className="font-bold text-[#0066FF]">
+          <span className="font-bold text-brand">
             #{eligibility.snapshotRank}
           </span>{' '}
           in the Babylon Leaderboard!
@@ -160,7 +160,7 @@ export function MintBanner({ onMintClick }: MintBannerProps) {
           size="lg"
           onClick={handleMintClick}
           disabled={isMinting}
-          className="min-w-[200px] bg-gradient-to-r from-[#0066FF] to-purple-500 hover:from-[#0055DD] hover:to-purple-600"
+          className="min-w-[200px] bg-gradient-to-r from-brand to-purple-500 hover:from-brand-hover hover:to-purple-600"
         >
           {isMinting ? (
             <>

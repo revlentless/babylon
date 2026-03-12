@@ -407,7 +407,7 @@ export function PositionDetailModal({
             className={cn(
               'flex-1 px-4 py-3 font-medium transition-colors',
               activeTab === 'details'
-                ? 'border-[#0066FF] border-b-2 text-[#0066FF]'
+                ? 'border-brand border-b-2 text-brand'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
@@ -426,7 +426,7 @@ export function PositionDetailModal({
               className={cn(
                 'flex-1 px-4 py-3 font-medium transition-colors',
                 activeTab === 'trade'
-                  ? 'border-[#0066FF] border-b-2 text-[#0066FF]'
+                  ? 'border-brand border-b-2 text-brand'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -731,7 +731,7 @@ export function PositionDetailModal({
                       onChange={(e) => setAmount(e.target.value)}
                       min="1"
                       step="1"
-                      className="w-full rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30"
+                      className="w-full rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-brand/30"
                       placeholder={`Min: ${BABYLON_POINTS_SYMBOL}1`}
                     />
                   </div>
@@ -839,7 +839,7 @@ export function PositionDetailModal({
                         onChange={(e) => setSize(e.target.value)}
                         min={perpMarket.minOrderSize}
                         step="10"
-                        className="w-32 rounded bg-background/50 px-3 py-1.5 text-right font-medium text-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30"
+                        className="w-32 rounded bg-background/50 px-3 py-1.5 text-right font-medium text-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand/30"
                         placeholder={`Min: ${BABYLON_POINTS_SYMBOL}${perpMarket.minOrderSize}`}
                       />
                     </div>

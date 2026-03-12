@@ -35,7 +35,7 @@ export default function OfflinePage() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-[#0066FF] px-8 py-3 font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
+          className="rounded-lg bg-brand px-8 py-3 font-medium text-white transition-opacity hover:opacity-90 active:opacity-80"
         >
           Try Again
         </button>

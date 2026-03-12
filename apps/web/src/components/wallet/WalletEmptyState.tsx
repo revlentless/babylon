@@ -26,7 +26,7 @@ export function WalletEmptyState({
       {action && (
         <button
           onClick={action.onClick}
-          className="rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-sm text-white hover:bg-[#0066FF]/90"
+          className="rounded-lg bg-brand px-4 py-2 font-medium text-sm text-white hover:bg-brand/90"
         >
           {action.label}
         </button>

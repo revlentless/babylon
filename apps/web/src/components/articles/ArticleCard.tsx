@@ -129,7 +129,7 @@ export const ArticleCard = memo(function ArticleCard({
               {post.category && (
                 <>
                   <span className="text-muted-foreground">·</span>
-                  <span className="shrink-0 font-semibold text-[#0066FF] text-xs uppercase tracking-wide">
+                  <span className="shrink-0 font-semibold text-brand text-xs uppercase tracking-wide">
                     {post.category}
                   </span>
                 </>
@@ -187,7 +187,7 @@ export const ArticleCard = memo(function ArticleCard({
             )}
             <span
               className={cn(
-                'text-[#0066FF]',
+                'text-brand',
                 compact ? 'text-sm md:text-xs' : 'text-sm'
               )}
             >

@@ -32,7 +32,7 @@ export function WalletTabs({ activeTab, onTabChange }: WalletTabsProps) {
         >
           {tab.label}
           {activeTab === tab.id && (
-            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-[#0066FF]" />
+            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-brand" />
           )}
         </button>
       ))}

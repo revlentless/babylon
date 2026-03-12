@@ -25,7 +25,7 @@ export function NftCard({ nft, priority = false }: NftCardProps) {
   return (
     <Link
       href={`/nft/${nft.tokenId}`}
-      className="group block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-[#0066FF]/50"
+      className="group block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-brand/50"
     >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-muted">

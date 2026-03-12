@@ -387,7 +387,7 @@ export function AgentCreate({
             disabled={!isInitialized}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-              'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+              'bg-brand text-primary-foreground hover:bg-brand-hover',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >
@@ -412,7 +412,7 @@ export function AgentCreate({
             disabled={isCreating}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-              'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+              'bg-brand text-primary-foreground hover:bg-brand-hover',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >

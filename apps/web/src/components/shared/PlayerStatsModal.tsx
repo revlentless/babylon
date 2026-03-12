@@ -195,14 +195,14 @@ export function PlayerStatsModal({
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
                 {/* Total Points (primary) */}
-                <div className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/10 p-2.5 sm:p-3">
+                <div className="rounded-lg border border-brand/30 bg-brand/10 p-2.5 sm:p-3">
                   <div className="mb-1.5 flex items-center gap-1.5">
-                    <Trophy className="h-3.5 w-3.5 shrink-0 text-[#0066FF]" />
-                    <span className="truncate text-[#0066FF] text-xs">
+                    <Trophy className="h-3.5 w-3.5 shrink-0 text-brand" />
+                    <span className="truncate text-brand text-xs">
                       Total Points
                     </span>
                   </div>
-                  <p className="break-words font-bold text-[#0066FF] text-lg sm:text-xl">
+                  <p className="break-words font-bold text-brand text-lg sm:text-xl">
                     {(profile.totalPoints ?? 0).toLocaleString()}
                   </p>
                 </div>

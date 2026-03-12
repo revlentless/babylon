@@ -49,7 +49,7 @@ export const ProfilePreviewCard = memo(function ProfilePreviewCard({
             loading="lazy"
           />
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-[#0066FF]/20 to-[#0066FF]/5" />
+          <div className="h-full w-full bg-gradient-to-br from-brand/20 to-brand/5" />
         )}
         <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
           <button

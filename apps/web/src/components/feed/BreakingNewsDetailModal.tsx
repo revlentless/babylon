@@ -135,7 +135,7 @@ export function BreakingNewsDetailModal({
           {/* Header */}
           <div className="flex shrink-0 items-start justify-between border-white/10 border-b p-6">
             <div className="flex flex-1 items-start gap-4">
-              <div className="mt-1 shrink-0 text-[#0066FF]">
+              <div className="mt-1 shrink-0 text-brand">
                 {getIcon(item.icon)}
               </div>
               <div className="min-w-0 flex-1">
@@ -145,9 +145,7 @@ export function BreakingNewsDetailModal({
                 <div className="flex items-center gap-3 text-gray-400 text-sm">
                   <span>{formatDate(item.timestamp)}</span>
                   {item.trending && (
-                    <span className="font-semibold text-[#0066FF]">
-                      • Trending
-                    </span>
+                    <span className="font-semibold text-brand">• Trending</span>
                   )}
                 </div>
               </div>

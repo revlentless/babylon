@@ -84,7 +84,7 @@ export function SecurityTab() {
       {/* Header */}
       <div className="space-y-2">
         <h2 className="flex items-center gap-2 font-bold text-2xl">
-          <Shield className="h-6 w-6 text-[#0066FF]" />
+          <Shield className="h-6 w-6 text-brand" />
           Security Settings
         </h2>
         <p className="text-muted-foreground text-sm">
@@ -144,7 +144,7 @@ export function SecurityTab() {
       {/* Connected Wallets */}
       <div className="rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-[#0066FF]" />
+          <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
           <div className="flex-1 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -156,7 +156,7 @@ export function SecurityTab() {
               {linkWallet && (
                 <button
                   onClick={linkWallet}
-                  className="rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-primary-foreground text-sm hover:bg-[#0066FF]/90"
+                  className="rounded-lg bg-brand px-4 py-2 font-medium text-primary-foreground text-sm hover:bg-brand/90"
                 >
                   Link Wallet
                 </button>
@@ -181,7 +181,7 @@ export function SecurityTab() {
                           {getWalletTypeDisplay(wallet.walletClientType)}
                         </span>
                         {isEmbeddedWallet(wallet.walletClientType) && (
-                          <span className="rounded bg-[#0066FF]/20 px-2 py-0.5 text-[#0066FF] text-xs">
+                          <span className="rounded bg-brand/20 px-2 py-0.5 text-brand text-xs">
                             Embedded
                           </span>
                         )}
@@ -254,7 +254,7 @@ export function SecurityTab() {
       {/* Session Management */}
       <div className="space-y-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <LogOut className="mt-0.5 h-5 w-5 text-[#0066FF]" />
+          <LogOut className="mt-0.5 h-5 w-5 text-brand" />
           <div className="flex-1">
             <h3 className="font-semibold">Active Session</h3>
             <p className="mt-1 text-muted-foreground text-sm">
@@ -274,7 +274,7 @@ export function SecurityTab() {
       {/* Additional Resources */}
       <div className="space-y-3 rounded-lg border border-border p-4">
         <div className="flex items-start gap-3">
-          <BookOpen className="mt-0.5 h-5 w-5 text-[#0066FF]" />
+          <BookOpen className="mt-0.5 h-5 w-5 text-brand" />
           <div className="flex-1">
             <h3 className="font-semibold">Security Resources</h3>
             <div className="mt-1 space-y-2">
@@ -282,7 +282,7 @@ export function SecurityTab() {
                 href="https://docs.privy.io/guide/security"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-[#0066FF] text-sm hover:underline"
+                className="flex items-center gap-2 text-brand text-sm hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
                 Privy Security Documentation
@@ -291,7 +291,7 @@ export function SecurityTab() {
                 href="https://docs.babylon.market/security"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-[#0066FF] text-sm hover:underline"
+                className="flex items-center gap-2 text-brand text-sm hover:underline"
               >
                 <ExternalLink className="h-4 w-4" />
                 Babylon Security Best Practices
@@ -301,7 +301,7 @@ export function SecurityTab() {
               For security concerns or to report vulnerabilities, contact{' '}
               <a
                 href="mailto:babylon@elizalabs.ai"
-                className="text-[#0066FF] hover:underline"
+                className="text-brand hover:underline"
               >
                 babylon@elizalabs.ai
               </a>

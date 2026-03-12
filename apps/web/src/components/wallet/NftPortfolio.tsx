@@ -79,7 +79,7 @@ export function NftPortfolio({
               <Link
                 key={`${nft.contractAddress}-${nft.tokenId}`}
                 href={`/nft/${nft.tokenId}`}
-                className="group overflow-hidden rounded-lg border border-border transition-all hover:border-[#0066FF]/50 hover:shadow-sm"
+                className="group overflow-hidden rounded-lg border border-border transition-all hover:border-brand/50 hover:shadow-sm"
               >
                 <div className="relative aspect-square bg-muted">
                   {nft.thumbnailUrl || nft.imageUrl ? (

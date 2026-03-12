@@ -129,7 +129,7 @@ export default function OnChainBettingPage() {
       <PageContainer>
         <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-6 p-4 md:p-6">
           <div className="space-y-3 text-center">
-            <Wallet className="mx-auto h-16 w-16 text-[#0066FF]" />
+            <Wallet className="mx-auto h-16 w-16 text-brand" />
             <h1 className="font-bold text-3xl">On-Chain Betting</h1>
             <p className="max-w-md text-muted-foreground">
               Bet with real Base Sepolia ETH. All transactions are on-chain and
@@ -138,7 +138,7 @@ export default function OnChainBettingPage() {
           </div>
           <button
             onClick={login}
-            className="rounded-lg bg-[#0066FF] px-8 py-3 font-medium text-primary-foreground transition-colors hover:bg-[#2952d9]"
+            className="rounded-lg bg-brand px-8 py-3 font-medium text-primary-foreground transition-colors hover:bg-brand-hover"
           >
             Connect Wallet to Start Betting
           </button>
@@ -208,7 +208,7 @@ export default function OnChainBettingPage() {
                 href={`${explorerUrl}/address/${embeddedWalletAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[#0066FF] hover:underline"
+                className="flex items-center gap-1 text-brand hover:underline"
               >
                 View Wallet <ExternalLink className="h-3 w-3" />
               </a>
@@ -239,7 +239,7 @@ export default function OnChainBettingPage() {
               return (
                 <div
                   key={question.id}
-                  className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-[#0066FF]/50"
+                  className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-brand/50"
                 >
                   <div className="mb-3">
                     <h3 className="mb-1 font-medium text-base">
@@ -391,7 +391,7 @@ export default function OnChainBettingPage() {
                   value={betAmount}
                   onChange={(e) => setBetAmount(e.target.value)}
                   placeholder="Number of shares"
-                  className="w-full rounded-lg border border-border bg-muted px-4 py-2 focus:border-[#0066FF] focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-muted px-4 py-2 focus:border-brand focus:outline-none"
                   step="0.1"
                   min="0.1"
                 />
@@ -422,7 +422,7 @@ export default function OnChainBettingPage() {
                 <button
                   onClick={handleBet}
                   disabled={txLoading || !betAmount}
-                  className="flex-1 rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-primary-foreground transition-colors hover:bg-[#2952d9] disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-brand px-4 py-2 font-medium text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
                 >
                   {txLoading ? 'Sending TX...' : 'Place Bet On-Chain'}
                 </button>

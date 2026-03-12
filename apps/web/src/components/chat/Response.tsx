@@ -157,9 +157,9 @@ export const Response = memo(
             '[&_pre_code]:bg-transparent [&_pre_code]:p-0',
             // Tag links - styled like TaggedText
             '[&_a[href^="babylon://"]]:cursor-pointer [&_a[href^="babylon://"]]:font-medium',
-            '[&_a[href^="babylon://"]]:text-[#0066FF] hover:[&_a[href^="babylon://"]]:text-[#2952d9]',
-            '[&_a[href^="babylon://"]]:underline [&_a[href^="babylon://"]]:decoration-[#0066FF]/30',
-            'hover:[&_a[href^="babylon://"]]:decoration-[#0066FF]/50',
+            '[&_a[href^="babylon://"]]:text-brand hover:[&_a[href^="babylon://"]]:text-brand-hover',
+            '[&_a[href^="babylon://"]]:underline [&_a[href^="babylon://"]]:decoration-brand/30',
+            'hover:[&_a[href^="babylon://"]]:decoration-brand/50',
             // Regular links - high-contrast, accessible styles
             '[&_a:not([href^="babylon://"])]:font-medium [&_a:not([href^="babylon://"])]:underline [&_a:not([href^="babylon://"])]:underline-offset-2',
             '[&_a:not([href^="babylon://"])]:text-blue-600 dark:[&_a:not([href^="babylon://"])]:text-blue-400',

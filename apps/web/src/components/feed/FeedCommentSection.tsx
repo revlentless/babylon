@@ -520,7 +520,7 @@ export function FeedCommentSection({
                 <X size={20} />
               </button>
               <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-[#0066FF]" />
+                <MessageCircle className="h-5 w-5 text-brand" />
                 <h2 className="font-semibold text-base">Reply</h2>
               </div>
               <div className="w-10" /> {/* Spacer for centering */}
@@ -567,7 +567,7 @@ export function FeedCommentSection({
                     className={cn(
                       'rounded px-2 py-0.5 text-xs capitalize transition-colors',
                       sortBy === option
-                        ? 'bg-[#0066FF] text-primary-foreground'
+                        ? 'bg-brand text-primary-foreground'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >

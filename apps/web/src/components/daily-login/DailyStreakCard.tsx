@@ -238,7 +238,7 @@ export function DailyStreakCard() {
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-[#0066FF] transition-all duration-300"
+                className="h-full rounded-full bg-brand transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -250,7 +250,7 @@ export function DailyStreakCard() {
           <button
             onClick={handleClaim}
             disabled={claiming}
-            className="w-full rounded-md bg-[#0066FF] py-2.5 font-medium text-sm text-white transition-colors hover:bg-[#0066FF]/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-md bg-brand py-2.5 font-medium text-sm text-white transition-colors hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {claiming ? 'Claiming...' : `Claim +${data.nextReward} Points`}
           </button>

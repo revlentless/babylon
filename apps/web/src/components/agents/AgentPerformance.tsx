@@ -103,7 +103,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
         {stats.map((stat, idx) => (
           <div
             key={idx}
-            className="rounded-lg border border-border bg-card/50 p-6 backdrop-blur transition-all hover:border-[#0066FF]/30"
+            className="rounded-lg border border-border bg-card/50 p-6 backdrop-blur transition-all hover:border-brand/30"
           >
             <div className="mb-3 flex items-start justify-between">
               <div className="text-muted-foreground text-sm">{stat.label}</div>
@@ -119,7 +119,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
       {/* Portfolio Overview */}
       <div className="rounded-lg border border-border bg-card/50 p-6 backdrop-blur">
         <h3 className="mb-4 flex items-center gap-2 font-semibold text-lg">
-          <Wallet className="h-5 w-5 text-[#0066FF]" />
+          <Wallet className="h-5 w-5 text-brand" />
           Portfolio Overview
         </h3>
 
@@ -279,7 +279,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
         <div className="rounded-lg border border-border bg-card/50 p-6 backdrop-blur">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="flex items-center gap-2 font-semibold text-lg">
-              <Shield className="h-5 w-5 text-[#0066FF]" />
+              <Shield className="h-5 w-5 text-brand" />
               Agent0 Network Reputation
             </h3>
             {isAgent0Available && agent0Profile && (
@@ -287,7 +287,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
                 href={`https://agent0.network/agent/${agent0Profile.tokenId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-[#0066FF]"
+                className="flex items-center gap-1 text-muted-foreground text-sm transition-colors hover:text-brand"
               >
                 View on Agent0
                 <ExternalLink className="h-3 w-3" />
@@ -297,7 +297,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
 
           {agent0Loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0066FF] border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
             </div>
           ) : isAgent0Available && agent0Profile ? (
             <div className="space-y-4">
@@ -308,7 +308,7 @@ export function AgentPerformance({ agent }: AgentPerformanceProps) {
                     <Star className="h-4 w-4" />
                     Accuracy
                   </div>
-                  <div className="font-bold text-[#0066FF] text-xl">
+                  <div className="font-bold text-brand text-xl">
                     {agent0Profile.reputation?.accuracyScore.toFixed(1) ?? '—'}%
                   </div>
                 </div>

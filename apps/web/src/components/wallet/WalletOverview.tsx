@@ -33,7 +33,7 @@ export function WalletOverview({
   return (
     <div className="space-y-6">
       {/* Balance Card */}
-      <div className="rounded-xl border border-border bg-linear-to-br from-[#0066FF]/5 to-transparent p-6">
+      <div className="rounded-xl border border-border bg-linear-to-br from-brand/5 to-transparent p-6">
         <p className="mb-1 text-muted-foreground text-sm">Total Balance</p>
         {loading && !nativeBalance ? (
           <div className="h-9 w-32 animate-pulse rounded bg-muted" />
@@ -82,7 +82,7 @@ export function WalletOverview({
           <h3 className="font-semibold text-foreground text-sm">Assets</h3>
           <button
             onClick={() => onNavigateTab('tokens')}
-            className="text-[#0066FF] text-xs hover:underline"
+            className="text-brand text-xs hover:underline"
           >
             View all
           </button>
@@ -127,7 +127,7 @@ export function WalletOverview({
           {transactions.length > 0 && (
             <button
               onClick={() => onNavigateTab('activity')}
-              className="text-[#0066FF] text-xs hover:underline"
+              className="text-brand text-xs hover:underline"
             >
               View all
             </button>

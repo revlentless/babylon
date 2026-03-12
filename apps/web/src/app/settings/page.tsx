@@ -1017,7 +1017,7 @@ export default function SettingsPage() {
                           type="button"
                           onClick={handleRegisterOnchain}
                           disabled={isRegisteringOnchain}
-                          className="flex min-h-[44px] items-center gap-2 rounded-lg border border-border bg-[#0066FF] px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-[#0055DD] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex min-h-[44px] items-center gap-2 rounded-lg border border-border bg-brand px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isRegisteringOnchain ? (
                             <>

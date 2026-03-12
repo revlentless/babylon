@@ -150,7 +150,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
                   <ArrowLeft size={20} />
                 </button>
                 <div className="flex items-center gap-2">
-                  <Newspaper className="h-5 w-5 text-[#0066FF]" />
+                  <Newspaper className="h-5 w-5 text-brand" />
                   <h1 className="font-semibold text-lg">Article</h1>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
                 {/* Article metadata */}
                 <div className="mb-6 flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-                  <span className="font-semibold text-[#0066FF]">
+                  <span className="font-semibold text-brand">
                     {article.authorName}
                   </span>
                   {article.byline && (
@@ -202,7 +202,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
                 </div>
 
                 {/* Full article content with markdown rendering */}
-                <Response className="mb-6 max-w-none text-foreground/90 [&_a]:text-[#0066FF] [&_a]:underline hover:[&_a]:text-[#0066FF]/80 [&_blockquote]:my-6 [&_blockquote]:border-[#0066FF] [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_em]:italic [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:font-bold [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:font-semibold [&_h2]:text-xl [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:font-medium [&_h3]:text-lg [&_hr]:my-8 [&_hr]:border-border [&_li]:my-2 [&_li]:text-base [&_li]:leading-relaxed [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-6 [&_p]:text-base [&_p]:leading-relaxed sm:[&_p]:text-lg [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6">
+                <Response className="mb-6 max-w-none text-foreground/90 [&_a]:text-brand [&_a]:underline hover:[&_a]:text-brand/80 [&_blockquote]:my-6 [&_blockquote]:border-brand [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_em]:italic [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:font-bold [&_h1]:text-2xl [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:font-semibold [&_h2]:text-xl [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:font-medium [&_h3]:text-lg [&_hr]:my-8 [&_hr]:border-border [&_li]:my-2 [&_li]:text-base [&_li]:leading-relaxed [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-6 [&_p]:text-base [&_p]:leading-relaxed sm:[&_p]:text-lg [&_pre]:my-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-bold [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6">
                   {articleBody}
                 </Response>
               </article>
@@ -232,7 +232,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-2">
-                <Newspaper className="h-5 w-5 text-[#0066FF]" />
+                <Newspaper className="h-5 w-5 text-brand" />
                 <h1 className="font-semibold text-lg">Article</h1>
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
               {/* Article metadata */}
               <div className="mb-4 flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
-                <span className="font-semibold text-[#0066FF]">
+                <span className="font-semibold text-brand">
                   {article.authorName}
                 </span>
                 {article.byline && (
@@ -281,7 +281,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
               </div>
 
               {/* Full article content with markdown rendering */}
-              <Response className="mb-4 max-w-none text-foreground/90 [&_a]:text-[#0066FF] [&_a]:underline hover:[&_a]:text-[#0066FF]/80 [&_blockquote]:my-4 [&_blockquote]:border-[#0066FF] [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_em]:italic [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:font-bold [&_h1]:text-xl [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:font-semibold [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:font-medium [&_h3]:text-base [&_hr]:my-6 [&_hr]:border-border [&_li]:my-1.5 [&_li]:text-base [&_li]:leading-relaxed [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-5 [&_p]:text-base [&_p]:leading-relaxed [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-bold [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5">
+              <Response className="mb-4 max-w-none text-foreground/90 [&_a]:text-brand [&_a]:underline hover:[&_a]:text-brand/80 [&_blockquote]:my-4 [&_blockquote]:border-brand [&_blockquote]:border-l-4 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm [&_em]:italic [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:font-bold [&_h1]:text-xl [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:font-semibold [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:font-medium [&_h3]:text-base [&_hr]:my-6 [&_hr]:border-border [&_li]:my-1.5 [&_li]:text-base [&_li]:leading-relaxed [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-5 [&_p]:text-base [&_p]:leading-relaxed [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-bold [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-5">
                 {articleBody}
               </Response>
 

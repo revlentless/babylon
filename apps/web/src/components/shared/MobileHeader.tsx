@@ -294,7 +294,7 @@ function MobileHeaderContent() {
                 }}
                 className="shrink-0 p-2 transition-colors hover:bg-muted"
               >
-                <X size={20} style={{ color: '#0066FF' }} />
+                <X size={20} className="text-brand" />
               </button>
             </Link>
 
@@ -328,7 +328,7 @@ function MobileHeaderContent() {
                     className={cn(
                       'relative flex items-center gap-4 px-4 py-2.5 transition-colors',
                       item.active
-                        ? 'bg-[#0066FF] font-bold text-primary-foreground'
+                        ? 'bg-brand font-bold text-primary-foreground'
                         : 'font-semibold text-sidebar-foreground hover:bg-sidebar-accent'
                     )}
                   >
@@ -361,7 +361,7 @@ function MobileHeaderContent() {
                     </>
                   ) : (
                     <>
-                      <Copy className="h-5 w-5" style={{ color: '#0066FF' }} />
+                      <Copy className="h-5 w-5 text-brand" />
                       <div className="min-w-0 flex-1">
                         <div className="text-base text-foreground">
                           Copy Referral Link

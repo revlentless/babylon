@@ -57,6 +57,10 @@ const config: Config = {
           DEFAULT: 'hsl(0 84% 60%)',
           foreground: 'hsl(0 84% 96%)',
         },
+        brand: {
+          DEFAULT: '#0066FF',
+          hover: '#0055DD',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
