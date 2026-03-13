@@ -124,6 +124,8 @@ type ConspiracyResponse = ConspiracyResponseFormat1 | ConspiracyResponseFormat2;
 
 /** Generates social media posts from world events using LLM-powered content. */
 export class FeedGenerator extends EventEmitter {
+  private static readonly DEFAULT_MAX_ACTORS = 50;
+
   private llm?: BabylonLLMClient;
   private actorStates: Map<string, ActorState> = new Map();
   private relationships: ActorRelationship[] | ActorConnection[] = [];
@@ -150,6 +152,15 @@ export class FeedGenerator extends EventEmitter {
 
   private static readonly EMOJI_REGEX =
     /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/gu;
+
+  /** Lazily initializes worldContext if it has not been set yet. */
+  private async ensureWorldContext(): Promise<void> {
+    if (!this.worldContext) {
+      this.worldContext = await generateWorldContext({
+        maxActors: FeedGenerator.DEFAULT_MAX_ACTORS,
+      });
+    }
+  }
 
   /** Strips hashtags/emojis, normalizes whitespace, replaces real names with parody names. */
   private async postProcessContent(content: string): Promise<string> {
@@ -620,7 +631,9 @@ export class FeedGenerator extends EventEmitter {
     const feed: FeedPost[] = [];
 
     // Generate world context once per day for all prompts
-    this.worldContext = await generateWorldContext({ maxActors: 50 });
+    this.worldContext = await generateWorldContext({
+      maxActors: FeedGenerator.DEFAULT_MAX_ACTORS,
+    });
 
     // Store context for per-character generation
     this._allPreviousEvents = options?.allPreviousEvents || [];
@@ -2127,9 +2140,7 @@ ${voiceContext}
       : `${frameGuidance}. The underlying trend requires careful management - emphasize proactive response and commitment to stakeholders.`;
 
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     const prompt = renderPrompt(companyPost, {
       companyName: company.name,
@@ -2228,9 +2239,7 @@ ${voiceContext}
     }
 
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     // Identify actors and organizations involved in the event
     const involvedActors = event.actors
@@ -2568,9 +2577,7 @@ ${voiceContext}
     originalPost: FeedPost
   ): Promise<string> {
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     // Get actor's current emotional state
     const state = this.actorStates.get(actor.id);
@@ -3695,9 +3702,7 @@ ${voiceContext}
     // 1. Company announcement (for major moves >5%)
     if (Math.abs(priceUpdate.changePercent) >= 5) {
       // Ensure world context is available
-      if (!this.worldContext) {
-        this.worldContext = await generateWorldContext({ maxActors: 50 });
-      }
+      await this.ensureWorldContext();
 
       const prompt = renderPrompt(priceAnnouncement, {
         companyName: company.name,
@@ -3898,9 +3903,7 @@ ${voiceContext}
       .join(', ');
 
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     const prompt = renderPrompt(dayTransition, {
       day: day.toString(),
@@ -3965,9 +3968,7 @@ ${voiceContext}
     const outcomeText = question.resolvedOutcome ? 'YES' : 'NO';
 
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     const prompt = renderPrompt(questionResolvedFeed, {
       questionText: question.text,
@@ -4039,9 +4040,7 @@ ${voiceContext}
     const atmosphereContext = '';
 
     // Ensure world context is available
-    if (!this.worldContext) {
-      this.worldContext = await generateWorldContext({ maxActors: 50 });
-    }
+    await this.ensureWorldContext();
 
     const prompt = renderPrompt(minuteAmbient, {
       actorName: actor.name,
