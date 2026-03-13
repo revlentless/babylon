@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@babylon/shared';
+import { escapeRegex } from '../utils/string-utils';
 import {
   type CharacterMapping,
   type OrganizationMapping,
@@ -332,10 +333,6 @@ export class CharacterMappingService {
     this.initialized = false;
     StaticDataRegistry.clearCache();
   }
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // Singleton instance
