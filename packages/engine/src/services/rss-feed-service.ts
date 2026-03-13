@@ -246,56 +246,67 @@ export class RSSFeedService {
 
     let fetched = 0;
     let stored = 0;
-    const errors = 0;
+    let errors = 0;
 
     for (const source of sources) {
-      const feed = await this.fetchFeed(source.feedUrl);
-      fetched++;
+      try {
+        const feed = await this.fetchFeed(source.feedUrl);
+        fetched++;
 
-      // Store new headlines (check by link to avoid duplicates)
-      for (const item of feed.items) {
-        if (!item.title) continue;
+        // Store new headlines (check by link to avoid duplicates)
+        for (const item of feed.items) {
+          if (!item.title) continue;
 
-        // Check if we already have this headline
-        const existingResult = item.link
-          ? await db
-              .select({ id: rssHeadlines.id })
-              .from(rssHeadlines)
-              .where(eq(rssHeadlines.link, item.link))
-              .limit(1)
-          : [];
+          // Check if we already have this headline
+          const existingResult = item.link
+            ? await db
+                .select({ id: rssHeadlines.id })
+                .from(rssHeadlines)
+                .where(eq(rssHeadlines.link, item.link))
+                .limit(1)
+            : [];
 
-        const existing = existingResult[0];
+          const existing = existingResult[0];
 
-        if (existing) continue;
+          if (existing) continue;
 
-        const publishedAt = item.pubDate ? new Date(item.pubDate) : new Date();
+          const publishedAt = item.pubDate
+            ? new Date(item.pubDate)
+            : new Date();
 
-        await db.insert(rssHeadlines).values({
-          id: await generateSnowflakeId(),
-          sourceId: source.id,
-          title: item.title,
-          link: item.link || null,
-          publishedAt,
-          summary: item.description || null,
-          content: item.content || null,
-          // RSSFeedItem is a plain object with JsonValue-compatible fields (all string/undefined)
-          // Convert through unknown first for type safety
-          rawData: JSON.parse(JSON.stringify(item)) as JsonValue,
-          fetchedAt: new Date(),
-        });
+          await db.insert(rssHeadlines).values({
+            id: await generateSnowflakeId(),
+            sourceId: source.id,
+            title: item.title,
+            link: item.link || null,
+            publishedAt,
+            summary: item.description || null,
+            content: item.content || null,
+            // RSSFeedItem is a plain object with JsonValue-compatible fields (all string/undefined)
+            // Convert through unknown first for type safety
+            rawData: JSON.parse(JSON.stringify(item)) as JsonValue,
+            fetchedAt: new Date(),
+          });
 
-        stored++;
+          stored++;
+        }
+
+        // Update last fetched timestamp
+        await db
+          .update(rssFeedSources)
+          .set({
+            lastFetched: new Date(),
+            fetchErrors: 0,
+          })
+          .where(eq(rssFeedSources.id, source.id));
+      } catch (error) {
+        errors++;
+        logger.error(
+          `Failed to fetch RSS feed: ${source.feedUrl}`,
+          { sourceId: source.id, error: (error as Error).message },
+          'RSSFeedService'
+        );
       }
-
-      // Update last fetched timestamp
-      await db
-        .update(rssFeedSources)
-        .set({
-          lastFetched: new Date(),
-          fetchErrors: 0,
-        })
-        .where(eq(rssFeedSources.id, source.id));
     }
 
     logger.info(
