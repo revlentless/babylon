@@ -1,6 +1,6 @@
 'use client';
 
-import { getProfileUrl } from '@babylon/shared';
+import { getProfileUrl, logger } from '@babylon/shared';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, MessageCircle, Share2, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
@@ -47,10 +47,21 @@ export function TrendingPostsPanel() {
 
   useEffect(() => {
     const fetchTrendingPosts = async () => {
-      const response = await fetch('/api/feed/widgets/trending-posts');
-      const data = await response.json();
-      if (data.success) {
-        setPosts(data.posts || []);
+      try {
+        const response = await fetch('/api/feed/widgets/trending-posts');
+        if (!response.ok) {
+          logger.error('Failed to fetch trending posts', {
+            status: response.status,
+          });
+          setLoading(false);
+          return;
+        }
+        const data = await response.json();
+        if (data.success) {
+          setPosts(data.posts || []);
+        }
+      } catch (error) {
+        logger.error('Error fetching trending posts', { error });
       }
       setLoading(false);
     };

@@ -28,7 +28,7 @@
  */
 'use client';
 
-import { BABYLON_POINTS_SYMBOL, cn } from '@babylon/shared';
+import { BABYLON_POINTS_SYMBOL, cn, logger } from '@babylon/shared';
 import {
   Activity,
   AlertCircle,
@@ -98,13 +98,25 @@ export function NPCPortfolioCard({
   useEffect(() => {
     const fetchPortfolio = async () => {
       setLoading(true);
-      const response = await fetch(
-        `/api/npc/${encodeURIComponent(actorId)}/portfolio`
-      );
-      const result = await response.json();
+      try {
+        const response = await fetch(
+          `/api/npc/${encodeURIComponent(actorId)}/portfolio`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch NPC portfolio', {
+            status: response.status,
+            actorId,
+          });
+          setLoading(false);
+          return;
+        }
+        const result = await response.json();
 
-      if (result.success) {
-        setData(result);
+        if (result.success) {
+          setData(result);
+        }
+      } catch (error) {
+        logger.error('Error fetching NPC portfolio', { error, actorId });
       }
       setLoading(false);
     };

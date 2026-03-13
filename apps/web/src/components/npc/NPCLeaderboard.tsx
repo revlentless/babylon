@@ -28,7 +28,7 @@
  */
 'use client';
 
-import { BABYLON_POINTS_SYMBOL, cn } from '@babylon/shared';
+import { BABYLON_POINTS_SYMBOL, cn, logger } from '@babylon/shared';
 import { Activity, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -86,13 +86,24 @@ export function NPCLeaderboard({
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true);
-      const response = await fetch(
-        `/api/npc/performance/leaderboard?limit=${limit}&minValue=${minValue}`
-      );
-      const result = await response.json();
+      try {
+        const response = await fetch(
+          `/api/npc/performance/leaderboard?limit=${limit}&minValue=${minValue}`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch NPC leaderboard', {
+            status: response.status,
+          });
+          setLoading(false);
+          return;
+        }
+        const result = await response.json();
 
-      if (result.success) {
-        setData(result);
+        if (result.success) {
+          setData(result);
+        }
+      } catch (error) {
+        logger.error('Error fetching NPC leaderboard', { error });
       }
       setLoading(false);
     };

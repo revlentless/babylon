@@ -30,7 +30,7 @@
  */
 'use client';
 
-import { getProfileUrl } from '@babylon/shared';
+import { getProfileUrl, logger } from '@babylon/shared';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
@@ -83,18 +83,30 @@ export function FeedbackHistory({
   useEffect(() => {
     const fetchFeedbackHistory = async () => {
       setLoading(true);
-      const params = new URLSearchParams({
-        limit: limit.toString(),
-        includeAuto: showAutoFeedback.toString(),
-      });
-      const response = await fetch(
-        `/api/feedback/received/${encodeURIComponent(userId)}?${params}`
-      );
-      const data = await response.json();
+      try {
+        const params = new URLSearchParams({
+          limit: limit.toString(),
+          includeAuto: showAutoFeedback.toString(),
+        });
+        const response = await fetch(
+          `/api/feedback/received/${encodeURIComponent(userId)}?${params}`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch feedback history', {
+            status: response.status,
+            userId,
+          });
+          setLoading(false);
+          return;
+        }
+        const data = await response.json();
 
-      if (data.success) {
-        setFeedbackItems(data.feedback || []);
-        setAverageScore(data.averageScore || 0);
+        if (data.success) {
+          setFeedbackItems(data.feedback || []);
+          setAverageScore(data.averageScore || 0);
+        }
+      } catch (error) {
+        logger.error('Error fetching feedback history', { error, userId });
       }
       setLoading(false);
     };
@@ -276,17 +288,29 @@ export function FeedbackSummaryCard({
 
   useEffect(() => {
     const fetchStats = async () => {
-      const response = await fetch(
-        `/api/feedback/stats/${encodeURIComponent(userId)}`
-      );
-      const data = await response.json();
+      try {
+        const response = await fetch(
+          `/api/feedback/stats/${encodeURIComponent(userId)}`
+        );
+        if (!response.ok) {
+          logger.error('Failed to fetch feedback stats', {
+            status: response.status,
+            userId,
+          });
+          setLoading(false);
+          return;
+        }
+        const data = await response.json();
 
-      if (data.success) {
-        setStats({
-          averageScore: data.averageScore || 0,
-          totalFeedback: data.totalCount || 0,
-          recentTrend: data.recentTrend || 0,
-        });
+        if (data.success) {
+          setStats({
+            averageScore: data.averageScore || 0,
+            totalFeedback: data.totalCount || 0,
+            recentTrend: data.recentTrend || 0,
+          });
+        }
+      } catch (error) {
+        logger.error('Error fetching feedback stats', { error, userId });
       }
       setLoading(false);
     };

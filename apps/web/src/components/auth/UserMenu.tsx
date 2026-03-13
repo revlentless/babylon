@@ -1,6 +1,6 @@
 'use client';
 
-import { getDisplayReferralUrl, getReferralUrl } from '@babylon/shared';
+import { getDisplayReferralUrl, getReferralUrl, logger } from '@babylon/shared';
 import {
   BookOpen,
   Check,
@@ -59,8 +59,8 @@ export function UserMenu() {
           wallet: data.wallet ?? 0,
         });
       }
-    } catch {
-      // Silently fail — will show fallback values
+    } catch (error) {
+      logger.error('Error fetching user portfolio', { error });
     }
   }, [user?.id]);
 
