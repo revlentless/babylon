@@ -74,12 +74,8 @@ export function OnboardingProvider({
   const [stage, setStage] = useState<OnboardingStage>('PROFILE');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [_submittedProfile, setSubmittedProfile] =
-    useState<OnboardingProfilePayload | null>(null);
   const [importedProfileData, setImportedProfileData] =
     useState<ImportedProfileData | null>(null);
-  const [_hasProgressedPastSocialImport, setHasProgressedPastSocialImport] =
-    useState(false);
   // Track if social user auto-submit is currently in-flight (prevents StrictMode double-invoke)
   const socialAutoSubmitRef = useRef(false);
   // Persistent flag to prevent repeated auto-submit attempts after failure
@@ -241,7 +237,6 @@ export function OnboardingProvider({
         setNeedsOnboarding(false);
 
         clearReferralCode();
-        setSubmittedProfile(payload);
         trackOnboardingStep('profile', true);
         trackSignupCompleted(data.user?.id ?? '', {
           hasReferrer: Boolean(referralCode),
@@ -270,10 +265,8 @@ export function OnboardingProvider({
   useEffect(() => {
     if (!authenticated) {
       setStage('PROFILE');
-      setSubmittedProfile(null);
       setError(null);
       setImportedProfileData(null);
-      setHasProgressedPastSocialImport(false);
       socialAutoSubmitRef.current = false;
       setSocialAutoSubmitAttempted(false);
       return;
@@ -419,7 +412,6 @@ export function OnboardingProvider({
       );
 
       setImportedProfileData(profileData);
-      setHasProgressedPastSocialImport(true);
       return;
     }
 
@@ -456,7 +448,6 @@ export function OnboardingProvider({
       );
 
       setImportedProfileData(profileData);
-      setHasProgressedPastSocialImport(true);
       return;
     }
 
@@ -513,7 +504,6 @@ export function OnboardingProvider({
         );
 
         setImportedProfileData(profileData);
-        setHasProgressedPastSocialImport(true);
         setStage('PROFILE');
       } catch (parseError) {
         logger.warn(
