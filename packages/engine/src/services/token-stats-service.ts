@@ -12,7 +12,7 @@
  */
 
 import { logger } from '@babylon/shared';
-import { setTokenUsageCallback } from '../llm/openai-client';
+import { addTokenUsageListener } from '../llm/openai-client';
 import {
   calculateEstimatedCost,
   type LLMCallTokenUsage,
@@ -194,6 +194,7 @@ class TokenStatsServiceImpl {
   private tickStartTime: Date | null = null;
   private currentTickId: string | null = null;
   private isCollecting = false;
+  private unsubscribeListener: (() => void) | null = null;
 
   // In-memory storage for recent ticks (for quick access without DB)
   private recentTicks: TickTokenStats[] = [];
@@ -219,8 +220,8 @@ class TokenStatsServiceImpl {
     this.currentTickId = id;
     this.isCollecting = true;
 
-    // Register the global callback to collect usage from all LLM calls
-    setTokenUsageCallback((usage) => {
+    // Subscribe to token usage events from all LLM calls
+    this.unsubscribeListener = addTokenUsageListener((usage) => {
       if (this.currentCollector && this.isCollecting) {
         this.currentCollector.recordCall(usage);
       }
@@ -274,8 +275,9 @@ class TokenStatsServiceImpl {
       this.recentTicks.pop();
     }
 
-    // Clear the global callback
-    setTokenUsageCallback(null);
+    // Unsubscribe from token usage events
+    this.unsubscribeListener?.();
+    this.unsubscribeListener = null;
 
     // Reset state
     this.currentCollector = null;
@@ -475,7 +477,8 @@ class TokenStatsServiceImpl {
   clearAll(): void {
     this.recentTicks = [];
     if (this.isCollecting) {
-      setTokenUsageCallback(null);
+      this.unsubscribeListener?.();
+      this.unsubscribeListener = null;
       this.currentCollector = null;
       this.tickStartTime = null;
       this.currentTickId = null;

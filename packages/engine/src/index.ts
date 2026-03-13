@@ -166,9 +166,9 @@ export {
 } from './llm/json-continuation-parser';
 // LLM Exports (re-exported for convenience)
 export {
+  addTokenUsageListener,
   BabylonLLMClient,
-  getTokenUsageCallback,
-  setTokenUsageCallback,
+  clearTokenUsageListeners,
   type TokenUsageCallback,
 } from './llm/openai-client';
 export {
