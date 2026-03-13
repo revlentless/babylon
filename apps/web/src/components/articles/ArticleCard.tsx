@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { memo } from 'react';
 import { z } from 'zod';
 import { Avatar } from '@/components/shared/Avatar';
+import { formatDateTime, formatTimeAgo } from '@/lib/format-date';
 
 const _ArticleCardPostSchema = z.object({
   id: z.string(),
@@ -41,28 +42,7 @@ export const ArticleCard = memo(function ArticleCard({
   const router = useRouter();
   const compact = density === 'compact';
   const publishedDate = new Date(post.timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - publishedDate.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-
-  let timeAgo: string;
-  if (diffMinutes < 1) {
-    timeAgo = 'Just now';
-  } else if (diffMinutes < 60) {
-    timeAgo = `${diffMinutes}m ago`;
-  } else if (diffHours < 24) {
-    timeAgo = `${diffHours}h ago`;
-  } else {
-    timeAgo = publishedDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year:
-        publishedDate.getFullYear() !== now.getFullYear()
-          ? 'numeric'
-          : undefined,
-    });
-  }
+  const timeAgo = formatTimeAgo(publishedDate);
 
   const handleClick = () => {
     if (onClick) {
@@ -137,7 +117,7 @@ export const ArticleCard = memo(function ArticleCard({
             </div>
             <time
               className="text-[15px] text-muted-foreground leading-tight"
-              title={publishedDate.toLocaleString()}
+              title={formatDateTime(publishedDate)}
             >
               {timeAgo}
             </time>

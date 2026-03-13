@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { formatMediumDate } from '@/lib/format-date';
 import { apiFetch } from '@/utils/api-fetch';
 
 /**
@@ -146,7 +147,7 @@ export function PrivacyTab() {
             {user?.tosAcceptedAt && (
               <p className="mt-2 text-muted-foreground text-xs">
                 You accepted the Terms of Service on{' '}
-                {new Date(user.tosAcceptedAt).toLocaleDateString()}
+                {formatMediumDate(user.tosAcceptedAt)}
               </p>
             )}
           </div>

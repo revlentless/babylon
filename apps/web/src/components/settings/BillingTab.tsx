@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/shared/Skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useWalletBalance } from '@/hooks/useWalletBalance';
 import { getExplorerName, getExplorerTxUrl } from '@/lib/chain';
+import { formatDateTime, formatMediumDate } from '@/lib/format-date';
 import { useAuthStore } from '@/stores/authStore';
 
 /** Number of transactions to show in collapsed view */
@@ -143,13 +144,7 @@ function PurchaseTransactionRow({ tx }: { tx: PointsTransaction }) {
             )}
           </div>
           <div className="mt-1 text-muted-foreground text-sm">
-            {new Date(tx.createdAt).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatDateTime(tx.createdAt)}
           </div>
           {isPurchase && tx.paymentAmount && (
             <div className="mt-1 text-muted-foreground text-xs">
@@ -211,11 +206,7 @@ function OtherTransactionRow({ tx }: { tx: PointsTransaction }) {
             {getReasonLabel(tx.reason)}
           </span>
           <div className="text-muted-foreground text-xs">
-            {new Date(tx.createdAt).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+            {formatMediumDate(tx.createdAt)}
           </div>
         </div>
       </div>

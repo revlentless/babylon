@@ -17,6 +17,7 @@ import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { getAuthToken } from '@/lib/auth';
 import { formatCurrencyDefault } from '@/lib/format';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Escrow schema for validation.
@@ -190,16 +191,7 @@ export function EscrowManagementTab() {
 
   const formatCurrency = formatCurrencyDefault;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const formatDate = (dateString: string) => formatDateTime(dateString);
 
   const getStatusColor = (status: string) => {
     switch (status) {

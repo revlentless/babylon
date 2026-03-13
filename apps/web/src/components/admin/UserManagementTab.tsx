@@ -20,6 +20,7 @@ import { MuteUserModal } from '@/components/moderation/MuteUserModal';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { formatCurrencyCompact } from '@/lib/format';
+import { formatMediumDate } from '@/lib/format-date';
 import { getUserDisplayName } from '@/lib/user-display';
 
 /**
@@ -241,13 +242,7 @@ export function UserManagementTab() {
 
   const formatCurrency = formatCurrencyCompact;
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (date: string) => formatMediumDate(date);
 
   const UserRow = ({ user }: { user: User }) => {
     const displayName = getUserDisplayName(user, 'Anonymous');

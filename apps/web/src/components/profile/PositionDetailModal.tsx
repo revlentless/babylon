@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { formatPrice } from '@/app/markets/_lib/formatters';
 import { FollowButton } from '@/components/interactions';
 import { useAuth } from '@/hooks/useAuth';
+import { formatMediumDate } from '@/lib/format-date';
 import { usePerpMarketsStore } from '@/stores/perpMarketsStore';
 
 /**
@@ -313,13 +314,7 @@ export function PositionDetailModal({
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (dateString: string) => formatMediumDate(dateString);
 
   // Calculate prediction trade preview
   const getPredictionCalculation = () => {

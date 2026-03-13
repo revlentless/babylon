@@ -34,6 +34,7 @@ import {
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatMediumDate } from '@/lib/format-date';
 
 type MarketStatus = 'all' | 'active' | 'expired' | 'resolved';
 
@@ -181,13 +182,7 @@ export function MarketOversightTab() {
     });
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (dateStr: string) => formatMediumDate(dateStr);
 
   /** Use shared formatCompactCurrency for currency formatting */
   const formatCurrency = formatCompactCurrency;

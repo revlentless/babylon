@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Appeal structure for human review tab.
@@ -102,13 +103,7 @@ export function HumanReviewTab() {
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A';
-    return new Date(date).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+    return formatDateTime(date);
   };
 
   if (loading) {

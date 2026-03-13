@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { z } from 'zod';
 import { getAuthToken } from '@/lib/auth';
+import { formatDateTime, formatMediumDate } from '@/lib/format-date';
 
 /**
  * Participant schema for validation.
@@ -309,9 +310,7 @@ export function GroupsTab() {
               {/* Dates */}
               <div className="flex items-center gap-1 text-muted-foreground text-xs">
                 <Calendar className="h-3 w-3" />
-                <span>
-                  Created {new Date(group.createdAt).toLocaleDateString()}
-                </span>
+                <span>Created {formatMediumDate(group.createdAt)}</span>
               </div>
 
               {/* Participants Preview */}
@@ -378,7 +377,7 @@ export function GroupsTab() {
                     )}
                   </div>
                   <span className="text-muted-foreground text-xs">
-                    Joined {new Date(participant.joinedAt).toLocaleDateString()}
+                    Joined {formatMediumDate(participant.joinedAt)}
                   </span>
                 </div>
               ))}
@@ -400,7 +399,7 @@ export function GroupsTab() {
                         {message.sender.name}
                       </span>
                       <span className="text-muted-foreground text-xs">
-                        {new Date(message.createdAt).toLocaleString()}
+                        {formatDateTime(message.createdAt)}
                       </span>
                     </div>
                     <p className="text-sm">{message.content}</p>

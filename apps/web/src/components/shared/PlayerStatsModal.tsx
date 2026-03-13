@@ -16,6 +16,7 @@ import {
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { formatLongDate } from '@/lib/format-date';
 
 interface UserProfile {
   id: string;
@@ -347,12 +348,7 @@ export function PlayerStatsModal({
                 <div className="flex items-start gap-2 text-muted-foreground text-xs">
                   <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span className="break-words">
-                    Joined{' '}
-                    {new Date(profile.createdAt).toLocaleDateString('en-US', {
-                      month: 'long',
-                      year: 'numeric',
-                      day: 'numeric',
-                    })}
+                    Joined {formatLongDate(profile.createdAt)}
                   </span>
                 </div>
                 {profile.walletAddress && (

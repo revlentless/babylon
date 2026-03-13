@@ -2,6 +2,7 @@
 
 import { AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { formatShortDate } from '@/lib/format-date';
 import type { Message } from './types';
 
 interface SystemMessageProps {
@@ -38,12 +39,7 @@ export function SystemMessage({ message }: SystemMessageProps) {
       <div className="flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1.5 text-muted-foreground text-xs">
         <span>{message.content}</span>
         <span className="opacity-60">·</span>
-        <span className="opacity-60">
-          {msgDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
+        <span className="opacity-60">{formatShortDate(msgDate)}</span>
       </div>
     </div>
   );

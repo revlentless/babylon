@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatMediumDate } from '@/lib/format-date';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -558,7 +559,7 @@ export function WhitelistTab() {
                     {entry.reason ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">
-                    {new Date(entry.grantedAt).toLocaleDateString()}
+                    {formatMediumDate(entry.grantedAt)}
                   </td>
                   <td className="px-4 py-3">
                     {entry.revokedAt ? (

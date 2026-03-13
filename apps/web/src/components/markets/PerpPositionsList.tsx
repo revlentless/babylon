@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useMarketPrices } from '@/hooks/useMarketPrices';
 import { usePerpTrade } from '@/hooks/usePerpTrade';
+import { formatShortDate } from '@/lib/format-date';
 import { invalidatePerpMarketsCache } from '@/stores/perpMarketsStore';
 import { useUserPositionsStore } from '@/stores/userPositionsStore';
 import type { DisplayPerpPosition } from '@/types/markets';
@@ -189,13 +190,7 @@ export function PerpPositionsList({
   const formatPrice = (amount: number) =>
     formatCurrency(amount, { useThousandsSeparator: true });
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (dateStr: string) => formatShortDate(dateStr);
 
   if (positions.length === 0) {
     return (

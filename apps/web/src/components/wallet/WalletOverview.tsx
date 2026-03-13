@@ -2,6 +2,7 @@
 
 import { formatTokenBalance } from '@babylon/shared';
 import { ArrowDownLeft, ArrowUpRight, Coins } from 'lucide-react';
+import { formatMediumDate } from '@/lib/format-date';
 import type {
   NativeBalance,
   TokenBalance,
@@ -166,7 +167,7 @@ export function WalletOverview({
                           : 'Transaction'}
                   </span>
                   <p className="truncate text-muted-foreground text-xs">
-                    {new Date(tx.timestamp).toLocaleDateString()}
+                    {formatMediumDate(tx.timestamp)}
                   </p>
                 </div>
                 {tx.token && (

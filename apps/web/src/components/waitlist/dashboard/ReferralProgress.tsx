@@ -2,6 +2,7 @@
 
 import { Users } from 'lucide-react';
 import { Avatar } from '@/components/shared/Avatar';
+import { formatMediumDate } from '@/lib/format-date';
 import type { ReferralTab, ReferralUser, WaitlistData } from '../types';
 
 interface ReferralProgressProps {
@@ -156,8 +157,7 @@ export function ReferralProgress({
                             {subtitle || `@${displayName}`}
                           </p>
                           <p className="mt-0.5 text-muted-foreground text-xs">
-                            Signed up{' '}
-                            {new Date(user.createdAt).toLocaleDateString()}
+                            Signed up {formatMediumDate(user.createdAt)}
                           </p>
                         </div>
                         <div className="shrink-0 text-xs text-yellow-600 dark:text-yellow-400">
@@ -207,9 +207,9 @@ export function ReferralProgress({
                             </p>
                           )}
                           <p className="mt-0.5 text-muted-foreground text-xs">
-                            {new Date(
+                            {formatMediumDate(
                               user.completedAt || user.createdAt
-                            ).toLocaleDateString()}
+                            )}
                           </p>
                         </div>
                       </div>

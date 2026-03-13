@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Zod schema for tier statistics.
@@ -620,7 +621,7 @@ export function AlphaGroupsTab() {
 
       {/* Timestamp */}
       <p className="text-center text-muted-foreground text-xs">
-        Last updated: {new Date(stats.timestamp).toLocaleString()}
+        Last updated: {formatDateTime(stats.timestamp)}
       </p>
     </div>
   );

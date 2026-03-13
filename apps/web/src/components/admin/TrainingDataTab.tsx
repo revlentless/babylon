@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { getAuthToken } from '@/lib/auth';
+import { formatDateTime } from '@/lib/format-date';
 
 /**
  * Training data statistics structure for training data tab.
@@ -326,7 +327,7 @@ export function TrainingDataTab() {
                       </div>
                     )}
                     <div className="mt-1 text-muted-foreground text-xs">
-                      {new Date(traj.createdAt).toLocaleString()}
+                      {formatDateTime(traj.createdAt)}
                     </div>
                   </div>
                 </div>

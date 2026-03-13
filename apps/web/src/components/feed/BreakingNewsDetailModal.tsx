@@ -3,6 +3,7 @@
 import { Activity, Calendar, DollarSign, TrendingUp, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect } from 'react';
+import { formatLongDateTime } from '@/lib/format-date';
 
 /**
  * Breaking news item structure for detail modal.
@@ -107,15 +108,7 @@ export function BreakingNewsDetailModal({
   };
 
   const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return formatLongDateTime(timestamp);
   };
 
   return (

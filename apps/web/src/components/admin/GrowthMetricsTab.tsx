@@ -49,6 +49,7 @@ import {
 } from 'recharts';
 import { ActivityHeatmap } from '@/components/admin/ActivityHeatmap';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatShortDate } from '@/lib/format-date';
 
 type Period = 'day' | 'week' | 'month';
 
@@ -198,10 +199,7 @@ export function GrowthMetricsTab() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (dateStr: string) => formatShortDate(dateStr);
 
   if (loading) {
     return (

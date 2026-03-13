@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
+import { formatDateTime, formatShortDate } from '@/lib/format-date';
 
 /**
  * Fee statistics schema for validation.
@@ -275,12 +276,7 @@ export function FeesTab() {
               dataKey="date"
               stroke="#888"
               fontSize={12}
-              tickFormatter={(date) =>
-                new Date(date).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                })
-              }
+              tickFormatter={(date) => formatShortDate(date)}
             />
             <YAxis
               stroke="#888"
@@ -292,7 +288,7 @@ export function FeesTab() {
                 backgroundColor: '#1a1a1a',
                 border: '1px solid #333',
               }}
-              labelFormatter={(date) => new Date(date).toLocaleDateString()}
+              labelFormatter={(date) => formatShortDate(date)}
               formatter={(value: number | string) => [
                 `${BABYLON_POINTS_SYMBOL}${Number(value).toFixed(2)}`,
                 'Fees',
@@ -448,7 +444,7 @@ export function FeesTab() {
                 </div>
                 <div className="text-muted-foreground text-xs">
                   {formatTradeType(fee.tradeType)} •{' '}
-                  {new Date(fee.createdAt).toLocaleString()}
+                  {formatDateTime(fee.createdAt)}
                 </div>
               </div>
               <div className="text-right">
