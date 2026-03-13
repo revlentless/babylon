@@ -1,6 +1,6 @@
 'use client';
 
-import { getCurrentChainId } from '@babylon/shared';
+import { EXPLORER_TOKEN_URLS, getCurrentChainId } from '@babylon/shared';
 import { usePrivy } from '@privy-io/react-auth';
 import { Check, ExternalLink, Loader2, Shield } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -94,16 +94,9 @@ export function NftVerificationBanner({
     loading: true,
   };
 
-  const EXPLORER_URLS: Record<number, string> = {
-    8453: 'https://basescan.org/token/',
-    84532: 'https://sepolia.basescan.org/token/',
-    1: 'https://etherscan.io/token/',
-    11155111: 'https://sepolia.etherscan.io/token/',
-  };
-
   const explorerUrl = nftRequirement.contractAddress
-    ? EXPLORER_URLS[nftRequirement.chainId || getCurrentChainId()] +
-      nftRequirement.contractAddress
+    ? (EXPLORER_TOKEN_URLS[nftRequirement.chainId || getCurrentChainId()] ??
+        '') + nftRequirement.contractAddress
     : null;
 
   if (status.loading || checking) {
