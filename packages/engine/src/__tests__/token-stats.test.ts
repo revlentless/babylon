@@ -6,8 +6,9 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
-  getTokenUsageCallback,
-  setTokenUsageCallback,
+  addTokenUsageListener,
+  clearTokenUsageListeners,
+  notifyTokenUsageListeners,
 } from '../llm/openai-client';
 import { tokenStatsService } from '../services/token-stats-service';
 import {
@@ -77,11 +78,8 @@ describe('tokenStatsService', () => {
   test('callback collects LLM calls', () => {
     tokenStatsService.startTick('test-tick-3');
 
-    // Simulate an LLM call via the callback
-    const callback = getTokenUsageCallback();
-    expect(callback).not.toBeNull();
-
-    callback?.({
+    // Simulate an LLM call via the listener pipeline
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 1000,
@@ -110,10 +108,8 @@ describe('tokenStatsService', () => {
   test('multiple calls aggregate correctly', () => {
     tokenStatsService.startTick('test-tick-4');
 
-    const callback = getTokenUsageCallback();
-
     // Simulate multiple calls
-    callback?.({
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 1000,
@@ -124,7 +120,7 @@ describe('tokenStatsService', () => {
       success: true,
     });
 
-    callback?.({
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 2000,
@@ -135,7 +131,7 @@ describe('tokenStatsService', () => {
       success: true,
     });
 
-    callback?.({
+    notifyTokenUsageListeners({
       provider: 'claude',
       model: 'claude-sonnet-4-5',
       inputTokens: 500,
@@ -171,7 +167,7 @@ describe('tokenStatsService', () => {
   test('getSummary aggregates multiple ticks', () => {
     // Run first tick
     tokenStatsService.startTick('tick-1');
-    getTokenUsageCallback()?.({
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 1000,
@@ -185,7 +181,7 @@ describe('tokenStatsService', () => {
 
     // Run second tick
     tokenStatsService.startTick('tick-2');
-    getTokenUsageCallback()?.({
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 2000,
@@ -213,9 +209,7 @@ describe('tokenStatsService', () => {
   test('failed calls are tracked', () => {
     tokenStatsService.startTick('test-tick-5');
 
-    const callback = getTokenUsageCallback();
-
-    callback?.({
+    notifyTokenUsageListeners({
       provider: 'groq',
       model: 'qwen/qwen3-32b',
       inputTokens: 0,
@@ -237,7 +231,7 @@ describe('tokenStatsService', () => {
     // Run a few ticks
     for (let i = 0; i < 5; i++) {
       tokenStatsService.startTick(`tick-${i}`);
-      getTokenUsageCallback()?.({
+      notifyTokenUsageListeners({
         provider: 'groq',
         model: 'qwen/qwen3-32b',
         inputTokens: 100 * (i + 1),
@@ -258,24 +252,105 @@ describe('tokenStatsService', () => {
   });
 });
 
-describe('setTokenUsageCallback / getTokenUsageCallback', () => {
+describe('addTokenUsageListener / clearTokenUsageListeners', () => {
   afterEach(() => {
-    setTokenUsageCallback(null);
+    clearTokenUsageListeners();
   });
 
-  test('can set and get callback', () => {
-    expect(getTokenUsageCallback()).toBeNull();
+  test('listener receives notifications', () => {
+    const received: unknown[] = [];
+    addTokenUsageListener((usage) => {
+      received.push(usage);
+    });
 
-    const callback = () => {};
-    setTokenUsageCallback(callback);
+    notifyTokenUsageListeners({
+      provider: 'groq',
+      model: 'qwen/qwen3-32b',
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      promptType: 'test',
+      durationMs: 10,
+      success: true,
+    });
 
-    expect(getTokenUsageCallback()).toBe(callback);
+    expect(received).toHaveLength(1);
   });
 
-  test('can clear callback', () => {
-    setTokenUsageCallback(() => {});
-    setTokenUsageCallback(null);
+  test('multiple listeners all receive notifications', () => {
+    let countA = 0;
+    let countB = 0;
+    addTokenUsageListener(() => {
+      countA++;
+    });
+    addTokenUsageListener(() => {
+      countB++;
+    });
 
-    expect(getTokenUsageCallback()).toBeNull();
+    notifyTokenUsageListeners({
+      provider: 'groq',
+      model: 'qwen/qwen3-32b',
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      promptType: 'test',
+      durationMs: 10,
+      success: true,
+    });
+
+    expect(countA).toBe(1);
+    expect(countB).toBe(1);
+  });
+
+  test('unsubscribe removes only that listener', () => {
+    let countA = 0;
+    let countB = 0;
+    const unsubA = addTokenUsageListener(() => {
+      countA++;
+    });
+    addTokenUsageListener(() => {
+      countB++;
+    });
+
+    unsubA();
+
+    notifyTokenUsageListeners({
+      provider: 'groq',
+      model: 'qwen/qwen3-32b',
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      promptType: 'test',
+      durationMs: 10,
+      success: true,
+    });
+
+    expect(countA).toBe(0);
+    expect(countB).toBe(1);
+  });
+
+  test('clearTokenUsageListeners removes all listeners', () => {
+    let count = 0;
+    addTokenUsageListener(() => {
+      count++;
+    });
+    addTokenUsageListener(() => {
+      count++;
+    });
+
+    clearTokenUsageListeners();
+
+    notifyTokenUsageListeners({
+      provider: 'groq',
+      model: 'qwen/qwen3-32b',
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      promptType: 'test',
+      durationMs: 10,
+      success: true,
+    });
+
+    expect(count).toBe(0);
   });
 });

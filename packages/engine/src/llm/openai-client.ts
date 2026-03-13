@@ -30,24 +30,42 @@ export type TokenUsageCallback = (
   usage: Omit<LLMCallTokenUsage, 'callId' | 'timestamp'>
 ) => void;
 
-// Global token usage callback (can be set by TokenStatsService)
-let globalTokenUsageCallback: TokenUsageCallback | null = null;
+// Token usage listeners (subscriber pattern — multiple consumers can listen)
+const tokenUsageListeners: TokenUsageCallback[] = [];
 
 /**
- * Set the global token usage callback
- * Used by TokenStatsService to collect usage across all LLM calls
+ * Add a token usage listener that is notified after each LLM call.
+ * Returns an unsubscribe function to remove the listener.
  */
-export function setTokenUsageCallback(
-  callback: TokenUsageCallback | null
-): void {
-  globalTokenUsageCallback = callback;
+export function addTokenUsageListener(
+  listener: TokenUsageCallback
+): () => void {
+  tokenUsageListeners.push(listener);
+  return () => {
+    const idx = tokenUsageListeners.indexOf(listener);
+    if (idx !== -1) {
+      tokenUsageListeners.splice(idx, 1);
+    }
+  };
 }
 
 /**
- * Get the current token usage callback
+ * Remove all token usage listeners (for testing / cleanup)
  */
-export function getTokenUsageCallback(): TokenUsageCallback | null {
-  return globalTokenUsageCallback;
+export function clearTokenUsageListeners(): void {
+  tokenUsageListeners.length = 0;
+}
+
+/**
+ * Notify all registered token usage listeners.
+ * Exported for testing — production code calls this internally.
+ */
+export function notifyTokenUsageListeners(
+  usage: Omit<LLMCallTokenUsage, 'callId' | 'timestamp'>
+): void {
+  for (const listener of tokenUsageListeners) {
+    listener(usage);
+  }
 }
 
 /**
@@ -439,19 +457,17 @@ WORLD RULES:
           // Log parsed output for monitoring
           await this.logParsedOutput(xmlResult.data, promptType);
 
-          // Report token usage via callback
-          if (globalTokenUsageCallback) {
-            globalTokenUsageCallback({
-              provider: this.provider,
-              model,
-              inputTokens,
-              outputTokens,
-              totalTokens,
-              promptType,
-              durationMs: callDurationMs,
-              success: true,
-            });
-          }
+          // Report token usage to all listeners
+          notifyTokenUsageListeners({
+            provider: this.provider,
+            model,
+            inputTokens,
+            outputTokens,
+            totalTokens,
+            promptType,
+            durationMs: callDurationMs,
+            success: true,
+          });
 
           return xmlResult.data as T;
         }
@@ -469,19 +485,17 @@ WORLD RULES:
               'BabylonLLMClient'
             );
 
-            // Report token usage via callback
-            if (globalTokenUsageCallback) {
-              globalTokenUsageCallback({
-                provider: this.provider,
-                model,
-                inputTokens,
-                outputTokens,
-                totalTokens,
-                promptType,
-                durationMs: callDurationMs,
-                success: true,
-              });
-            }
+            // Report token usage to all listeners
+            notifyTokenUsageListeners({
+              provider: this.provider,
+              model,
+              inputTokens,
+              outputTokens,
+              totalTokens,
+              promptType,
+              durationMs: callDurationMs,
+              success: true,
+            });
 
             return parsed as T;
           }
@@ -509,19 +523,17 @@ WORLD RULES:
         // Log parsed output for monitoring
         await this.logParsedOutput(parsed, promptType);
 
-        // Report token usage via callback
-        if (globalTokenUsageCallback) {
-          globalTokenUsageCallback({
-            provider: this.provider,
-            model,
-            inputTokens,
-            outputTokens,
-            totalTokens,
-            promptType,
-            durationMs: callDurationMs,
-            success: true,
-          });
-        }
+        // Report token usage to all listeners
+        notifyTokenUsageListeners({
+          provider: this.provider,
+          model,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+          promptType,
+          durationMs: callDurationMs,
+          success: true,
+        });
 
         return parsed as T;
       } catch (error: unknown) {
@@ -632,21 +644,19 @@ WORLD RULES:
           continue;
         }
 
-        // Report failed call via callback (if we have basic info)
-        if (globalTokenUsageCallback) {
-          const errMessage = err?.message || 'Unknown error';
-          globalTokenUsageCallback({
-            provider: this.provider,
-            model,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            promptType,
-            durationMs: Date.now() - callStartTime,
-            success: false,
-            error: errMessage,
-          });
-        }
+        // Report failed call to all listeners
+        const errMessage = err?.message || 'Unknown error';
+        notifyTokenUsageListeners({
+          provider: this.provider,
+          model,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          promptType,
+          durationMs: Date.now() - callStartTime,
+          success: false,
+          error: errMessage,
+        });
 
         // Re-throw if not a retryable error or retries exhausted
         throw error;
