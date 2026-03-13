@@ -5,7 +5,12 @@ import {
   PredictionPricing,
 } from '@babylon/core/markets/prediction/client';
 import type { PerpPositionFromAPI, PredictionPosition } from '@babylon/shared';
-import { BABYLON_POINTS_SYMBOL, cn, type JsonValue } from '@babylon/shared';
+import {
+  BABYLON_POINTS_SYMBOL,
+  cn,
+  type JsonValue,
+  PERP_MARKET_CONFIG,
+} from '@babylon/shared';
 import { usePrivy } from '@privy-io/react-auth';
 import {
   AlertTriangle,
@@ -352,8 +357,10 @@ export function PositionDetailModal({
   const liquidationPrice =
     perpMarket && type === 'perp' && 'currentPrice' in data
       ? side === 'long'
-        ? perpMarket.currentPrice * (1 - 0.9 / leverage)
-        : perpMarket.currentPrice * (1 + 0.9 / leverage)
+        ? perpMarket.currentPrice *
+          (1 - PERP_MARKET_CONFIG.LIQUIDATION_THRESHOLD / leverage)
+        : perpMarket.currentPrice *
+          (1 + PERP_MARKET_CONFIG.LIQUIDATION_THRESHOLD / leverage)
       : 0;
   const liquidationDistance =
     perpMarket && liquidationPrice > 0

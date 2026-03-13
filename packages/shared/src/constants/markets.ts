@@ -79,6 +79,13 @@ export const PERP_MARKET_CONFIG = {
    * Price can never go above initialPrice * PRICE_CEILING_RATIO.
    */
   PRICE_CEILING_RATIO: 4.0, // 400% of initial
+
+  /**
+   * Fraction of margin consumed before liquidation is triggered.
+   * A value of 0.9 means a position is liquidated when 90% of its
+   * margin has been eroded by adverse price movement.
+   */
+  LIQUIDATION_THRESHOLD: 0.9,
 } as const;
 
 /**

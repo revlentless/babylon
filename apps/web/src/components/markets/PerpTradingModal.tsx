@@ -1,7 +1,12 @@
 'use client';
 
 import { FEE_CONFIG } from '@babylon/engine/client';
-import { BABYLON_POINTS_SYMBOL, cn, logger } from '@babylon/shared';
+import {
+  BABYLON_POINTS_SYMBOL,
+  cn,
+  logger,
+  PERP_MARKET_CONFIG,
+} from '@babylon/shared';
 import { AlertTriangle, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -118,8 +123,10 @@ export function PerpTradingModal({
   const marginRequired = sizeNum > 0 ? sizeNum / leverage : 0;
   const liquidationPrice =
     side === 'long'
-      ? market.currentPrice * (1 - 0.9 / leverage)
-      : market.currentPrice * (1 + 0.9 / leverage);
+      ? market.currentPrice *
+        (1 - PERP_MARKET_CONFIG.LIQUIDATION_THRESHOLD / leverage)
+      : market.currentPrice *
+        (1 + PERP_MARKET_CONFIG.LIQUIDATION_THRESHOLD / leverage);
 
   const positionValue = sizeNum * leverage;
   const liquidationDistance =
