@@ -326,6 +326,8 @@ export class BiasEngine {
       },
       10 * 60 * 1000
     );
+    // Allow the process to exit even if the interval is still active
+    this.cleanupInterval.unref();
   }
 
   /**
@@ -391,6 +393,25 @@ export class BiasEngine {
 }
 
 /**
- * Export singleton instance
+ * Lazily-initialized singleton accessor.
+ * Unlike a module-level constant, this avoids creating the instance
+ * (and its cleanup interval) on first import.
  */
-export const biasEngine = BiasEngine.getInstance();
+let _biasEngineInstance: BiasEngine | null = null;
+
+export function getBiasEngine(): BiasEngine {
+  if (!_biasEngineInstance) {
+    _biasEngineInstance = BiasEngine.getInstance();
+  }
+  return _biasEngineInstance;
+}
+
+/**
+ * @deprecated Use `getBiasEngine()` instead. Kept for backward compatibility.
+ * Uses a Proxy so the singleton is only created on first property access.
+ */
+export const biasEngine: BiasEngine = new Proxy({} as BiasEngine, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getBiasEngine(), prop, receiver);
+  },
+});
