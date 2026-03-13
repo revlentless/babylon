@@ -37,70 +37,12 @@
  */
 
 import { logger } from '@babylon/shared';
-import { clamp01 } from '../utils/math-utils';
-
-// =============================================================================
-// HELPER FUNCTIONS
-// =============================================================================
-
-/**
- * Parse an environment variable as a number with a default fallback.
- * Returns the default if the env var is not set or not a valid number.
- */
-function envNumber(key: string, defaultValue: number): number {
-  const value = process.env[key];
-  if (value === undefined || value === '') {
-    return defaultValue;
-  }
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? defaultValue : parsed;
-}
-
-/**
- * Parse an environment variable as a boolean.
- * Returns true for 'true', '1', 'yes' (case-insensitive).
- */
-function envBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key];
-  if (value === undefined || value === '') {
-    return defaultValue;
-  }
-  const normalized = value.toLowerCase().trim();
-  return normalized === 'true' || normalized === '1' || normalized === 'yes';
-}
-
-/**
- * Parse an environment variable as a probability (0.0-1.0) with bounds checking.
- * Clamps the value to valid probability range to prevent configuration errors.
- */
-function envProbability(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value < 0 || value > 1) {
-    logger.warn(
-      `${key}=${value} is outside valid probability range (0-1), clamping to bounds`,
-      { key, value },
-      'alpha-group-config'
-    );
-  }
-  return clamp01(value);
-}
-
-/**
- * Parse an environment variable as a positive integer.
- * Returns the default if the value is <= 0.
- */
-function envPositiveInt(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value <= 0 || !Number.isInteger(value)) {
-    logger.warn(
-      `${key}=${value} must be a positive integer, using default ${defaultValue}`,
-      { key, value, defaultValue },
-      'alpha-group-config'
-    );
-    return defaultValue;
-  }
-  return value;
-}
+import {
+  envBoolean,
+  envNumber,
+  envPositiveInt,
+  envProbability,
+} from './env-helpers';
 
 // =============================================================================
 // CONFIGURATION
