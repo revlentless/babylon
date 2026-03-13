@@ -88,10 +88,14 @@ export interface FocusWeights {
 
 export class NPCInteractionTracker {
   /**
-   * Track a like interaction (for logging/validation only).
-   * Actual like data is stored in the Reaction table.
+   * Shared helper for tracking like/share interactions (logging/validation only).
+   * Looks up the post author, confirms they are an NPC, and logs the interaction.
    */
-  static async trackLike(userId: string, postId: string): Promise<void> {
+  private static async trackInteraction(
+    userId: string,
+    postId: string,
+    interactionType: 'liked' | 'shared'
+  ): Promise<void> {
     const [post] = await db
       .select({ authorId: posts.authorId })
       .from(posts)
@@ -113,10 +117,18 @@ export class NPCInteractionTracker {
     }
 
     logger.debug(
-      `User ${userId} liked NPC ${post.authorId}'s post`,
+      `User ${userId} ${interactionType} NPC ${post.authorId}'s post`,
       undefined,
       'NPCInteractionTracker'
     );
+  }
+
+  /**
+   * Track a like interaction (for logging/validation only).
+   * Actual like data is stored in the Reaction table.
+   */
+  static async trackLike(userId: string, postId: string): Promise<void> {
+    return this.trackInteraction(userId, postId, 'liked');
   }
 
   /**
@@ -124,31 +136,7 @@ export class NPCInteractionTracker {
    * Actual share data is stored in the Share table.
    */
   static async trackShare(userId: string, postId: string): Promise<void> {
-    const [post] = await db
-      .select({ authorId: posts.authorId })
-      .from(posts)
-      .where(eq(posts.id, postId))
-      .limit(1);
-
-    if (!post) {
-      return;
-    }
-
-    const [author] = await db
-      .select({ isActor: users.isActor })
-      .from(users)
-      .where(eq(users.id, post.authorId))
-      .limit(1);
-
-    if (!author?.isActor) {
-      return;
-    }
-
-    logger.debug(
-      `User ${userId} shared NPC ${post.authorId}'s post`,
-      undefined,
-      'NPCInteractionTracker'
-    );
+    return this.trackInteraction(userId, postId, 'shared');
   }
 
   /**
