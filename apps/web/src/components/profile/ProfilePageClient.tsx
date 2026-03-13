@@ -585,17 +585,11 @@ export function ProfilePageClient({
     void loadActorInfo();
   }, [loadActorInfo]);
 
-  useEffect(() => {
-    const handleProfileUpdate = () => {
-      setTimeout(() => {
-        setOptimisticFollowerCount(null);
-        void loadActorInfo();
-      }, 1000);
-    };
-
-    window.addEventListener('profile-updated', handleProfileUpdate);
-    return () =>
-      window.removeEventListener('profile-updated', handleProfileUpdate);
+  const handleProfileUpdate = useCallback(() => {
+    setTimeout(() => {
+      setOptimisticFollowerCount(null);
+      void loadActorInfo();
+    }, 1000);
   }, [loadActorInfo]);
 
   useEffect(() => {
@@ -1230,6 +1224,7 @@ export function ProfilePageClient({
           }
           userId={actorInfo.id}
           type={followListModal.type}
+          onFollowChange={handleProfileUpdate}
         />
       )}
     </PageContainer>

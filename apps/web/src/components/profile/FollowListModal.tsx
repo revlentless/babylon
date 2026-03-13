@@ -48,6 +48,7 @@ interface FollowListModalProps {
   userId: string;
   type: 'followers' | 'following';
   title?: string;
+  onFollowChange?: (action: 'follow' | 'unfollow') => void;
 }
 
 export function FollowListModal({
@@ -56,6 +57,7 @@ export function FollowListModal({
   userId,
   type,
   title,
+  onFollowChange,
 }: FollowListModalProps) {
   const { authenticated, user, getAccessToken } = useAuth();
   const [users, setUsers] = useState<FollowUser[]>([]);
@@ -230,12 +232,8 @@ export function FollowListModal({
         }));
         toast.error('Failed to update follow status');
       } else {
-        // Dispatch event to update profile stats
-        window.dispatchEvent(
-          new CustomEvent('profile-updated', {
-            detail: { type: isCurrentlyFollowing ? 'unfollow' : 'follow' },
-          })
-        );
+        // Notify parent to update profile stats
+        onFollowChange?.(isCurrentlyFollowing ? 'unfollow' : 'follow');
       }
     } catch {
       // Revert optimistic update on network error
