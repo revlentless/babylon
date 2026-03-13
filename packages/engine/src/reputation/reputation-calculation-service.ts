@@ -16,6 +16,7 @@ import {
   users,
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
+import type { InferInsertModel } from 'drizzle-orm';
 import { clamp01, clampPercent } from '../utils/math-utils';
 import {
   calculateConfidenceScore,
@@ -23,6 +24,44 @@ import {
   getTrustLevel,
   normalizePnL,
 } from './pnl-normalizer';
+
+/**
+ * Get existing metrics for a user, or create a new row with the given defaults.
+ * Handles the insert-then-requery pattern in a single place.
+ */
+async function getOrCreateReputationMetrics(
+  userId: string,
+  defaults?: Partial<
+    Omit<InferInsertModel<typeof agentPerformanceMetrics>, 'id' | 'userId'>
+  >
+) {
+  let [metrics] = await db
+    .select()
+    .from(agentPerformanceMetrics)
+    .where(eq(agentPerformanceMetrics.userId, userId))
+    .limit(1);
+
+  if (!metrics) {
+    await db.insert(agentPerformanceMetrics).values({
+      id: await generateSnowflakeId(),
+      userId,
+      updatedAt: new Date(),
+      ...defaults,
+    });
+
+    [metrics] = await db
+      .select()
+      .from(agentPerformanceMetrics)
+      .where(eq(agentPerformanceMetrics.userId, userId))
+      .limit(1);
+  }
+
+  if (!metrics) {
+    throw new Error(`Failed to create metrics for user ${userId}`);
+  }
+
+  return metrics;
+}
 
 export interface ReputationScoreBreakdown {
   reputationScore: number;
@@ -165,32 +204,11 @@ export async function updateGameMetrics(
   );
 
   // Get or create metrics
-  let [metrics] = await db
-    .select()
-    .from(agentPerformanceMetrics)
-    .where(eq(agentPerformanceMetrics.userId, userId))
-    .limit(1);
-
-  if (!metrics) {
-    await db.insert(agentPerformanceMetrics).values({
-      id: await generateSnowflakeId(),
-      userId,
-      gamesPlayed: 0,
-      gamesWon: 0,
-      averageGameScore: 0,
-      updatedAt: new Date(),
-    });
-
-    [metrics] = await db
-      .select()
-      .from(agentPerformanceMetrics)
-      .where(eq(agentPerformanceMetrics.userId, userId))
-      .limit(1);
-  }
-
-  if (!metrics) {
-    throw new Error(`Failed to create metrics for user ${userId}`);
-  }
+  const metrics = await getOrCreateReputationMetrics(userId, {
+    gamesPlayed: 0,
+    gamesWon: 0,
+    averageGameScore: 0,
+  });
 
   // Calculate new average game score
   const totalGames = metrics.gamesPlayed + 1;
@@ -264,32 +282,11 @@ export async function updateTradingMetrics(
   const normalized = normalizePnL(lifetimePnLNum, totalInvested);
 
   // Get or create metrics
-  let [metrics] = await db
-    .select()
-    .from(agentPerformanceMetrics)
-    .where(eq(agentPerformanceMetrics.userId, userId))
-    .limit(1);
-
-  if (!metrics) {
-    await db.insert(agentPerformanceMetrics).values({
-      id: await generateSnowflakeId(),
-      userId,
-      normalizedPnL: normalized,
-      totalTrades: 0,
-      profitableTrades: 0,
-      updatedAt: new Date(),
-    });
-
-    [metrics] = await db
-      .select()
-      .from(agentPerformanceMetrics)
-      .where(eq(agentPerformanceMetrics.userId, userId))
-      .limit(1);
-  }
-
-  if (!metrics) {
-    throw new Error(`Failed to create metrics for user ${userId}`);
-  }
+  const metrics = await getOrCreateReputationMetrics(userId, {
+    normalizedPnL: normalized,
+    totalTrades: 0,
+    profitableTrades: 0,
+  });
 
   // Update trade counts
   const newTotalTrades = metrics.totalTrades + 1;
@@ -358,33 +355,12 @@ export async function updateFeedbackMetrics(
   );
 
   // Get or create metrics
-  let [metrics] = await db
-    .select()
-    .from(agentPerformanceMetrics)
-    .where(eq(agentPerformanceMetrics.userId, userId))
-    .limit(1);
-
-  if (!metrics) {
-    await db.insert(agentPerformanceMetrics).values({
-      id: await generateSnowflakeId(),
-      userId,
-      totalFeedbackCount: 0,
-      averageFeedbackScore: 50, // Start at neutral
-      intelFeedbackCount: 0,
-      averageIntelScore: 50,
-      updatedAt: new Date(),
-    });
-
-    [metrics] = await db
-      .select()
-      .from(agentPerformanceMetrics)
-      .where(eq(agentPerformanceMetrics.userId, userId))
-      .limit(1);
-  }
-
-  if (!metrics) {
-    throw new Error(`Failed to create metrics for user ${userId}`);
-  }
+  const metrics = await getOrCreateReputationMetrics(userId, {
+    totalFeedbackCount: 0,
+    averageFeedbackScore: 50, // Start at neutral
+    intelFeedbackCount: 0,
+    averageIntelScore: 50,
+  });
 
   // Calculate new average
   const newCount = metrics.totalFeedbackCount + 1;
@@ -517,29 +493,7 @@ export async function recalculateReputation(
 export async function getReputationBreakdown(
   userId: string
 ): Promise<ReputationScoreBreakdown | null> {
-  let [metrics] = await db
-    .select()
-    .from(agentPerformanceMetrics)
-    .where(eq(agentPerformanceMetrics.userId, userId))
-    .limit(1);
-
-  if (!metrics) {
-    await db.insert(agentPerformanceMetrics).values({
-      id: await generateSnowflakeId(),
-      userId,
-      updatedAt: new Date(),
-    });
-
-    [metrics] = await db
-      .select()
-      .from(agentPerformanceMetrics)
-      .where(eq(agentPerformanceMetrics.userId, userId))
-      .limit(1);
-  }
-
-  if (!metrics) {
-    return null;
-  }
+  const metrics = await getOrCreateReputationMetrics(userId);
 
   // Calculate components
   const pnlComponent = metrics.normalizedPnL * 100;
