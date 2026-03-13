@@ -6,6 +6,7 @@
  */
 
 import {
+  aliasedTable,
   and,
   chatParticipants,
   chats,
@@ -278,70 +279,59 @@ export class ActorSocialActions {
     const messageContent: string =
       messagesList[randomIndex] ?? messagesList[0] ?? ''; // Safe: randomIndex is always within bounds
 
-    // Create or get DM chat
-    const chatId = await generateSnowflakeId();
+    // Find existing DM chat using participant-based self-join
+    const otherParticipants = aliasedTable(chatParticipants, 'cp2');
 
-    // Check if chat exists
-    const [existingChat] = await db
-      .select()
-      .from(chats)
-      .where(eq(chats.id, `dm-${actorId}-${userId}`))
+    const existingChat = await db
+      .select({ chatId: chatParticipants.chatId })
+      .from(chatParticipants)
+      .innerJoin(chats, eq(chatParticipants.chatId, chats.id))
+      .innerJoin(
+        otherParticipants,
+        eq(chatParticipants.chatId, otherParticipants.chatId)
+      )
+      .where(
+        and(
+          eq(chatParticipants.userId, actorId),
+          eq(chats.isGroup, false),
+          eq(otherParticipants.userId, userId)
+        )
+      )
       .limit(1);
 
-    let finalChatId = chatId;
+    let finalChatId: string;
 
-    if (existingChat) {
-      finalChatId = existingChat.id;
+    if (existingChat.length > 0 && existingChat[0]) {
+      finalChatId = existingChat[0].chatId;
     } else {
+      finalChatId = await generateSnowflakeId();
+      const now = new Date();
+
       await db.insert(chats).values({
-        id: chatId,
+        id: finalChatId,
         name: null, // DMs don't have names
         isGroup: false,
-        updatedAt: new Date(),
+        createdAt: now,
+        updatedAt: now,
       });
-    }
 
-    // Add participants
-    const participantId1 = await generateSnowflakeId();
-    const participantId2 = await generateSnowflakeId();
-
-    // Check if participant exists
-    const [existingParticipant1] = await db
-      .select()
-      .from(chatParticipants)
-      .where(
-        and(
-          eq(chatParticipants.chatId, finalChatId),
-          eq(chatParticipants.userId, actorId)
-        )
-      )
-      .limit(1);
-
-    if (!existingParticipant1) {
-      await db.insert(chatParticipants).values({
-        id: participantId1,
-        chatId: finalChatId,
-        userId: actorId,
-      });
-    }
-
-    const [existingParticipant2] = await db
-      .select()
-      .from(chatParticipants)
-      .where(
-        and(
-          eq(chatParticipants.chatId, finalChatId),
-          eq(chatParticipants.userId, userId)
-        )
-      )
-      .limit(1);
-
-    if (!existingParticipant2) {
-      await db.insert(chatParticipants).values({
-        id: participantId2,
-        chatId: finalChatId,
-        userId,
-      });
+      // Add both participants
+      await db.insert(chatParticipants).values([
+        {
+          id: await generateSnowflakeId(),
+          chatId: finalChatId,
+          userId: actorId,
+          joinedAt: now,
+          isActive: true,
+        },
+        {
+          id: await generateSnowflakeId(),
+          chatId: finalChatId,
+          userId,
+          joinedAt: now,
+          isActive: true,
+        },
+      ]);
     }
 
     if (!messageContent) throw new Error('Message content is required');
