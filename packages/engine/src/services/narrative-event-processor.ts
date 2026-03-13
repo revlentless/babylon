@@ -712,6 +712,38 @@ async function getQuestionDetails(
   };
 }
 
+/** Cached pre-compiled RegExp patterns for organization name/ticker matching. */
+const orgRegExpCache = new Map<
+  string,
+  { name: RegExp; ticker: RegExp | null; originalName: RegExp | null }
+>();
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getOrgRegExpPatterns(org: {
+  id: string;
+  name: string;
+  ticker?: string;
+  originalName?: string;
+}): { name: RegExp; ticker: RegExp | null; originalName: RegExp | null } {
+  const cached = orgRegExpCache.get(org.id);
+  if (cached) return cached;
+
+  const patterns = {
+    name: new RegExp(`\\b${escapeRegExp(org.name)}\\b`, 'i'),
+    ticker: org.ticker
+      ? new RegExp(`\\$?\\b${escapeRegExp(org.ticker)}\\b`, 'i')
+      : null,
+    originalName: org.originalName
+      ? new RegExp(`\\b${escapeRegExp(org.originalName)}\\b`, 'i')
+      : null,
+  };
+  orgRegExpCache.set(org.id, patterns);
+  return patterns;
+}
+
 /**
  * Get affected stock tickers for a question.
  * Parses the question text for organization mentions and returns their tickers.
@@ -740,27 +772,19 @@ async function getAffectedStocksForQuestion(
     const questionText = question.text;
 
     const mentionedOrgs = allOrgs.filter((org) => {
-      // Escape special regex characters in names
-      const escapeRegex = (str: string) =>
-        str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const patterns = getOrgRegExpPatterns(org);
 
       // Check if org name is mentioned (word boundary match)
-      const namePattern = new RegExp(`\\b${escapeRegex(org.name)}\\b`, 'i');
-      const nameMatch = namePattern.test(questionText);
+      const nameMatch = patterns.name.test(questionText);
 
       // Check if ticker is mentioned (e.g., "$PEAR" or "PEAR" with word boundary)
       const tickerMatch =
-        org.ticker &&
-        new RegExp(`\\$?\\b${escapeRegex(org.ticker)}\\b`, 'i').test(
-          questionText
-        );
+        patterns.ticker !== null && patterns.ticker.test(questionText);
 
       // Check if original name is mentioned (word boundary match)
       const originalMatch =
-        org.originalName &&
-        new RegExp(`\\b${escapeRegex(org.originalName)}\\b`, 'i').test(
-          questionText
-        );
+        patterns.originalName !== null &&
+        patterns.originalName.test(questionText);
 
       return nameMatch || tickerMatch || originalMatch;
     });
