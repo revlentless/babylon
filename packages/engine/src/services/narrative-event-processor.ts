@@ -26,6 +26,7 @@ import {
   worldEvents,
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
+import { CONTINUOUS_GAME_ID } from '../config';
 import type { BabylonLLMClient } from '../llm/openai-client';
 import { toSafeDayNumber } from '../utils/date-utils';
 import { secureRandom } from '../utils/entropy';
@@ -113,7 +114,7 @@ async function prepareWorldEventData(
       actors: structuredEvent.affectedActors,
       relatedQuestion: questionNumber ?? undefined,
       visibility: structuredEvent.type === 'leak' ? 'leaked' : 'public',
-      gameId: 'continuous',
+      gameId: CONTINUOUS_GAME_ID,
       dayNumber: safeDayNumber,
       timestamp,
       pointsToward:

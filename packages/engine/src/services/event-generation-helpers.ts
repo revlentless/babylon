@@ -9,6 +9,7 @@ import {
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
 import { ArticleGenerator } from '../ArticleGenerator';
+import { CONTINUOUS_GAME_ID } from '../config';
 import type { BabylonLLMClient } from '../llm/openai-client';
 import {
   type ArcEventStatus,
@@ -356,7 +357,7 @@ export async function generateEvents(
       actors,
       relatedQuestion: questionNum,
       visibility,
-      gameId: 'continuous',
+      gameId: CONTINUOUS_GAME_ID,
       dayNumber: safeDayNumber,
       timestamp: timestamp,
       pointsToward,
@@ -718,7 +719,7 @@ export async function generateArticlesForArcEvent(
           summary: article.summary || '',
           content: article.content || '',
           authorOrgId: article.authorOrgId,
-          gameId: 'continuous',
+          gameId: CONTINUOUS_GAME_ID,
           dayNumber: dayNumber,
           byline: article.byline,
           biasScore: article.biasScore,

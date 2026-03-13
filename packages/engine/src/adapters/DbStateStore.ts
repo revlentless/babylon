@@ -17,6 +17,7 @@ import {
   worldEvents,
 } from '@babylon/db';
 import { generateSnowflakeId } from '@babylon/shared';
+import { CONTINUOUS_GAME_ID } from '../config';
 import type {
   ActiveMarket,
   ActiveQuestion,
@@ -141,7 +142,7 @@ export class DbStateStore implements GameStateStore {
       content: post.content,
       type: post.type,
       timestamp: post.timestamp,
-      gameId: 'continuous',
+      gameId: CONTINUOUS_GAME_ID,
     });
 
     return id;
@@ -173,7 +174,7 @@ export class DbStateStore implements GameStateStore {
         summary: article.summary,
         content: article.content,
         authorOrgId: article.authorOrgId,
-        gameId: 'continuous',
+        gameId: CONTINUOUS_GAME_ID,
         category: article.category,
         timestamp: article.timestamp,
       },
