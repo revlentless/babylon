@@ -146,60 +146,59 @@ export function isTransientError(error: unknown): boolean {
  * @param operation - The async operation to execute
  * @param context - Description of the operation for logging
  * @param service - Service name for logging
+ * @param severity - Log level: 'warn' (default) or 'error'
  * @returns The result or null on error
+ *
+ * @example
+ * ```typescript
+ * // Log as warning (default)
+ * const result = await safeExecute(
+ *   () => fetchOptionalData(),
+ *   'optional data fetch'
+ * );
+ *
+ * // Log as error for operations that matter more
+ * const result = await safeExecute(
+ *   () => processNPCSocialEngagements({ now: timestamp }),
+ *   'NPC social engagement',
+ *   'GameTick',
+ *   'error'
+ * );
+ * ```
  */
 export async function safeExecute<T>(
   operation: () => Promise<T>,
   context: string,
-  service = 'Engine'
+  service = 'Engine',
+  severity: 'warn' | 'error' = 'warn'
 ): Promise<T | null> {
   try {
     return await operation();
   } catch (error) {
-    logWarning(error, `${context} (non-blocking)`, service);
+    if (severity === 'error') {
+      logError(error, context, service);
+    } else {
+      logWarning(error, `${context} (non-blocking)`, service);
+    }
     return null;
   }
 }
 
 /**
- * Handle non-critical operations that should not break the main flow.
- * Logs errors and returns null on failure, allowing the caller to continue.
- *
- * DRY pattern for game-tick.ts and other orchestrators with many non-critical operations.
- *
- * @param operation - The async operation to execute
- * @param context - Description of the operation for logging
- * @param service - Service name for logging
- * @returns The result or null on error
- *
- * @example
- * ```typescript
- * const result = await handleNonCritical(
- *   () => processNPCSocialEngagements({ now: timestamp }),
- *   'NPC social engagement',
- *   'GameTick'
- * );
- * if (result) {
- *   // Use result
- * }
- * ```
+ * @deprecated Use `safeExecute(operation, context, service, 'error')` instead.
+ * Alias kept for backward compatibility.
  */
 export async function handleNonCritical<T>(
   operation: () => Promise<T>,
   context: string,
   service = 'Engine'
 ): Promise<T | null> {
-  try {
-    return await operation();
-  } catch (error) {
-    logger.error(context, { error: formatError(error) }, service);
-    return null;
-  }
+  return safeExecute(operation, context, service, 'error');
 }
 
 /**
  * Handle non-critical operations with a default value on failure.
- * Similar to handleNonCritical but returns a default instead of null.
+ * Similar to safeExecute but returns a default instead of null.
  *
  * @param operation - The async operation to execute
  * @param defaultValue - Value to return on error
