@@ -144,3 +144,5 @@ export {
   stripHashtagsAndEmojis,
   toQuestionIdNumberOrNull,
 } from './shared-utils';
+// String utilities (regex escaping, etc.)
+export { escapeRegex } from './string-utils';

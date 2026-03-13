@@ -8,6 +8,7 @@
  * - Character limits respected
  */
 
+import { escapeRegex } from '../utils/string-utils';
 import { getForbiddenRealNames } from './world-context';
 
 export interface ValidationResult {
@@ -111,13 +112,6 @@ export function validateNoRealNames(text: string): string[] {
   });
 
   return violations;
-}
-
-/**
- * Escape special regex characters
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

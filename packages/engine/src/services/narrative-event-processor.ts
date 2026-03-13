@@ -30,6 +30,7 @@ import type { BabylonLLMClient } from '../llm/openai-client';
 import { toSafeDayNumber } from '../utils/date-utils';
 import { secureRandom } from '../utils/entropy';
 import { formatError } from '../utils/error-utils';
+import { escapeRegex } from '../utils/string-utils';
 import { generateArticlesForArcEvent } from './event-generation-helpers';
 import {
   parsePendingTransitionsSafe,
@@ -740,10 +741,6 @@ async function getAffectedStocksForQuestion(
     const questionText = question.text;
 
     const mentionedOrgs = allOrgs.filter((org) => {
-      // Escape special regex characters in names
-      const escapeRegex = (str: string) =>
-        str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
       // Check if org name is mentioned (word boundary match)
       const namePattern = new RegExp(`\\b${escapeRegex(org.name)}\\b`, 'i');
       const nameMatch = namePattern.test(questionText);

@@ -42,6 +42,7 @@ import {
   isDegenSpeaker,
   stripHashtagsAndEmojis,
 } from '../utils/shared-utils';
+import { escapeRegex } from '../utils/string-utils';
 import { characterMappingService } from './character-mapping-service';
 import { parseStringArraySafe } from './jsonb-validators';
 import { buildPositionsPromptContextByActorId } from './npc-positions-context-service';
@@ -402,13 +403,6 @@ function buildNPCContext(
     previousPosts,
     recentFeedPosts,
   };
-}
-
-/**
- * Escape special regex characters in a string
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
