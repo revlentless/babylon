@@ -52,23 +52,23 @@ export function calculateEntryTimingScore(
     // 1-3 days: 0.5-0.7
     // <1 day: 0.3-0.5
     if (daysBeforeResolution >= 7) {
-      return 0.9 + Math.random() * 0.1;
+      return 0.95;
     }
     if (daysBeforeResolution >= 3) {
-      return 0.7 + Math.random() * 0.2;
+      return 0.8;
     }
     if (daysBeforeResolution >= 1) {
-      return 0.5 + Math.random() * 0.2;
+      return 0.6;
     }
-    return 0.3 + Math.random() * 0.2;
+    return 0.4;
   }
   // Unprofitable position = poor timing
   // Late entry to wrong outcome is worst (0.0-0.2)
   // Early entry to wrong outcome shows conviction but poor judgment (0.2-0.4)
   if (daysBeforeResolution >= 7) {
-    return 0.2 + Math.random() * 0.2; // Wrong but early = committed mistake
+    return 0.3; // Wrong but early = committed mistake
   }
-  return 0.0 + Math.random() * 0.2; // Wrong and late = bad timing
+  return 0.1; // Wrong and late = bad timing
 }
 
 /**
@@ -133,7 +133,7 @@ export function calculateRiskScore(
   // Optimal risk per position is typically 1-5% of total capital
   if (riskPercentage >= 0.01 && riskPercentage <= 0.05) {
     // Ideal position sizing
-    return 0.9 + Math.random() * 0.1;
+    return 0.95;
   }
   if (riskPercentage < 0.01) {
     // Too conservative
