@@ -14,6 +14,8 @@
  *   - Safety buffer: ~30k tokens
  */
 
+import { countTokensSync } from '../llm/token-counter';
+
 /**
  * Maximum lengths for text fields (in characters, approximate tokens = chars / 4)
  */
@@ -88,11 +90,11 @@ export function truncateArray<T>(array: T[], maxLength: number): T[] {
 }
 
 /**
- * Estimate token count from character count (rough approximation: 1 token ≈ 4 chars)
+ * Estimate token count from character count (rough approximation: 1 token ≈ 4 chars).
+ *
+ * Delegates to the canonical implementation in `llm/token-counter.ts`.
  */
-export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
+export const estimateTokens = countTokensSync;
 
 /**
  * Check if context size is within safe limits
