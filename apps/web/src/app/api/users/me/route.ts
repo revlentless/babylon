@@ -143,17 +143,18 @@
 
 import {
   authenticate,
+  authenticateWithDbUser,
   ConflictError,
-  cachedDb,
   ensureOfflineWalletReady,
   getPrivyClient,
   InternalServerError,
+  PointsService,
   type PrivyUserWalletsLite,
   pickEmbeddedEvmWallet,
   successResponse,
   withErrorHandling,
 } from '@babylon/api';
-import { db, eq, or, sql, users } from '@babylon/db';
+import { and, db, eq, ne, or, sql, users } from '@babylon/db';
 import {
   checkForAdminEmail,
   logger,
@@ -161,6 +162,13 @@ import {
 } from '@babylon/shared';
 import type { User as PrivyUser } from '@privy-io/server-auth';
 import type { NextRequest } from 'next/server';
+import {
+  extractPrivyIdentitySnapshot,
+  type PrivyIdentitySnapshot,
+  shouldSyncMissingPrivyIdentity,
+} from '@/lib/auth/privyIdentitySync';
+import { getOptionalProfileStats } from '@/lib/users/profile-stats';
+import { POST as updateProfilePOST } from '../[userId]/update-profile/route';
 
 type PrivyUserWithWallets = PrivyUser &
   PrivyUserWithEmails &
@@ -272,9 +280,147 @@ type UserSelectResult = {
   gameGuideCompletedAt: Date | null;
 };
 
+async function syncMissingPrivyIdentityFields(
+  dbUser: UserSelectResult,
+  privyIdentity: PrivyIdentitySnapshot
+): Promise<{
+  user: UserSelectResult;
+  newlyLinked: Array<'farcaster' | 'twitter'>;
+}> {
+  const updateData: Partial<typeof users.$inferInsert> = {};
+  const newlyLinked: Array<'farcaster' | 'twitter'> = [];
+
+  if ((!dbUser.email || !dbUser.emailVerified) && privyIdentity.email) {
+    updateData.email = privyIdentity.email;
+    updateData.emailVerified = true;
+  }
+
+  if (!dbUser.hasFarcaster && privyIdentity.farcasterFid) {
+    const [existingFarcasterUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.farcasterFid, privyIdentity.farcasterFid),
+          ne(users.id, dbUser.id)
+        )
+      )
+      .limit(1);
+
+    if (existingFarcasterUser) {
+      logger.warn(
+        'Privy Farcaster identity already linked to another user, skipping sync',
+        {
+          userId: dbUser.id,
+          farcasterFid: privyIdentity.farcasterFid,
+          conflictingUserId: existingFarcasterUser.id,
+        },
+        'GET /api/users/me'
+      );
+    } else {
+      updateData.hasFarcaster = true;
+      updateData.farcasterFid = privyIdentity.farcasterFid;
+      if (privyIdentity.farcasterUsername) {
+        updateData.farcasterUsername = privyIdentity.farcasterUsername;
+      }
+      newlyLinked.push('farcaster');
+    }
+  }
+
+  if (!dbUser.hasTwitter && privyIdentity.twitterId) {
+    const [existingTwitterUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          eq(users.twitterId, privyIdentity.twitterId),
+          ne(users.id, dbUser.id)
+        )
+      )
+      .limit(1);
+
+    if (existingTwitterUser) {
+      logger.warn(
+        'Privy X identity already linked to another user, skipping sync',
+        {
+          userId: dbUser.id,
+          twitterId: privyIdentity.twitterId,
+          conflictingUserId: existingTwitterUser.id,
+        },
+        'GET /api/users/me'
+      );
+    } else {
+      updateData.hasTwitter = true;
+      updateData.twitterId = privyIdentity.twitterId;
+      if (privyIdentity.twitterUsername) {
+        updateData.twitterUsername = privyIdentity.twitterUsername;
+      }
+      newlyLinked.push('twitter');
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { user: dbUser, newlyLinked };
+  }
+
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      ...updateData,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, dbUser.id))
+    .returning(userSelectFields);
+
+  return {
+    user: updatedUser ?? dbUser,
+    newlyLinked,
+  };
+}
+
+async function awardPointsForNewPrivyIdentityLinks(
+  userId: string,
+  newlyLinked: Array<'farcaster' | 'twitter'>,
+  privyIdentity: PrivyIdentitySnapshot
+): Promise<void> {
+  for (const platform of newlyLinked) {
+    const pointsResult =
+      platform === 'farcaster'
+        ? await PointsService.awardFarcasterLink(
+            userId,
+            privyIdentity.farcasterUsername ?? undefined
+          )
+        : await PointsService.awardTwitterLink(
+            userId,
+            privyIdentity.twitterUsername ?? undefined
+          );
+
+    if (!pointsResult.success) {
+      logger.warn(
+        'Points service did not award points for Privy identity link',
+        { userId, platform },
+        'GET /api/users/me'
+      );
+      continue;
+    }
+
+    await PointsService.checkAndQualifyReferral(userId).catch((error) => {
+      logger.warn(
+        'Failed to check referral qualification after Privy identity sync',
+        {
+          userId,
+          platform,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'GET /api/users/me'
+      );
+    });
+  }
+}
+
 function buildUserResponse(
   dbUser: UserSelectResult,
-  stats: Awaited<ReturnType<typeof cachedDb.getUserProfileStats>> | null
+  stats: Awaited<ReturnType<typeof getOptionalProfileStats>>
 ) {
   return {
     id: dbUser.id,
@@ -325,7 +471,7 @@ function buildUserResponse(
     createdAt: dbUser.createdAt.toISOString(),
     updatedAt: dbUser.updatedAt.toISOString(),
     gameGuideCompletedAt: dbUser.gameGuideCompletedAt?.toISOString() ?? null,
-    stats: stats || undefined,
+    stats,
   };
 }
 
@@ -415,6 +561,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     /^0x[a-fA-F0-9]{40}$/.test(clientEmbeddedWalletAddressRaw.trim())
       ? clientEmbeddedWalletAddressRaw.trim().toLowerCase()
       : null;
+  const shouldForcePrivyIdentitySync =
+    request.headers.get('x-sync-privy-identities') === '1';
 
   // Extract referralCode from query params (passed from frontend)
   const { searchParams } = new URL(request.url);
@@ -625,7 +773,10 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
       }
 
       // Get cached profile stats for the linked user
-      const stats = await cachedDb.getUserProfileStats(linkedUser.id);
+      const stats = await getOptionalProfileStats(
+        linkedUser.id,
+        'GET /api/users/me'
+      );
 
       const responseUser = buildUserResponse(linkedUser, stats);
 
@@ -897,40 +1048,82 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     }
   }
 
-  // Auto-promote existing users to admin if they have a verified admin domain email
-  // This ensures users who later link/verify a company email get admin access
-  // Check ALL linked emails, not just the primary one
-  if (dbUser && !dbUser.isAdmin) {
+  const needsPrivyIdentitySync =
+    shouldForcePrivyIdentitySync &&
+    shouldSyncMissingPrivyIdentity({
+      hasFarcaster: dbUser.hasFarcaster,
+      hasTwitter: dbUser.hasTwitter,
+      email: dbUser.email,
+      emailVerified: dbUser.emailVerified,
+    });
+  const needsAdminPromotionCheck = !dbUser.isAdmin;
+
+  if (needsPrivyIdentitySync || needsAdminPromotionCheck) {
     const privyClient = getPrivyClient();
-    const privyUser = await privyClient.getUser(privyId);
-    const { adminEmail, allVerifiedEmails } = checkForAdminEmail(privyUser);
-    const shouldBeAdmin = adminEmail !== null;
+    const privyUser = (await privyClient.getUser(
+      privyId
+    )) as PrivyUserWithWallets;
+    const privyIdentity = extractPrivyIdentitySnapshot(privyUser);
 
-    if (shouldBeAdmin) {
-      logger.info(
-        'Auto-promoting existing user to admin based on verified email domain',
-        {
-          userId: dbUser.id,
-          emailDomain: adminEmail?.split('@')[1] ?? null,
-          emailCount: allVerifiedEmails.length,
-        },
-        'GET /api/users/me'
+    if (needsPrivyIdentitySync) {
+      const syncResult = await syncMissingPrivyIdentityFields(
+        dbUser,
+        privyIdentity
       );
+      dbUser = syncResult.user;
 
-      const [updatedUser] = await db
-        .update(users)
-        .set({ isAdmin: true, updatedAt: new Date() })
-        .where(eq(users.id, dbUser.id))
-        .returning(userSelectFields);
+      if (syncResult.newlyLinked.length > 0) {
+        logger.info(
+          'Synced missing social identities from Privy',
+          {
+            userId: dbUser.id,
+            newlyLinked: syncResult.newlyLinked,
+            farcasterFid: privyIdentity.farcasterFid,
+            twitterId: privyIdentity.twitterId,
+          },
+          'GET /api/users/me'
+        );
+      }
 
-      if (updatedUser) {
-        dbUser = updatedUser;
+      await awardPointsForNewPrivyIdentityLinks(
+        dbUser.id,
+        syncResult.newlyLinked,
+        privyIdentity
+      );
+    }
+
+    // Auto-promote existing users to admin if they have a verified admin domain email.
+    // This ensures users who later link/verify a company email get admin access.
+    if (needsAdminPromotionCheck) {
+      const { adminEmail, allVerifiedEmails } = checkForAdminEmail(privyUser);
+      const shouldBeAdmin = adminEmail !== null;
+
+      if (shouldBeAdmin) {
+        logger.info(
+          'Auto-promoting existing user to admin based on verified email domain',
+          {
+            userId: dbUser.id,
+            emailDomain: adminEmail?.split('@')[1] ?? null,
+            emailCount: allVerifiedEmails.length,
+          },
+          'GET /api/users/me'
+        );
+
+        const [updatedUser] = await db
+          .update(users)
+          .set({ isAdmin: true, updatedAt: new Date() })
+          .where(eq(users.id, dbUser.id))
+          .returning(userSelectFields);
+
+        if (updatedUser) {
+          dbUser = updatedUser;
+        }
       }
     }
   }
 
   // Get cached profile stats
-  const stats = await cachedDb.getUserProfileStats(dbUser.id);
+  const stats = await getOptionalProfileStats(dbUser.id, 'GET /api/users/me');
 
   const responseUser = buildUserResponse(dbUser, stats);
 
@@ -957,4 +1150,26 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     needsOnchain,
     user: responseUser,
   });
+});
+
+const updateCurrentUserProfile = withErrorHandling(
+  async (request: NextRequest) => {
+    const authUser = await authenticateWithDbUser(request);
+
+    return updateProfilePOST(request, {
+      params: Promise.resolve({ userId: authUser.dbUserId }),
+    });
+  }
+);
+
+export const POST = withErrorHandling(async (request: NextRequest) => {
+  return updateCurrentUserProfile(request);
+});
+
+export const PUT = withErrorHandling(async (request: NextRequest) => {
+  return updateCurrentUserProfile(request);
+});
+
+export const PATCH = withErrorHandling(async (request: NextRequest) => {
+  return updateCurrentUserProfile(request);
 });

@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  getReferralUrl,
-  logger,
-  POINTS,
-  signInWithFarcaster,
-} from '@babylon/shared';
+import { getReferralUrl, logger, POINTS } from '@babylon/shared';
 import { usePrivy } from '@privy-io/react-auth';
 import {
   Check,
@@ -31,13 +26,13 @@ import { LinkSocialAccountsModal } from '@/components/profile/LinkSocialAccounts
 import { Avatar } from '@/components/shared/Avatar';
 import {
   getPrimaryAccessLabel,
+  getWaitlistHeaderCopy,
   type NftAccessState,
   shouldAutoRedirectWhitelistedUser,
 } from '@/components/shared/comingSoonAccess';
 import { MarketingFooter } from '@/components/shared/MarketingFooter';
 import { PlayerStatsModal } from '@/components/shared/PlayerStatsModal';
 import { useAuth } from '@/hooks/useAuth';
-import { getAuthToken } from '@/lib/auth';
 import { EXTERNAL_LINKS } from '@/lib/constants';
 import type {
   EligibilityApiResponse,
@@ -68,8 +63,8 @@ function getAppBaseUrl(): string {
  * Waitlist data structure containing user position and points information.
  */
 interface WaitlistData {
-  position: number; // Leaderboard rank (dynamic)
-  leaderboardRank: number; // Same as position
+  position: number; // Current rank shown to the user
+  leaderboardRank: number; // Dynamic rank based on points
   waitlistPosition: number; // Historical signup order
   totalAhead: number;
   totalCount: number;
@@ -92,6 +87,7 @@ interface WaitlistData {
   totalReferralPoints?: number; // Total points from referrals
   invitedUsers?: ReferralUser[]; // Pending users list
   qualifiedUsers?: ReferralUser[]; // Qualified users list
+  whitelistRankThreshold?: number;
 }
 
 /**
@@ -142,7 +138,14 @@ interface ReferralUser {
  * @returns Coming soon page element
  */
 export function ComingSoon() {
-  const { login, authenticated, user: privyUser, logout } = usePrivy();
+  const {
+    login,
+    authenticated,
+    user: privyUser,
+    logout,
+    linkTwitter,
+    linkFarcaster,
+  } = usePrivy();
   const { user: dbUser, refresh, getAccessToken } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -275,11 +278,12 @@ export function ComingSoon() {
       return;
     }
 
-    // Store current URL to return to
-    sessionStorage.setItem('oauth_return_url', window.location.pathname);
-    // Redirect to Twitter OAuth initiation
-    // Cookies should be sent automatically with the redirect
-    window.location.href = '/api/auth/twitter/initiate';
+    if (!linkTwitter) {
+      toast.error('X linking is currently unavailable');
+      return;
+    }
+
+    linkTwitter();
   };
 
   const handleDiscordOAuth = () => {
@@ -296,8 +300,8 @@ export function ComingSoon() {
   };
 
   // Handle Farcaster OAuth - uses proper Sign In with Farcaster (SIWF) protocol
-  // Creates a channel on relay.farcaster.xyz, then polls for authentication completion
-  const handleFarcasterOAuth = async () => {
+  // via Privy-native linking flow.
+  const handleFarcasterOAuth = () => {
     if (!dbUser?.id) {
       toast.error('Please complete your profile first');
       logger.warn(
@@ -308,64 +312,12 @@ export function ComingSoon() {
       return;
     }
 
-    // Use the proper SIWF protocol via relay.farcaster.xyz
-    const result = await signInWithFarcaster({
-      userId: dbUser.id,
-      onStatusUpdate: (status) => {
-        logger.debug('Farcaster auth status', { status }, 'ComingSoon');
-      },
-    });
-
-    // Send authentication data to backend for verification and linking
-    const token = getAuthToken();
-    const response = await fetch('/api/auth/farcaster/callback', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        message: result.message,
-        signature: result.signature,
-        fid: result.fid,
-        username: result.username,
-        displayName: result.displayName,
-        pfpUrl: result.pfpUrl,
-        state: result.state,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      // Refresh user profile to reflect the linked Farcaster account
-      await refresh();
-
-      // Refresh waitlist position to update points
-      if (dbUser?.id) {
-        await fetchWaitlistPosition(dbUser.id);
-      }
-
-      if (data.pointsAwarded > 0) {
-        toast.success(
-          `Farcaster linked! +${data.pointsAwarded} points awarded`
-        );
-      } else {
-        toast.success('Farcaster account linked successfully!');
-      }
-    } else {
-      // Show specific error message for 409 conflicts
-      const errorMessage = data.error || 'Failed to link Farcaster account';
-      if (response.status === 409) {
-        toast.error(
-          errorMessage.includes('already linked')
-            ? errorMessage
-            : 'This Farcaster account is already linked to another user'
-        );
-      } else {
-        toast.error(errorMessage);
-      }
+    if (!linkFarcaster) {
+      toast.error('Farcaster linking is currently unavailable');
+      return;
     }
+
+    linkFarcaster();
   };
 
   // Handle Farcaster Follow - just open the link
@@ -1386,6 +1338,11 @@ export function ComingSoon() {
   const canClaimNft =
     nftEligibility?.eligible === true && nftEligibility.hasMinted === false;
   const hasNft = Boolean(nftAccess?.hasAccess) && !canClaimNft;
+  const hasPrimaryAccess = canClaimNft || hasNft;
+  const headerCopy = getWaitlistHeaderCopy(
+    hasPrimaryAccess,
+    waitlistData?.whitelistRankThreshold
+  );
 
   useEffect(() => {
     if (
@@ -2009,7 +1966,7 @@ export function ComingSoon() {
                 Choose your path into the Social Arena for Humans and Agents.
               </h3>
 
-              <div className="mb-10 grid grid-cols-1 gap-4 sm:mb-12 sm:grid-cols-2 sm:gap-6 md:mb-16 md:grid-cols-3 md:gap-8 lg:grid-cols-5">
+              <div className="mb-10 grid grid-cols-1 gap-4 sm:mb-12 sm:grid-cols-2 sm:gap-6 md:mb-16 md:gap-8 lg:grid-cols-4">
                 {/* Join Waitlist */}
                 <button
                   onClick={handleJoinWaitlist}
@@ -2034,22 +1991,7 @@ export function ComingSoon() {
                     Develop and Deploy
                   </h3>
                   <p className="text-primary-foreground/80 text-sm leading-relaxed sm:text-base">
-                    Build your own Agent
-                  </p>
-                </a>
-
-                {/* Apply for Agent Developer Access */}
-                <a
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSeYkR5dGc_tgEtelwldohhwSKcpq30o8SJVq78oMSJD4qsWYA/viewform?usp=publish-editor"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block touch-manipulation rounded-none border border-primary/20 bg-primary p-6 text-center backdrop-blur-md transition-all duration-300 hover:bg-primary/90 active:scale-95 sm:p-8 md:p-10"
-                >
-                  <h3 className="mb-2 font-bold text-primary-foreground text-xl transition-colors group-hover:text-white sm:mb-3 sm:text-2xl">
-                    Apply for agent developer access
-                  </h3>
-                  <p className="text-primary-foreground/80 text-sm leading-relaxed sm:text-base">
-                    Request builder access
+                    Apply for Agent Developer Access
                   </p>
                 </a>
 
@@ -2549,22 +2491,16 @@ export function ComingSoon() {
                 </div>
                 <div>
                   <h1 className="font-bold text-2xl text-foreground tracking-tight sm:text-3xl md:text-4xl">
-                    {canClaimNft || hasNft
-                      ? 'Click play to access the game'
-                      : 'Leaderboard'}
+                    {headerCopy.title}
                   </h1>
                   <p className="mt-1 text-muted-foreground text-sm">
-                    {canClaimNft || hasNft
-                      ? 'Welcome to Babylon'
-                      : waitlistData?.totalCount
-                        ? `Top ${waitlistData.totalCount}`
-                        : ''}
+                    {headerCopy.subtitle}
                   </p>
                 </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
-                {(canClaimNft || hasNft) && (
+                {hasPrimaryAccess && (
                   <a
                     href={`${appBaseUrl}${canClaimNft ? '/nft' : '/feed'}`}
                     className="flex min-h-[48px] items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 font-semibold text-primary backdrop-blur-sm transition-all duration-200 hover:bg-primary/15"
@@ -2655,20 +2591,21 @@ export function ComingSoon() {
           </div>
 
           {/* Email Collection — prominent section */}
-          {!(canClaimNft || hasNft) && !emailSaved && (
+          {!hasPrimaryAccess && !emailSaved && (
             <div className="mb-8 rounded-xl border border-primary/30 bg-primary/5 p-5 backdrop-blur-sm sm:p-6">
               <div className="mb-3 flex items-center gap-2">
                 <Mail className="h-5 w-5 text-primary" />
                 <h3 className="font-bold text-base text-foreground">
-                  Email Required
+                  Get notified by email
                 </h3>
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 font-semibold text-primary text-xs">
                   +{POINTS.EMAIL_SUBMIT} pts
                 </span>
               </div>
               <p className="mb-4 text-muted-foreground text-sm">
-                We will notify you by email when you get whitelisted. We are
-                whitelisting new people every day, so stay patient.
+                We are whitelisting new people every day, so stay patient. If
+                you provide your email, we will notify you when you get
+                whitelisted.
               </p>
               <div className="flex items-center gap-2">
                 <input
@@ -2695,7 +2632,7 @@ export function ComingSoon() {
               </div>
             </div>
           )}
-          {!(canClaimNft || hasNft) && emailSaved && (
+          {!hasPrimaryAccess && emailSaved && (
             <div className="mb-8 rounded-xl border border-green-500/30 bg-green-500/5 p-5 backdrop-blur-sm sm:p-6">
               <div className="mb-3 flex items-center gap-2">
                 <Mail className="h-5 w-5 text-green-500" />
@@ -2776,13 +2713,16 @@ export function ComingSoon() {
                 {/* Position Card */}
                 <div className="rounded-xl border border-primary/10 bg-primary/5 p-4 backdrop-blur-sm transition-colors hover:bg-primary/10 sm:p-5">
                   <div className="mb-2 text-muted-foreground text-sm">
-                    Position
+                    Current Rank
                   </div>
                   <div className="mb-1 whitespace-nowrap font-bold text-lg text-primary sm:text-xl md:text-2xl">
                     #{waitlistData.position}
                   </div>
                   <div className="text-muted-foreground text-sm">
                     Top {waitlistData.percentile}%
+                  </div>
+                  <div className="text-muted-foreground/80 text-xs">
+                    Signup order #{waitlistData.waitlistPosition}
                   </div>
                 </div>
 
