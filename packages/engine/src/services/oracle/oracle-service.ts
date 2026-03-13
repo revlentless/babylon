@@ -18,6 +18,12 @@ import type {
   RevealTransactionResult,
 } from './types';
 
+/** Gas limit per commit transaction (single or per-item in batch) */
+const COMMIT_GAS_LIMIT = 500_000;
+
+/** Gas limit per reveal transaction (single or per-item in batch) */
+const REVEAL_GAS_LIMIT = 800_000;
+
 export class OracleService {
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
@@ -146,7 +152,7 @@ export class OracleService {
       commitment,
       category,
       {
-        gasLimit: 500000, // Reasonable limit for commit
+        gasLimit: COMMIT_GAS_LIMIT,
       }
     );
 
@@ -243,7 +249,7 @@ export class OracleService {
       winners,
       totalPayout,
       {
-        gasLimit: 800000, // Higher limit for reveal
+        gasLimit: REVEAL_GAS_LIMIT,
       }
     );
 
@@ -371,7 +377,7 @@ export class OracleService {
       commitments,
       categories,
       {
-        gasLimit: 500000 * questionIds.length, // Scale with batch size
+        gasLimit: COMMIT_GAS_LIMIT * questionIds.length,
       }
     );
 
@@ -546,7 +552,7 @@ export class OracleService {
       winnersArrays,
       totalPayouts,
       {
-        gasLimit: 800000 * sessionIds.length, // Scale with batch size
+        gasLimit: REVEAL_GAS_LIMIT * sessionIds.length,
       }
     );
 
