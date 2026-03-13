@@ -141,6 +141,9 @@ const npcInteractionCooldowns = new Map<string, Date>();
 /** Minimum cooldown between NPC interactions with same target NPC (2 hours) */
 const NPC_INTERACTION_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 
+/** Hard cap on the number of entries in npcInteractionCooldowns to prevent unbounded growth */
+const MAX_COOLDOWN_ENTRIES = 10_000;
+
 /**
  * Check if an NPC can reply to another NPC (cooldown check)
  */
@@ -168,6 +171,20 @@ function recordNPCInteraction(replierNpcId: string, targetNpcId: string): void {
   const key = `${replierNpcId}:${targetNpcId}`;
   npcInteractionCooldowns.set(key, new Date());
   interactionsSinceLastCleanup++;
+
+  // Hard cap: evict oldest entries when the map exceeds the size limit
+  if (npcInteractionCooldowns.size > MAX_COOLDOWN_ENTRIES) {
+    let oldest: { key: string; time: number } | null = null;
+    for (const [k, v] of npcInteractionCooldowns.entries()) {
+      const t = v.getTime();
+      if (!oldest || t < oldest.time) {
+        oldest = { key: k, time: t };
+      }
+    }
+    if (oldest) {
+      npcInteractionCooldowns.delete(oldest.key);
+    }
+  }
 
   // Periodic cleanup: every N interactions OR every hour (whichever comes first)
   const now = Date.now();
