@@ -90,7 +90,7 @@ export class ReplyRateLimiter {
     }
 
     // Calculate streak (consecutive hourly replies)
-    const streak = await ReplyRateLimiter.calculateReplyStreak(userId, npcId);
+    const streak = await ReplyRateLimiter.fetchCurrentStreak(userId, npcId);
 
     // Too late - warn but allow (breaks consistency for following chance)
     if (timeSinceLastReply > ReplyRateLimiter.MAX_REPLY_INTERVAL_MS) {
@@ -111,9 +111,60 @@ export class ReplyRateLimiter {
   }
 
   /**
-   * Calculate consecutive hourly reply streak
+   * Calculate both current and longest consecutive hourly reply streaks
+   * in a single pass over interactions sorted by timestamp descending.
+   *
+   * "current" counts consecutive valid gaps from the most recent interaction
+   * (i.e. how many hourly replies in a row, 0 if fewer than 2 interactions).
+   * "longest" counts the maximum run of consecutive valid gaps across all
+   * interactions plus one (i.e. the number of interactions in the best streak).
    */
-  private static async calculateReplyStreak(
+  static calculateStreaks(interactions: Array<{ timestamp: Date }>): {
+    current: number;
+    longest: number;
+  } {
+    if (interactions.length < 2) {
+      return { current: 0, longest: interactions.length };
+    }
+
+    let runLength = 0;
+    let leadingRun: number | null = null;
+    let maxRun = 0;
+
+    for (let i = 0; i < interactions.length - 1; i++) {
+      const curr = interactions[i];
+      const next = interactions[i + 1];
+      if (!curr || !next) continue;
+      const gap = curr.timestamp.getTime() - next.timestamp.getTime();
+
+      if (
+        gap >= ReplyRateLimiter.MIN_REPLY_INTERVAL_MS &&
+        gap <= ReplyRateLimiter.MAX_REPLY_INTERVAL_MS
+      ) {
+        runLength++;
+        if (runLength > maxRun) {
+          maxRun = runLength;
+        }
+      } else {
+        if (leadingRun === null) {
+          leadingRun = runLength;
+        }
+        runLength = 0;
+      }
+    }
+
+    if (leadingRun === null) {
+      leadingRun = runLength;
+    }
+
+    // current = gap count from the front; longest = element count (gaps + 1)
+    return { current: leadingRun, longest: maxRun + 1 };
+  }
+
+  /**
+   * Fetch recent interactions and calculate the current reply streak
+   */
+  private static async fetchCurrentStreak(
     userId: string,
     npcId: string
   ): Promise<number> {
@@ -131,26 +182,7 @@ export class ReplyRateLimiter {
       .orderBy(desc(userInteractions.timestamp))
       .limit(24);
 
-    if (interactions.length < 2) return 0;
-
-    let streak = 0;
-    for (let i = 0; i < interactions.length - 1; i++) {
-      const current = interactions[i];
-      const previous = interactions[i + 1];
-      if (!current || !previous) continue;
-      const gap = current.timestamp.getTime() - previous.timestamp.getTime();
-
-      if (
-        gap >= ReplyRateLimiter.MIN_REPLY_INTERVAL_MS &&
-        gap <= ReplyRateLimiter.MAX_REPLY_INTERVAL_MS
-      ) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return streak;
+    return ReplyRateLimiter.calculateStreaks(interactions).current;
   }
 
   /**
@@ -199,63 +231,18 @@ export class ReplyRateLimiter {
       };
     }
 
-    const currentStreak = await ReplyRateLimiter.calculateReplyStreak(
-      userId,
-      npcId
-    );
+    const streaks = ReplyRateLimiter.calculateStreaks(interactions);
     const averageQuality =
       interactions.reduce((sum, i) => sum + i.qualityScore, 0) /
       interactions.length;
 
-    // Calculate longest streak from all historical interactions
-    const longestStreak = await ReplyRateLimiter.calculateLongestStreak(
-      userId,
-      npcId,
-      interactions
-    );
-
     return {
       totalReplies: interactions.length,
-      currentStreak,
-      longestStreak,
+      currentStreak: streaks.current,
+      longestStreak: streaks.longest,
       averageQuality,
       lastReplyAt: interactions[0]?.timestamp,
     };
-  }
-
-  /**
-   * Calculate longest consecutive reply streak from all interactions
-   */
-  private static async calculateLongestStreak(
-    _userId: string,
-    _npcId: string,
-    interactions: Array<{ timestamp: Date }>
-  ): Promise<number> {
-    if (interactions.length < 2) return interactions.length;
-
-    let maxStreak = 1;
-    let currentStreak = 1;
-
-    for (let i = 0; i < interactions.length - 1; i++) {
-      const current = interactions[i];
-      const next = interactions[i + 1];
-      if (!current || !next) continue;
-      const gap = current.timestamp.getTime() - next.timestamp.getTime();
-
-      if (
-        gap >= ReplyRateLimiter.MIN_REPLY_INTERVAL_MS &&
-        gap <= ReplyRateLimiter.MAX_REPLY_INTERVAL_MS
-      ) {
-        currentStreak++;
-        if (currentStreak > maxStreak) {
-          maxStreak = currentStreak;
-        }
-      } else {
-        currentStreak = 1;
-      }
-    }
-
-    return maxStreak;
   }
 
   /**
