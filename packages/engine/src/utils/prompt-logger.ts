@@ -55,9 +55,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<void> {
   const filepath = path.join(debugDir, filename);
 
   // Ensure prompt log directory exists
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
+  await fs.promises.mkdir(debugDir, { recursive: true });
 
   // Build markdown content
   const lines = [
@@ -120,7 +118,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<void> {
   lines.push(``);
 
   // Write to file
-  fs.writeFileSync(filepath, lines.join('\n'), 'utf-8');
+  await fs.promises.writeFile(filepath, lines.join('\n'), 'utf-8');
 
   logger.debug(
     `Logged prompt to ${filename}`,

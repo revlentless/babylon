@@ -58,9 +58,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<void> {
     const filepath = path.join(debugDir, filename);
 
     // Create debug directory if it doesn't exist
-    if (!fs.existsSync(debugDir)) {
-      fs.mkdirSync(debugDir, { recursive: true });
-    }
+    await fs.promises.mkdir(debugDir, { recursive: true });
 
     // Build markdown content
     const lines = [
@@ -123,7 +121,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<void> {
     lines.push(``);
 
     // Write to file
-    fs.writeFileSync(filepath, lines.join('\n'), 'utf-8');
+    await fs.promises.writeFile(filepath, lines.join('\n'), 'utf-8');
 
     logger.debug(
       `Logged prompt to ${filename}`,
@@ -156,24 +154,26 @@ export async function cleanOldDebugLogs(maxAgeDays = 7): Promise<number> {
   try {
     const debugDir = path.join(process.cwd(), 'debug', 'prompts');
 
-    if (!fs.existsSync(debugDir)) {
+    try {
+      await fs.promises.access(debugDir);
+    } catch {
       return 0;
     }
 
     const now = Date.now();
     const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
-    const files = fs.readdirSync(debugDir);
+    const files = await fs.promises.readdir(debugDir);
 
     let deleted = 0;
     for (const file of files) {
       if (!file.endsWith('.md')) continue;
 
       const filepath = path.join(debugDir, file);
-      const stats = fs.statSync(filepath);
+      const stats = await fs.promises.stat(filepath);
       const age = now - stats.mtimeMs;
 
       if (age > maxAgeMs) {
-        fs.unlinkSync(filepath);
+        await fs.promises.unlink(filepath);
         deleted++;
       }
     }
