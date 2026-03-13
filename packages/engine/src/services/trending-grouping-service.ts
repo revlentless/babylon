@@ -8,13 +8,11 @@
  */
 
 import { logger } from '@babylon/shared';
-import OpenAI from 'openai';
+import { BabylonLLMClient } from '../llm/openai-client';
+import type { JsonValue } from '../types/common';
 import { first } from '../utils/array-utils';
-import { isPromptLoggingEnabled, logPrompt } from '../utils/prompt-logger';
 
 // Configuration
-const LLM_TIMEOUT_MS = 15000; // 15 seconds
-const LLM_MAX_RETRIES = 2;
 const GROUPING_MODEL =
   process.env.TRENDING_GROUPING_MODEL ||
   (process.env.GROQ_API_KEY ? 'llama-3.1-8b-instant' : 'gpt-5-nano');
@@ -23,22 +21,17 @@ const SUMMARY_MODEL =
   (process.env.GROQ_API_KEY ? 'llama-3.1-8b-instant' : 'gpt-5-nano');
 
 // Check if LLM is available
-const hasApiKey = !!(process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY);
-const useGroq = !!process.env.GROQ_API_KEY;
+const hasApiKey = !!(
+  process.env.GROQ_API_KEY ||
+  process.env.ANTHROPIC_API_KEY ||
+  process.env.OPENAI_API_KEY
+);
 
-// Only initialize OpenAI client if we have an API key
-let openai: OpenAI | null = null;
-if (hasApiKey) {
-  openai = new OpenAI({
-    apiKey: process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY,
-    baseURL: useGroq
-      ? 'https://api.groq.com/openai/v1'
-      : 'https://api.openai.com/v1',
-    timeout: LLM_TIMEOUT_MS,
-  });
-} else {
+const llmClient = hasApiKey ? new BabylonLLMClient() : null;
+
+if (!hasApiKey) {
   logger.warn(
-    'No LLM API key configured (GROQ_API_KEY or OPENAI_API_KEY) - trending grouping will use fallback logic',
+    'No LLM API key configured - trending grouping will use fallback logic',
     undefined,
     'TrendingGroupingService'
   );
@@ -75,76 +68,6 @@ export interface GroupedTrend {
   totalPostCount: number;
   summary: string;
   rank: number;
-}
-
-/**
- * Calculate estimated cost for LLM call (rough estimates)
- *
- * @description Estimates the cost of an LLM API call based on model and token count.
- * Uses approximate pricing for Groq (free) and OpenAI models.
- *
- * @param {string} model - Model identifier
- * @param {number} tokens - Number of tokens
- * @returns {number} Estimated cost in USD
- * @private
- */
-function calculateCost(model: string, tokens: number): number {
-  // Groq pricing (as of 2024): free tier, so $0
-  if (model.includes('llama')) {
-    return 0;
-  }
-
-  // OpenAI-compatible pricing (approximate, per 1M tokens)
-  // Standard models: $2.50 input, $10 output (average ~$6/1M)
-  // Mini models: $0.15 input, $0.60 output (average ~$0.375/1M)
-  if (model.includes('gpt-5-nano')) {
-    return (tokens / 1000000) * 0.375;
-  }
-  if (model.includes('gpt-5.1')) {
-    return (tokens / 1000000) * 6;
-  }
-
-  return 0;
-}
-
-/**
- * Retry helper for LLM calls
- *
- * @description Retries an LLM call with exponential backoff on failure.
- *
- * @template T - Return type
- * @param {() => Promise<T>} fn - Function to retry
- * @param {number} [retries=LLM_MAX_RETRIES] - Number of retries
- * @param {string} [context='LLM call'] - Context for logging
- * @returns {Promise<T>} Result of the function
- * @throws {Error} If all retries fail
- * @private
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries: number = LLM_MAX_RETRIES,
-  context = 'LLM call'
-): Promise<T> {
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-      if (attempt < retries) {
-        const delay = Math.min(1000 * 2 ** attempt, 5000); // Exponential backoff, max 5s
-        logger.warn(
-          `${context} failed, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`,
-          { error },
-          'TrendingGroupingService'
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  throw lastError;
 }
 
 /**
@@ -220,11 +143,9 @@ async function analyzeAndSummarizeTags(
   }
 
   // If no LLM available, use fallback logic
-  if (!openai) {
+  if (!llmClient) {
     return { tagToGroup: fallbackGrouping(tags), groupSummaries: new Map() };
   }
-  // Store in local const after null check to help TypeScript narrow the type
-  const client = openai;
 
   const tagList = tags
     .map(
@@ -244,13 +165,13 @@ YOUR TASK:
 3. Write a catchy summary for each group (like X/Twitter trending descriptions)
 
 GROUPING RULES:
-✅ Group tags about the SAME topic:
+Group tags about the SAME topic:
    - Person + their company: "AIlon Musk" + "TeslAI" + "SpAIceX"
    - Event + participants: "OpenAGI DevDay" + "Sam AIltman" + "SMH-9000"
    - Breaking story + related: "SEC Investigation" + "CoinbAIse" + "Brian AIrmstrong"
    - Product + company: "SMH-6" + "OpenAGI" + "Sam AIltman"
 
-❌ DON'T group just because same category:
+DON'T group just because same category:
    - "Bitcoin" and "Ethereum" are SEPARATE (different ecosystems)
    - "AIlon Musk" and "Jeff BAIzos" are SEPARATE (unless same story)
    - "TeslAI" and "NvidAI" are SEPARATE (different companies)
@@ -310,107 +231,90 @@ Return ONLY valid XML. No markdown, no explanations.`;
 
   const startTime = Date.now();
 
-  const response = await withRetry(
-    async () =>
-      await client.chat.completions.create({
-        model: GROUPING_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an XML-only assistant that analyzes trending topics. Respond ONLY with valid XML matching the exact format shown. No markdown, no JSON, no explanations.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    LLM_MAX_RETRIES,
-    'Tag grouping and summary analysis'
-  );
+  const result = await llmClient.generateJSON<JsonValue>(prompt, undefined, {
+    model: GROUPING_MODEL,
+    temperature: 0.3,
+    maxTokens: 2000,
+    format: 'xml',
+    promptType: 'trending_grouping_with_summary',
+  });
 
   const duration = Date.now() - startTime;
-  const tokensUsed = response.usage?.total_tokens || 0;
-  const estimatedCost = calculateCost(GROUPING_MODEL, tokensUsed);
 
-  logger.debug(
-    'LLM grouping call completed',
-    {
-      durationMs: duration,
-      model: GROUPING_MODEL,
-      tokensUsed,
-      estimatedCostUSD: estimatedCost,
-    },
-    'TrendingGroupingService'
-  );
-
-  const content = response.choices[0]?.message?.content?.trim();
-  if (content && isPromptLoggingEnabled()) {
-    await logPrompt({
-      promptType: 'trending_grouping_with_summary',
-      input: `System: You are an XML-only assistant that analyzes trending topics. Respond ONLY with valid XML matching the exact format shown. No markdown, no JSON, no explanations.\n\nUser: ${prompt}`,
-      output: content,
-      metadata: {
-        provider: useGroq ? 'groq' : 'openai',
-        model: GROUPING_MODEL,
-        temperature: 0.3,
-        maxTokens: 2000,
-      },
-    });
-  }
-
-  if (!content) {
-    logger.warn(
-      'No content in grouping response, using fallback',
-      undefined,
-      'TrendingGroupingService'
-    );
-    return { tagToGroup: fallbackGrouping(tags), groupSummaries: new Map() };
-  }
-
-  // Parse XML response
-  const xmlContent = content
-    .replace(/```xml\n?/g, '')
-    .replace(/```\n?/g, '')
-    .trim();
-
+  // Parse the XML-parsed object structure
+  // Expected shape: { groups: { group: [{ id, tags: { tag: [...] }, summary }] } }
   const tagToGroup = new Map<string, number>();
   const groupSummaries = new Map<number, string>();
 
-  // Extract groups from XML
-  const groupMatches = xmlContent.matchAll(/<group>([\s\S]*?)<\/group>/g);
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const resultObj = result as Record<string, JsonValue>;
+    const groupsWrapper = resultObj.groups;
 
-  for (const groupMatch of groupMatches) {
-    const groupContent = groupMatch[1];
-    if (!groupContent) continue;
+    if (
+      groupsWrapper &&
+      typeof groupsWrapper === 'object' &&
+      !Array.isArray(groupsWrapper)
+    ) {
+      const groupsObj = groupsWrapper as Record<string, JsonValue>;
+      const groupItems = groupsObj.group;
 
-    const idMatch = groupContent.match(/<id>(\d+)<\/id>/);
-    const summaryMatch = groupContent.match(/<summary>(.*?)<\/summary>/);
-    const tagMatches = groupContent.matchAll(/<tag>(.*?)<\/tag>/g);
+      const groupArray = Array.isArray(groupItems)
+        ? groupItems
+        : groupItems
+          ? [groupItems]
+          : [];
 
-    if (!idMatch || !idMatch[1]) continue;
+      for (const item of groupArray) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
 
-    const groupId = Number.parseInt(idMatch[1], 10);
-    const tagNames: string[] = [];
+        const groupObj = item as Record<string, JsonValue>;
+        const groupId =
+          typeof groupObj.id === 'number'
+            ? groupObj.id
+            : typeof groupObj.id === 'string'
+              ? Number.parseInt(groupObj.id, 10)
+              : null;
 
-    for (const tagMatch of tagMatches) {
-      if (tagMatch[1]) {
-        tagNames.push(tagMatch[1].trim());
+        if (groupId === null || Number.isNaN(groupId)) continue;
+
+        const summary =
+          typeof groupObj.summary === 'string' ? groupObj.summary.trim() : null;
+
+        // Extract tag names from tags wrapper
+        const tagsWrapper = groupObj.tags;
+        const tagNames: string[] = [];
+
+        if (
+          tagsWrapper &&
+          typeof tagsWrapper === 'object' &&
+          !Array.isArray(tagsWrapper)
+        ) {
+          const tagsObj = tagsWrapper as Record<string, JsonValue>;
+          const tagItems = tagsObj.tag;
+          const tagArray = Array.isArray(tagItems)
+            ? tagItems
+            : tagItems
+              ? [tagItems]
+              : [];
+
+          for (const tagItem of tagArray) {
+            if (typeof tagItem === 'string' && tagItem.trim()) {
+              tagNames.push(tagItem.trim());
+            }
+          }
+        }
+
+        // Only process groups with 2+ tags
+        if (tagNames.length < 2) continue;
+
+        for (const tagName of tagNames) {
+          tagToGroup.set(tagName, groupId);
+        }
+
+        if (summary) {
+          groupSummaries.set(groupId, summary);
+        }
       }
-    }
-
-    // Only process groups with 2+ tags
-    if (tagNames.length < 2) continue;
-
-    for (const tagName of tagNames) {
-      tagToGroup.set(tagName, groupId);
-    }
-
-    if (summaryMatch && summaryMatch[1]) {
-      groupSummaries.set(groupId, summaryMatch[1].trim());
     }
   }
 
@@ -444,11 +348,9 @@ export async function generateTrendingSummary(
     return `Trending topic in ${category || 'general'} discussions`;
   }
 
-  if (!openai) {
+  if (!llmClient) {
     return `Trending topic in ${category || 'general'} discussions`;
   }
-  // Store in local const after null check to help TypeScript narrow the type
-  const client = openai;
 
   const prompt = `Generate a ONE SENTENCE summary for the trending topic "${tagDisplayName}" (Category: ${category || 'General'}).
 
@@ -462,71 +364,32 @@ Requirements:
 - No hashtags, no emojis
 - Don't start with "People are..." or "Users are..."
 
-Examples:
-- "Latest developments in SpaceX launch schedule"
-- "Market reactions to new AI regulation"
-- "Breaking news on election results"
+Return ONLY valid XML:
+<response>
+  <summary>Your one sentence summary here</summary>
+</response>`;
 
-One sentence summary:`;
+  const result = await llmClient.generateJSON<JsonValue>(prompt, undefined, {
+    model: SUMMARY_MODEL,
+    temperature: 0.7,
+    maxTokens: 50,
+    format: 'xml',
+    promptType: 'trending_single_summary',
+  });
 
-  const startTime = Date.now();
+  // Extract summary from parsed XML object
+  // Expected shape: { summary: "..." }
+  let cleanSummary = '';
 
-  const response = await withRetry(
-    async () =>
-      await client.chat.completions.create({
-        model: SUMMARY_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a trending topics summarization expert. Generate concise, engaging one-sentence summaries.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 50,
-      }),
-    LLM_MAX_RETRIES,
-    'Single trend summary generation'
-  );
-
-  const duration = Date.now() - startTime;
-  const tokensUsed = response.usage?.total_tokens || 0;
-  const estimatedCost = calculateCost(SUMMARY_MODEL, tokensUsed);
-
-  logger.debug(
-    'LLM single summary call completed',
-    {
-      durationMs: duration,
-      model: SUMMARY_MODEL,
-      tokensUsed,
-      estimatedCostUSD: estimatedCost,
-    },
-    'TrendingGroupingService'
-  );
-
-  let cleanSummary =
-    response.choices[0]?.message?.content
-      ?.trim()
-      ?.replace(/^["']|["']$/g, '')
-      ?.replace(/\.$/, '')
-      ?.trim() || '';
-
-  if (isPromptLoggingEnabled()) {
-    await logPrompt({
-      promptType: 'trending_single_summary',
-      input: `System: You are a trending topics summarization expert. Generate concise, engaging one-sentence summaries.\n\nUser: ${prompt}`,
-      output: response.choices[0]?.message?.content || '',
-      metadata: {
-        provider: useGroq ? 'groq' : 'openai',
-        model: SUMMARY_MODEL,
-        temperature: 0.7,
-        maxTokens: 50,
-      },
-    });
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const resultObj = result as Record<string, JsonValue>;
+    if (typeof resultObj.summary === 'string') {
+      cleanSummary = resultObj.summary
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .replace(/\.$/, '')
+        .trim();
+    }
   }
 
   if (!cleanSummary) {

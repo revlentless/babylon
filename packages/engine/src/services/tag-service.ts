@@ -23,8 +23,8 @@ import {
   withTransaction,
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
-import OpenAI from 'openai';
-import { isPromptLoggingEnabled, logPrompt } from '../utils/prompt-logger';
+import { BabylonLLMClient } from '../llm/openai-client';
+import type { JsonValue } from '../types/common';
 
 // =============================================================================
 // Types
@@ -82,34 +82,13 @@ export interface TrendingTagWithTag {
 // LLM Client Setup
 // =============================================================================
 
-type OpenAIClient = OpenAI;
+const hasApiKey = !!(
+  process.env.GROQ_API_KEY ||
+  process.env.ANTHROPIC_API_KEY ||
+  process.env.OPENAI_API_KEY
+);
 
-const apiKey = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-const baseURL = process.env.GROQ_API_KEY
-  ? 'https://api.groq.com/openai/v1'
-  : 'https://api.openai.com/v1';
-
-let openaiClient: OpenAIClient | null = null;
-let openaiImportAttempted = false;
-
-async function getOpenAIClient(): Promise<OpenAIClient | null> {
-  if (!apiKey) {
-    return null;
-  }
-  if (openaiClient) {
-    return openaiClient;
-  }
-
-  if (!openaiImportAttempted) {
-    openaiImportAttempted = true;
-    openaiClient = new OpenAI({
-      apiKey,
-      baseURL,
-    });
-  }
-
-  return openaiClient;
-}
+const llmClient = hasApiKey ? new BabylonLLMClient() : null;
 
 // =============================================================================
 // Tag Generation
@@ -121,11 +100,9 @@ async function getOpenAIClient(): Promise<OpenAIClient | null> {
 export async function generateTagsFromPost(
   content: string
 ): Promise<GeneratedTag[]> {
-  const openai = await getOpenAIClient();
-
-  if (!openai) {
+  if (!llmClient) {
     logger.warn(
-      'Tag generation skipped - no GROQ_API_KEY or OPENAI_API_KEY configured',
+      'Tag generation skipped - no LLM API key configured',
       undefined,
       'TagService'
     );
@@ -184,86 +161,69 @@ If no good tags, return: <response><tags></tags></response>`;
     ? 'llama-3.1-8b-instant'
     : 'gpt-5-nano';
 
-  const response = await openai.chat.completions.create({
+  const result = await llmClient.generateJSON<JsonValue>(prompt, undefined, {
     model,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are an XML-only assistant for tag extraction. You must respond ONLY with valid XML. No JSON, no explanations, no markdown.',
-      },
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
     temperature: 0.3,
-    max_tokens: 500,
+    maxTokens: 500,
+    format: 'xml',
+    promptType: 'tag_generation',
   });
 
-  const contentText = response.choices[0]?.message?.content?.trim();
-
-  if (isPromptLoggingEnabled()) {
-    await logPrompt({
-      promptType: 'tag_generation',
-      input: `System: You are an XML-only assistant for tag extraction. You must respond ONLY with valid XML. No JSON, no explanations, no markdown.\n\nUser: ${prompt}`,
-      output: contentText || '',
-      metadata: {
-        provider: process.env.GROQ_API_KEY ? 'groq' : 'openai',
-        model,
-        temperature: 0.3,
-        maxTokens: 500,
-      },
-    });
-  }
-
-  if (!contentText) {
-    logger.warn(
-      'No content in tag generation response',
-      { content },
-      'TagService'
-    );
-    return [];
-  }
-
-  const xmlContent = contentText
-    .replace(/```xml\n?/g, '')
-    .replace(/```\n?/g, '')
-    .trim();
-
+  // Parse the XML-parsed object structure
+  // Expected shape: { tags: { tag: [...] } } or { tags: { tag: { displayName, category } } }
   const parsedTags: Array<{ displayName: string; category?: string }> = [];
 
-  const tagMatches = xmlContent.matchAll(/<tag>([\s\S]*?)<\/tag>/g);
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    const resultObj = result as Record<string, JsonValue>;
+    const tagsWrapper = resultObj.tags;
 
-  for (const tagMatch of tagMatches) {
-    const tagContent = tagMatch[1];
-    if (!tagContent) continue;
+    if (
+      tagsWrapper &&
+      typeof tagsWrapper === 'object' &&
+      !Array.isArray(tagsWrapper)
+    ) {
+      const tagsObj = tagsWrapper as Record<string, JsonValue>;
+      const tagItems = tagsObj.tag;
 
-    const displayNameMatch = tagContent.match(
-      /<displayName>(.*?)<\/displayName>/
-    );
-    const categoryMatch = tagContent.match(/<category>(.*?)<\/category>/);
+      const tagArray = Array.isArray(tagItems)
+        ? tagItems
+        : tagItems
+          ? [tagItems]
+          : [];
 
-    if (displayNameMatch && displayNameMatch[1]) {
-      const displayName = displayNameMatch[1].trim();
-      const genericTags = [
-        'ai',
-        'tech',
-        'news',
-        'breaking',
-        'market',
-        'update',
-        'latest',
-      ];
-      if (genericTags.includes(displayName.toLowerCase())) {
-        logger.debug('Skipping generic tag', { displayName }, 'TagService');
-        continue;
+      for (const item of tagArray) {
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          const tagObj = item as Record<string, JsonValue>;
+          const displayName =
+            typeof tagObj.displayName === 'string'
+              ? tagObj.displayName.trim()
+              : '';
+
+          if (!displayName) continue;
+
+          const genericTags = [
+            'ai',
+            'tech',
+            'news',
+            'breaking',
+            'market',
+            'update',
+            'latest',
+          ];
+          if (genericTags.includes(displayName.toLowerCase())) {
+            logger.debug('Skipping generic tag', { displayName }, 'TagService');
+            continue;
+          }
+
+          parsedTags.push({
+            displayName,
+            category:
+              typeof tagObj.category === 'string'
+                ? tagObj.category.trim()
+                : undefined,
+          });
+        }
       }
-
-      parsedTags.push({
-        displayName,
-        category: categoryMatch?.[1]?.trim(),
-      });
     }
   }
 
@@ -271,7 +231,6 @@ If no good tags, return: <response><tags></tags></response>`;
     logger.debug(
       'No specific tags extracted from post',
       {
-        xmlPreview: xmlContent.substring(0, 200),
         contentPreview: content.substring(0, 100),
       },
       'TagService'
