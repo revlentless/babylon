@@ -13,6 +13,7 @@ import {
   eq,
   feedbacks,
   gte,
+  inArray,
   users,
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
@@ -604,39 +605,41 @@ export async function getReputationLeaderboard(
     .orderBy(desc(agentPerformanceMetrics.reputationScore))
     .limit(limit);
 
-  // Fetch user data for each agent
-  const results = await Promise.all(
-    topAgents.map(async (agent, index) => {
-      const [user] = await db
-        .select({
-          id: users.id,
-          username: users.username,
-          displayName: users.displayName,
-          profileImageUrl: users.profileImageUrl,
-          isActor: users.isActor,
-        })
-        .from(users)
-        .where(eq(users.id, agent.userId))
-        .limit(1);
+  // Batch-fetch user data for all agents in a single query
+  const userIds = topAgents.map((a) => a.userId);
+  const userRows =
+    userIds.length > 0
+      ? await db
+          .select({
+            id: users.id,
+            username: users.username,
+            displayName: users.displayName,
+            profileImageUrl: users.profileImageUrl,
+            isActor: users.isActor,
+          })
+          .from(users)
+          .where(inArray(users.id, userIds))
+      : [];
 
-      return {
-        rank: index + 1,
-        userId: agent.userId,
-        username: user?.username ?? null,
-        displayName: user?.displayName ?? null,
-        profileImageUrl: user?.profileImageUrl ?? null,
-        isActor: user?.isActor ?? null,
-        reputationScore: agent.reputationScore,
-        trustLevel: agent.trustLevel,
-        confidenceScore: agent.confidenceScore,
-        gamesPlayed: agent.gamesPlayed,
-        winRate: agent.winRate,
-        normalizedPnL: agent.normalizedPnL,
-      };
-    })
-  );
+  const userMap = new Map(userRows.map((u) => [u.id, u]));
 
-  return results;
+  return topAgents.map((agent, index) => {
+    const user = userMap.get(agent.userId);
+    return {
+      rank: index + 1,
+      userId: agent.userId,
+      username: user?.username ?? null,
+      displayName: user?.displayName ?? null,
+      profileImageUrl: user?.profileImageUrl ?? null,
+      isActor: user?.isActor ?? null,
+      reputationScore: agent.reputationScore,
+      trustLevel: agent.trustLevel,
+      confidenceScore: agent.confidenceScore,
+      gamesPlayed: agent.gamesPlayed,
+      winRate: agent.winRate,
+      normalizedPnL: agent.normalizedPnL,
+    };
+  });
 }
 
 // AUTO-FEEDBACK GENERATION FUNCTIONS
