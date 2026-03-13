@@ -123,12 +123,8 @@ describeTests('WorldFactsService', () => {
 
     expect(context).toBeDefined();
     expect(context.timestamp).toBeDefined();
-    expect(typeof context.crypto).toBe('string');
-    expect(typeof context.politics).toBe('string');
-    expect(typeof context.economy).toBe('string');
-    expect(typeof context.technology).toBe('string');
-    expect(typeof context.general).toBe('string');
-    expect(context.general).toContain(testValue);
+    expect(typeof context.facts).toBe('string');
+    expect(context.facts).toContain(testValue);
   });
 
   test('should generate prompt context string', async () => {
@@ -141,11 +137,7 @@ describeTests('WorldFactsService', () => {
 
     expect(context).toBeDefined();
     expect(context.timestamp).toBeDefined();
-    expect(typeof context.crypto).toBe('string');
-    expect(typeof context.politics).toBe('string');
-    expect(typeof context.economy).toBe('string');
-    expect(typeof context.technology).toBe('string');
-    expect(typeof context.general).toBe('string');
+    expect(typeof context.facts).toBe('string');
   });
 
   test('should bulk update facts', async () => {
