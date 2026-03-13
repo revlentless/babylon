@@ -99,6 +99,7 @@ export {
   type BiasConfig,
   BiasEngine,
   biasEngine,
+  getBiasEngine,
 } from './feedback/bias-engine';
 // Game Clock (injectable time abstraction)
 export { GameClock, type GameClockConfig, type GameTime } from './GameClock';
