@@ -171,7 +171,7 @@ export function getDuplicateStats(): {
 
 // Best-effort periodic cleanup (no-op in environments without setInterval)
 if (typeof setInterval !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  setInterval(cleanupDuplicates, 5 * 60 * 1000);
+  setInterval(cleanupDuplicates, 5 * 60 * 1000).unref();
 }
 
 // =============================================================================
