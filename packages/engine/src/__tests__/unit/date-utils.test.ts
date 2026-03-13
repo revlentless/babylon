@@ -9,6 +9,8 @@ import {
   extractDayFromEvent,
   extractDayFromPost,
   extractDayFromTimestamp,
+  gameDatePrefix,
+  gameDateTimestamp,
   getGameDayNumber,
   getTodayDateString,
   toDateString,
@@ -149,6 +151,35 @@ describe('Date Utilities', () => {
       // Documents current behavior: floats are accepted (not rejected)
       expect(toSafeDayNumber(1.5)).toBe(1.5);
       expect(toSafeDayNumber(99.9)).toBe(99.9);
+    });
+  });
+
+  describe('gameDatePrefix', () => {
+    test('returns date prefix for day 1 (default start)', () => {
+      // Default game start is 2025-10-01
+      expect(gameDatePrefix(1)).toBe('2025-10-01T');
+    });
+
+    test('returns date prefix for day 15', () => {
+      expect(gameDatePrefix(15)).toBe('2025-10-15T');
+    });
+
+    test('returns date prefix for day 31', () => {
+      expect(gameDatePrefix(31)).toBe('2025-10-31T');
+    });
+  });
+
+  describe('gameDateTimestamp', () => {
+    test('returns full timestamp with default time', () => {
+      expect(gameDateTimestamp(1)).toBe('2025-10-01T12:00:00Z');
+    });
+
+    test('returns full timestamp with custom time', () => {
+      expect(gameDateTimestamp(5, '06:00:00Z')).toBe('2025-10-05T06:00:00Z');
+    });
+
+    test('returns full timestamp for day 20 with evening time', () => {
+      expect(gameDateTimestamp(20, '20:00:00Z')).toBe('2025-10-20T20:00:00Z');
     });
   });
 

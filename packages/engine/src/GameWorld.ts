@@ -21,6 +21,7 @@ import { TrendingTopicsEngine } from './TrendingTopicsEngine';
 import type { JsonValue } from './types/common';
 import type { FeedPost } from './types/shared';
 import { firstOrThrow } from './utils/array-utils';
+import { gameDateTimestamp } from './utils/date-utils';
 import {
   type EventCooldownState,
   generateSentimentSignal,
@@ -1200,7 +1201,7 @@ export class GameWorld extends EventEmitter implements TypedGameWorldEmitter {
           {
             from: this.npcs[0]?.name || 'Insider',
             message: `Heard something about ${firstEvent.description}...`,
-            timestamp: `2025-10-${String(day).padStart(2, '0')}T12:00:00Z`,
+            timestamp: gameDateTimestamp(day),
             clueStrength: 0.5,
           },
         ];

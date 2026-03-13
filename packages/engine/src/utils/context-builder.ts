@@ -19,7 +19,7 @@ import { MarketContextService } from '../services/market-context-service';
 import { isSimulationMode } from '../storage-bridge';
 import type { Actor, FeedPost, Question, WorldEvent } from '../types/shared';
 import { CONTEXT_LIMITS, truncateArray, truncateText } from './context-limits';
-import { extractDayFromTimestamp } from './date-utils';
+import { extractDayFromTimestamp, gameDateTimestamp } from './date-utils';
 import { shuffleArray } from './randomization';
 
 export interface ComprehensiveNPCContext {
@@ -123,7 +123,7 @@ export async function buildComprehensiveNPCContext(
         e.description || e.type,
         CONTEXT_LIMITS.MAX_EVENT_DESCRIPTION_LENGTH
       ),
-      timestamp: `2025-10-${String(e.day).padStart(2, '0')}T12:00:00Z`,
+      timestamp: gameDateTimestamp(e.day),
       actors: truncateArray(
         shuffleArray(e.actors || []),
         CONTEXT_LIMITS.MAX_ACTORS_PER_EVENT

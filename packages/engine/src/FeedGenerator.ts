@@ -60,6 +60,7 @@ import {
   type ComprehensiveNPCContext,
   formatComprehensiveContext,
 } from './utils/context-builder';
+import { gameDatePrefix, gameDateTimestamp } from './utils/date-utils';
 import { shuffleArray } from './utils/randomization';
 import {
   buildCharacterFeedContext,
@@ -689,7 +690,7 @@ export class FeedGenerator extends EventEmitter {
     eventIndex = 0
   ): Promise<FeedPost[]> {
     const cascade: FeedPost[] = [];
-    const baseTime = `2025-10-${String(day).padStart(2, '0')}T`;
+    const baseTime = gameDatePrefix(day);
     // Offset hours based on event index so each event's posts are at different times
     const baseHourOffset = eventIndex * 4; // Events spaced 4 hours apart
 
@@ -2348,7 +2349,7 @@ ${voiceContext}
     outcome: boolean
   ): Promise<FeedPost[]> {
     const ambient: FeedPost[] = [];
-    const baseTime = `2025-10-${String(day).padStart(2, '0')}T`;
+    const baseTime = gameDatePrefix(day);
 
     // DENSE CONTENT: Each actor posts 1-20 times per hour
     // Generate posts for all 24 hours of the day
@@ -3683,7 +3684,7 @@ ${voiceContext}
     }
 
     const posts: FeedPost[] = [];
-    const baseTime = `2025-10-${String(day).padStart(2, '0')}T`;
+    const baseTime = gameDatePrefix(day);
     const direction = priceUpdate.change > 0 ? 'up' : 'down';
     const phaseContext = buildPhaseContext(day);
 
@@ -3873,7 +3874,7 @@ ${voiceContext}
       return null; // No transition post for day 1
     }
 
-    const baseTime = `2025-10-${String(day).padStart(2, '0')}T06:00:00Z`; // Early morning transition
+    const baseTime = gameDateTimestamp(day, '06:00:00Z'); // Early morning transition
     const phaseContext = buildPhaseContext(day);
     const phaseName = this.getPhaseName(day);
 
@@ -3961,7 +3962,7 @@ ${voiceContext}
       return null;
     }
 
-    const baseTime = `2025-10-${String(day).padStart(2, '0')}T20:00:00Z`;
+    const baseTime = gameDateTimestamp(day, '20:00:00Z');
     const outcomeText = question.resolvedOutcome ? 'YES' : 'NO';
 
     // Ensure world context is available
