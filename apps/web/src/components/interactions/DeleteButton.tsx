@@ -4,6 +4,7 @@ import { cn, logger } from '@babylon/shared';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { interactionSizeClasses } from './interaction-button-styles';
 
 /**
  * Delete button component for post deletion.
@@ -31,12 +32,6 @@ interface DeleteButtonProps {
   className?: string;
   onDeleted?: () => void;
 }
-
-const sizeClasses = {
-  sm: 'text-xs gap-1',
-  md: 'h-10 px-3 text-sm gap-1.5',
-  lg: 'h-12 px-4 text-base gap-2',
-};
 
 const iconSizes = {
   sm: 16,
@@ -104,7 +99,7 @@ export function DeleteButton({
         disabled={isDeleting}
         className={cn(
           'flex items-center bg-transparent transition-all duration-200 hover:text-red-500',
-          sizeClasses[size],
+          interactionSizeClasses[size],
           isDeleting && 'cursor-not-allowed opacity-50',
           className
         )}
