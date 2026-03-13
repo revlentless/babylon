@@ -1,10 +1,10 @@
 'use client';
 
 import { logger } from '@babylon/shared';
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Component } from 'react';
+import { trackError } from '@/lib/errorTracking';
 
 /**
  * Props for the ErrorBoundary component.
@@ -62,12 +62,10 @@ export class ErrorBoundary extends Component<
       'ErrorBoundary'
     );
 
-    // Capture error in Sentry
-    Sentry.withScope((scope) => {
-      scope.setContext('react', {
-        componentStack: errorInfo.componentStack,
-      });
-      Sentry.captureException(error);
+    // Report to Sentry + PostHog
+    trackError(error, {
+      errorBoundary: 'component',
+      componentStack: errorInfo.componentStack,
     });
 
     if (this.props.onError) {

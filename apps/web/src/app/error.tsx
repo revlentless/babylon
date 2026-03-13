@@ -9,10 +9,9 @@
  * Best practice: This should be a client component and provide a way to reset the error.
  */
 
-import * as Sentry from '@sentry/nextjs';
 import { AlertTriangle } from 'lucide-react';
 import { useEffect } from 'react';
-import { posthog } from '@/lib/posthog';
+import { trackError } from '@/lib/errorTracking';
 
 export default function Error({
   error,
@@ -22,25 +21,10 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Capture error in Sentry with additional context
-    Sentry.withScope((scope) => {
-      scope.setTag('errorBoundary', 'route');
-      if (error.digest) {
-        scope.setTag('errorDigest', error.digest);
-      }
-      Sentry.captureException(error);
+    trackError(error, {
+      errorBoundary: 'route',
+      digest: error.digest,
     });
-
-    // Track error in PostHog
-    if (posthog) {
-      posthog.capture('$exception', {
-        $exception_type: error.name || 'Error',
-        $exception_message: error.message,
-        $exception_stack: error.stack,
-        errorBoundary: 'route',
-        digest: error.digest,
-      });
-    }
   }, [error]);
 
   return (

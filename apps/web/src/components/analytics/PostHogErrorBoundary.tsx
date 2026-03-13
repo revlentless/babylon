@@ -1,7 +1,6 @@
 'use client';
 
 import { logger } from '@babylon/shared';
-import * as Sentry from '@sentry/nextjs';
 /**
  * PostHog error boundary component for catching and tracking React errors.
  *
@@ -27,7 +26,7 @@ import * as Sentry from '@sentry/nextjs';
  * ```
  */
 import React, { Component, type ReactNode } from 'react';
-import { posthog } from '@/lib/posthog';
+import { trackError } from '@/lib/errorTracking';
 
 interface Props {
   children: ReactNode;
@@ -50,34 +49,10 @@ export class PostHogErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Track error with PostHog
-    if (posthog) {
-      const properties: Record<string, string | boolean> = {
-        $exception_type: error.name || 'Error',
-        $exception_message: error.message,
-        errorBoundary: true,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (error.stack) {
-        properties.$exception_stack = error.stack;
-      }
-
-      if (errorInfo.componentStack) {
-        properties.componentStack = errorInfo.componentStack;
-      }
-
-      posthog.capture('$exception', properties);
-    }
-
-    // Capture error in Sentry as well (primary error reporting)
-    Sentry.withScope((scope) => {
-      scope.setTag('errorBoundary', 'posthog');
-      scope.setTag('surface', 'react');
-      scope.setContext('react', {
-        componentStack: errorInfo.componentStack,
-      });
-      Sentry.captureException(error);
+    // Report to Sentry + PostHog
+    trackError(error, {
+      errorBoundary: 'posthog',
+      componentStack: errorInfo.componentStack,
     });
 
     // Also log using logger
