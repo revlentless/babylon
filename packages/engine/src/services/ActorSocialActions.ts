@@ -6,6 +6,7 @@
  */
 
 import {
+  aliasedTable,
   and,
   chatParticipants,
   chats,
@@ -119,37 +120,26 @@ export class ActorSocialActions {
         // Check if there's already a DM chat between this actor and user
         let hasExistingDM = false;
         if (userId && actor.id) {
-          const dmChats = await db
-            .select({
-              chatId: chats.id,
-              participants: chatParticipants.userId,
-            })
-            .from(chats)
-            .innerJoin(chatParticipants, eq(chatParticipants.chatId, chats.id))
-            .where(eq(chats.isGroup, false));
-
-          // Group by chat to check for DM between these two users
-          const chatParticipantMap = new Map<string, string[]>();
-          for (const row of dmChats) {
-            if (!chatParticipantMap.has(row.chatId)) {
-              chatParticipantMap.set(row.chatId, []);
-            }
-            if (row.participants) {
-              chatParticipantMap.get(row.chatId)!.push(row.participants);
-            }
-          }
-
-          // Check if any chat has exactly these two participants
-          for (const [, participants] of chatParticipantMap) {
-            if (
-              participants.length === 2 &&
-              participants.includes(userId) &&
-              participants.includes(actor.id)
-            ) {
-              hasExistingDM = true;
-              break;
-            }
-          }
+          const otherParticipants = aliasedTable(chatParticipants, 'cp2');
+          const existingDM = await db
+            .select({ chatId: chatParticipants.chatId })
+            .from(chatParticipants)
+            .innerJoin(chats, eq(chatParticipants.chatId, chats.id))
+            .innerJoin(
+              otherParticipants,
+              eq(chatParticipants.chatId, otherParticipants.chatId)
+            )
+            .where(
+              and(
+                eq(chatParticipants.userId, userId),
+                eq(chatParticipants.isActive, true),
+                eq(chats.isGroup, false),
+                eq(otherParticipants.userId, actor.id),
+                eq(otherParticipants.isActive, true)
+              )
+            )
+            .limit(1);
+          hasExistingDM = existingDM.length > 0;
         }
 
         // Calculate probabilities based on interaction quality and count
