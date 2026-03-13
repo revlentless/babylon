@@ -17,7 +17,7 @@ import {
   randomChance,
   shuffleArray,
 } from '../utils/randomization';
-import { StaticDataRegistry } from './static-data-registry';
+import { type StaticActor, StaticDataRegistry } from './static-data-registry';
 
 /**
  * Personality type derived from actor's personality field
@@ -304,19 +304,10 @@ const DEFAULT_CONFIG: CharacterConfig = {
 };
 
 /**
- * Get configuration for a specific character
- * Derives config from the actor's existing data in StaticDataRegistry
- *
- * @param actorId - The actor's ID
- * @returns Full character configuration
+ * Build character config from a resolved actor.
+ * Shared by getCharacterConfig and getCharacterConfigOrDefault.
  */
-export function getCharacterConfig(actorId: string): CharacterConfig {
-  const actor = StaticDataRegistry.getActor(actorId);
-
-  if (!actor) {
-    throw new Error(`Actor '${actorId}' not found in StaticDataRegistry`);
-  }
-
+function buildConfig(actorId: string, actor: StaticActor): CharacterConfig {
   const personalityType = derivePersonalityType(actor.personality);
   const domains = actor.domain || [];
   const rivals = RIVALRY_MAP.get(actorId) || [];
@@ -337,6 +328,23 @@ export function getCharacterConfig(actorId: string): CharacterConfig {
 }
 
 /**
+ * Get configuration for a specific character
+ * Derives config from the actor's existing data in StaticDataRegistry
+ *
+ * @param actorId - The actor's ID
+ * @returns Full character configuration
+ */
+export function getCharacterConfig(actorId: string): CharacterConfig {
+  const actor = StaticDataRegistry.getActor(actorId);
+
+  if (!actor) {
+    throw new Error(`Actor '${actorId}' not found in StaticDataRegistry`);
+  }
+
+  return buildConfig(actorId, actor);
+}
+
+/**
  * Get configuration for a specific character, returning default config if not found.
  * Use this variant when caller can handle missing actors gracefully.
  *
@@ -350,23 +358,7 @@ export function getCharacterConfigOrDefault(actorId: string): CharacterConfig {
     return DEFAULT_CONFIG;
   }
 
-  const personalityType = derivePersonalityType(actor.personality);
-  const domains = actor.domain || [];
-  const rivals = RIVALRY_MAP.get(actorId) || [];
-  const voicePatterns = deriveVoicePatterns(actorId, actor.postStyle);
-  const templatePosts = actor.postExample || [];
-
-  return {
-    temperature: PERSONALITY_TEMPERATURES[personalityType],
-    personalityType,
-    domains,
-    rivals,
-    voicePatterns,
-    antiPatterns: [],
-    templatePosts,
-    offDomainProbability: OFFDOMAIN_PROBABILITIES[personalityType],
-    organicPostProbability: ORGANIC_PROBABILITIES[personalityType],
-  };
+  return buildConfig(actorId, actor);
 }
 
 /**
