@@ -79,8 +79,7 @@ import {
   RESOLUTION_CONFIDENCE_CONFIG,
 } from '@babylon/shared';
 import { type Article, ArticleGenerator } from './ArticleGenerator';
-import type { BabylonLLMClient } from './llm/openai-client';
-import { BabylonLLMClient as BabylonLLMClientValue } from './llm/openai-client';
+import { BabylonLLMClient } from './llm/openai-client';
 import { MarketDecisionEngine } from './MarketDecisionEngine';
 import {
   generateWorldContext,
@@ -1540,7 +1539,7 @@ XML: <response><questions><question><text>...</text><resolutionCriteria>...</res
       const contextService = new MarketContextService();
 
       // Create LLM client for market decisions
-      const marketDecisionLLM = BabylonLLMClientValue.forGameTick();
+      const marketDecisionLLM = BabylonLLMClient.forGameTick();
 
       const modelName = process.env.MARKET_DECISION_MODEL || 'qwen/qwen3-32b';
       const isKimiModel = modelName.toLowerCase().includes('kimi');
