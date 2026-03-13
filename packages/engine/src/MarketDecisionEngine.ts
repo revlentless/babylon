@@ -695,21 +695,24 @@ Current Focus: ${recentTopics || 'Market General'}
     // Get shuffled examples for entropy
     const examples = getShuffledExamplesText();
 
-    // Build the full prompt
-    let prompt = renderPrompt(npcMarketDecisions, {
+    // Shared template variables for all renderPrompt calls (only npcsList varies)
+    const sharedPromptVars = {
       examples,
       marketTable,
       npcCount: contexts.length.toString(),
-      npcsList,
       validNpcIds,
       validTickers,
       realityGrounding: worldContext.realityGrounding,
       activeQuestions: activeQuestionsText,
       recentEvents: recentEventsText,
-      // Add rich narrative context if available
       richGameContext: worldContext.richGameContext || '',
-      // BAB-5: Event-market signals for informed trading decisions
       eventMarketSignals,
+    };
+
+    // Build the full prompt
+    let prompt = renderPrompt(npcMarketDecisions, {
+      ...sharedPromptVars,
+      npcsList,
     });
 
     // Count tokens and enforce limit
@@ -741,18 +744,8 @@ Current Focus: ${recentTopics || 'Market General'}
       // Truncate the npcsList section while preserving prompt structure
       // Reserve extra buffer (10%) to account for token counting inaccuracies
       const promptPrefix = renderPrompt(npcMarketDecisions, {
-        examples,
-        npcCount: contexts.length.toString(),
+        ...sharedPromptVars,
         npcsList: '',
-        marketTable,
-        validNpcIds,
-        validTickers,
-        realityGrounding: worldContext.realityGrounding,
-        activeQuestions: activeQuestionsText,
-        recentEvents: recentEventsText,
-        richGameContext: worldContext.richGameContext || '',
-        // BAB-5: Event-market signals (required variable)
-        eventMarketSignals,
       });
       const prefixTokens = countTokensSync(promptPrefix);
       const bufferTokens = Math.floor(this.tokenConfig.maxContextTokens * 0.1); // 10% buffer
@@ -765,18 +758,8 @@ Current Focus: ${recentTopics || 'Market General'}
       npcsList = truncated.text;
 
       prompt = renderPrompt(npcMarketDecisions, {
-        examples,
-        npcCount: contexts.length.toString(),
+        ...sharedPromptVars,
         npcsList,
-        marketTable,
-        validNpcIds,
-        validTickers,
-        realityGrounding: worldContext.realityGrounding,
-        activeQuestions: activeQuestionsText,
-        recentEvents: recentEventsText,
-        richGameContext: worldContext.richGameContext || '',
-        // BAB-5: Event-market signals (required variable)
-        eventMarketSignals,
       });
 
       promptTokens = countTokensSync(prompt);
