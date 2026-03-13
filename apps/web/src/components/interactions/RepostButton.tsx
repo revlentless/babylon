@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { formatTimeAgo } from '@/lib/formatTimeAgo';
 import { useFeedStore } from '@/stores/feedStore';
 import { useInteractionStore } from '@/stores/interactionStore';
 
@@ -151,20 +152,6 @@ export function RepostButton({
   };
 
   // Format timestamp for display
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m`;
-    if (diffHours < 24) return `${diffHours}h`;
-    if (diffDays < 7) return `${diffDays}d`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
 
   return (
     <>
@@ -320,7 +307,9 @@ export function RepostButton({
                           {postData.authorName}
                         </span>
                         <span className="text-muted-foreground text-xs">
-                          {formatTime(postData.timestamp)}
+                          {formatTimeAgo(postData.timestamp, {
+                            addSuffix: false,
+                          })}
                         </span>
                       </div>
                       <span className="text-muted-foreground text-xs">
@@ -450,7 +439,9 @@ export function RepostButton({
                             {postData.authorName}
                           </span>
                           <span className="text-muted-foreground text-sm">
-                            {formatTime(postData.timestamp)}
+                            {formatTimeAgo(postData.timestamp, {
+                              addSuffix: false,
+                            })}
                           </span>
                         </div>
                         <span className="text-muted-foreground text-sm">

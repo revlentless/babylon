@@ -14,6 +14,7 @@ import { Avatar } from '@/components/shared/Avatar';
 import { Skeleton } from '@/components/shared/Skeleton';
 import { usePredictionMarketStream } from '@/hooks/usePredictionMarketStream';
 import { formatCurrencyDisplay } from '@/lib/format';
+import { formatTimeAgo } from '@/lib/formatTimeAgo';
 
 /**
  * Page size for pagination in trades feed.
@@ -351,23 +352,6 @@ export function AssetTradesFeed({
 
   const formatCurrency = formatCurrencyDisplay;
 
-  const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = Date.now();
-    const diff = now - date.getTime();
-
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   if (loading) {
     return (
       <div className={cn(compact ? 'space-y-2' : 'space-y-3')}>
@@ -457,7 +441,6 @@ export function AssetTradesFeed({
           key={trade.id}
           trade={trade}
           formatCurrency={formatCurrency}
-          formatTime={formatTime}
           density={density}
         />
       ))}
@@ -485,7 +468,6 @@ export function AssetTradesFeed({
 interface TradeCardProps {
   trade: Trade;
   formatCurrency: (value: string | number) => string;
-  formatTime: (timestamp: string) => string;
   density: 'default' | 'compact';
 }
 
@@ -493,7 +475,6 @@ interface TradeCardProps {
 const TradeCard = memo(function TradeCard({
   trade,
   formatCurrency,
-  formatTime,
   density,
 }: TradeCardProps) {
   const user = trade.user;
@@ -543,7 +524,7 @@ const TradeCard = memo(function TradeCard({
             )}
             <span className="flex items-center gap-1 text-muted-foreground text-xs">
               <Clock className="h-3 w-3" />
-              {formatTime(trade.timestamp)}
+              {formatTimeAgo(trade.timestamp)}
             </span>
           </div>
 

@@ -2,7 +2,6 @@
 
 import type { CommentPreviewData } from '@babylon/shared';
 import { cn, getProfileUrl } from '@babylon/shared';
-import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { memo } from 'react';
@@ -12,6 +11,7 @@ import {
   isNpcIdentifier,
   VerifiedBadge,
 } from '@/components/shared/VerifiedBadge';
+import { formatTimeAgo } from '@/lib/formatTimeAgo';
 
 // Re-export for convenience
 export type { CommentPreviewData } from '@babylon/shared';
@@ -199,24 +199,5 @@ const CommentPreviewItem = memo(function CommentPreviewItem({
  * Format timestamp to relative time with suffix (e.g., "5m ago", "2h ago", "just now")
  * Exported for unit testing.
  */
-export function formatTimeAgo(timestamp: string): string {
-  try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMinutes = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    const diffWeeks = Math.floor(diffDays / 7);
-
-    if (diffMinutes < 1) return 'just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    if (diffWeeks < 4) return `${diffWeeks}w ago`;
-
-    return formatDistanceToNow(date, { addSuffix: true });
-  } catch {
-    return '';
-  }
-}
+// Re-export for backwards compatibility with existing imports
+export { formatTimeAgo } from '@/lib/formatTimeAgo';
