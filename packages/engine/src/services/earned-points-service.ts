@@ -406,11 +406,23 @@ export class EarnedPointsService {
     );
 
     let successCount = 0;
-    const errorCount = 0;
+    let errorCount = 0;
 
     for (const user of usersList) {
-      await EarnedPointsService.syncEarnedPointsFromPnL(user.id);
-      successCount++;
+      try {
+        await EarnedPointsService.syncEarnedPointsFromPnL(user.id);
+        successCount++;
+      } catch (e) {
+        errorCount++;
+        logger.warn(
+          'Failed to sync earned points for user',
+          {
+            userId: user.id,
+            error: e instanceof Error ? e.message : String(e),
+          },
+          'EarnedPointsService'
+        );
+      }
     }
 
     logger.info(
