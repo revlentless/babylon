@@ -15,6 +15,21 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 
+/** Local Hardhat/Anvil chain definition (id 31337). */
+function getLocalChain(rpcUrl: string) {
+  return {
+    id: 31337,
+    name: 'Local',
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  } as const;
+}
+
+/** Pre-computed keccak256 hash of the MarketCreated event signature. */
+const MARKET_CREATED_EVENT_SIGNATURE_HASH = keccak256(
+  toBytes('MarketCreated(bytes32,string,uint8,uint256)')
+);
+
 /**
  * Create a prediction market on-chain
  * @param question The question text
@@ -44,29 +59,19 @@ export async function createMarketOnChain(
     return null;
   }
 
+  const chain = rpcUrl.includes('localhost')
+    ? getLocalChain(rpcUrl)
+    : baseSepolia;
+
   const publicClient = createPublicClient({
-    chain: rpcUrl.includes('localhost')
-      ? {
-          id: 31337,
-          name: 'Local',
-          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-          rpcUrls: { default: { http: [rpcUrl] } },
-        }
-      : baseSepolia,
+    chain,
     transport: http(rpcUrl),
   });
 
   const account = privateKeyToAccount(deployerPrivateKey);
   const walletClient = createWalletClient({
     account,
-    chain: rpcUrl.includes('localhost')
-      ? {
-          id: 31337,
-          name: 'Local',
-          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-          rpcUrls: { default: { http: [rpcUrl] } },
-        }
-      : baseSepolia,
+    chain,
     transport: http(rpcUrl),
   });
 
@@ -135,14 +140,11 @@ export async function createMarketOnChain(
     // topics[0] = event signature hash
     // topics[1] = marketId (indexed, first parameter)
 
-    // Calculate event signature hash
-    const eventSignature = 'MarketCreated(bytes32,string,uint8,uint256)';
-    const eventSignatureHash = keccak256(toBytes(eventSignature));
-
     const marketCreatedEvent = receipt.logs.find((log) => {
       // Check if this log matches the MarketCreated event
       return (
-        log.topics[0]?.toLowerCase() === eventSignatureHash.toLowerCase() &&
+        log.topics[0]?.toLowerCase() ===
+          MARKET_CREATED_EVENT_SIGNATURE_HASH.toLowerCase() &&
         log.topics.length >= 2
       );
     });
@@ -211,27 +213,22 @@ export async function getMarketIdFromTx(
 ): Promise<`0x${string}` | null> {
   const rpcUrl = getCurrentRpcUrl();
 
+  const chain = rpcUrl.includes('localhost')
+    ? getLocalChain(rpcUrl)
+    : baseSepolia;
+
   const publicClient = createPublicClient({
-    chain: rpcUrl.includes('localhost')
-      ? {
-          id: 31337,
-          name: 'Local',
-          nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-          rpcUrls: { default: { http: [rpcUrl] } },
-        }
-      : baseSepolia,
+    chain,
     transport: http(rpcUrl),
   });
 
   const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
 
   // Look for MarketCreated event using event signature
-  const eventSignature = 'MarketCreated(bytes32,string,uint8,uint256)';
-  const eventSignatureHash = keccak256(toBytes(eventSignature));
-
   const marketCreatedEvent = receipt.logs.find((log) => {
     return (
-      log.topics[0]?.toLowerCase() === eventSignatureHash.toLowerCase() &&
+      log.topics[0]?.toLowerCase() ===
+        MARKET_CREATED_EVENT_SIGNATURE_HASH.toLowerCase() &&
       log.topics.length >= 2
     );
   });
