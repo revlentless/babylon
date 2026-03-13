@@ -40,6 +40,45 @@ export interface AppliedPriceUpdate {
 }
 
 export class PriceUpdateService {
+  private static perpService: PerpMarketService | null = null;
+
+  private static getPerpService(): PerpMarketService {
+    if (!PriceUpdateService.perpService) {
+      PriceUpdateService.perpService = new PerpMarketService({
+        db: new PerpDbAdapter(),
+        wallet: {
+          debit: ({ userId, amount, reason, description, relatedId }) =>
+            WalletService.debit(
+              userId,
+              amount,
+              reason,
+              description ?? '',
+              relatedId
+            ),
+          credit: ({ userId, amount, reason, description, relatedId }) =>
+            WalletService.credit(
+              userId,
+              amount,
+              reason,
+              description ?? '',
+              relatedId
+            ),
+          recordPnL: async ({ userId, pnl, reason, relatedId }) => {
+            await WalletService.recordPnL(userId, pnl, reason, relatedId);
+          },
+          getBalance: (userId: string) => WalletService.getBalance(userId),
+        },
+        fees: {
+          tradingFeeRate: FEE_CONFIG.TRADING_FEE_RATE,
+          platformShare: FEE_CONFIG.PLATFORM_SHARE,
+          referrerShare: FEE_CONFIG.REFERRER_SHARE,
+          minFeeAmount: FEE_CONFIG.MIN_FEE_AMOUNT,
+        },
+      });
+    }
+    return PriceUpdateService.perpService;
+  }
+
   /**
    * Apply a batch of price updates with persistence, engine sync, and SSE broadcast
    */
@@ -48,37 +87,7 @@ export class PriceUpdateService {
   ): Promise<AppliedPriceUpdate[]> {
     if (updates.length === 0) return [];
 
-    const perpService = new PerpMarketService({
-      db: new PerpDbAdapter(),
-      wallet: {
-        debit: ({ userId, amount, reason, description, relatedId }) =>
-          WalletService.debit(
-            userId,
-            amount,
-            reason,
-            description ?? '',
-            relatedId
-          ),
-        credit: ({ userId, amount, reason, description, relatedId }) =>
-          WalletService.credit(
-            userId,
-            amount,
-            reason,
-            description ?? '',
-            relatedId
-          ),
-        recordPnL: async ({ userId, pnl, reason, relatedId }) => {
-          await WalletService.recordPnL(userId, pnl, reason, relatedId);
-        },
-        getBalance: (userId: string) => WalletService.getBalance(userId),
-      },
-      fees: {
-        tradingFeeRate: FEE_CONFIG.TRADING_FEE_RATE,
-        platformShare: FEE_CONFIG.PLATFORM_SHARE,
-        referrerShare: FEE_CONFIG.REFERRER_SHARE,
-        minFeeAmount: FEE_CONFIG.MIN_FEE_AMOUNT,
-      },
-    });
+    const perpService = PriceUpdateService.getPerpService();
     const appliedUpdates: AppliedPriceUpdate[] = [];
     const priceMap = new Map<string, number>();
     const now = new Date();
