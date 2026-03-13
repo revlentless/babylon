@@ -267,7 +267,7 @@ export function MessageInput({
     }
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: value triggers resize
+  // biome-ignore lint/correctness/useExhaustiveDependencies: value is an intentional trigger dep — resizeTextarea is stable, so value changing is what actually triggers the resize recalculation
   useEffect(() => {
     resizeTextarea();
   }, [value, resizeTextarea]);
