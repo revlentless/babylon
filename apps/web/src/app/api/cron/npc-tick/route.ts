@@ -606,7 +606,7 @@ export const POST = withErrorHandling(async function POST(_req: NextRequest) {
 
       // Trim world facts to avoid bloating reply/quote/comment prompts
       const worldFactsLines =
-        worldFacts?.general?.split('\n').slice(0, 20).join('\n') ?? '';
+        worldFacts?.facts?.split('\n').slice(0, 20).join('\n') ?? '';
       const worldFactsContext = worldFactsLines
         ? `=== WORLD CONTEXT (Current Reality — short) ===\n${worldFactsLines}\n`
         : '';

@@ -18,11 +18,7 @@ import { createParodyHeadlineGenerator } from './services/parody-headline-genera
 import { isSimulationMode } from './storage-bridge';
 
 export interface WorldFactsContext {
-  crypto: string;
-  politics: string;
-  economy: string;
-  technology: string;
-  general: string;
+  facts: string;
   timestamp: string;
   headlines?: string;
   dailyTopic?: string;
@@ -276,11 +272,7 @@ export class WorldFactsService {
     }
 
     return {
-      crypto: formattedFacts,
-      politics: formattedFacts,
-      economy: formattedFacts,
-      technology: formattedFacts,
-      general: formattedFacts,
+      facts: formattedFacts,
       timestamp: new Date().toISOString(),
       headlines: headlinesContext,
       dailyTopic: dailyTopic
@@ -301,7 +293,7 @@ Date/Time: ${context.timestamp}
 
 ${context.dailyTopic ? `${context.dailyTopic}\n` : ''}
 
-${context.general}
+${context.facts}
 
 ${context.headlines ? `\n${context.headlines}\n` : ''}
 =========================================

@@ -243,10 +243,10 @@ Remember: You are ${npcActor.name}. Post in YOUR voice, not as a reporter.
   }
 
   // Get world facts for context (fail-fast: let errors propagate)
-  // Use worldFacts.general (fast, no LLM call) rather than headlines (requires LLM)
+  // Use worldFacts.facts (fast, no LLM call) rather than headlines (requires LLM)
   const worldFacts = await worldFactsService.generateWorldContext(false);
-  const worldContext = worldFacts.general
-    ? `=== WHAT'S HAPPENING ===\n${worldFacts.general}\n\n`
+  const worldContext = worldFacts.facts
+    ? `=== WHAT'S HAPPENING ===\n${worldFacts.facts}\n\n`
     : '';
 
   return `

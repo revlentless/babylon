@@ -329,7 +329,7 @@ export async function buildRichGameContext(
     characterEventHistories,
     characterPostHistories,
     worldFacts: truncateText(
-      worldFacts.general || '',
+      worldFacts.facts || '',
       CONTEXT_LIMITS.MAX_SECTION_LENGTH
     ),
     phase,

@@ -398,7 +398,7 @@ export async function generateWorldContext(
     includeTrades ? generateRecentTrades() : Promise.resolve(''),
     includeWorldFacts
       ? worldFactsService.generateWorldContext(false)
-      : Promise.resolve({ general: '' }),
+      : Promise.resolve({ facts: '' }),
   ]);
 
   // Determine reality grounding level
@@ -441,7 +441,7 @@ export async function generateWorldContext(
     realityGrounding,
 
     // Dynamic world facts
-    worldFacts: worldFactsData.general,
+    worldFacts: worldFactsData.facts,
   };
 }
 
