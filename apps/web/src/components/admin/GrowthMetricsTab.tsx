@@ -11,7 +11,7 @@
  */
 'use client';
 
-import { cn, formatNumber } from '@babylon/shared';
+import { cn, formatNumber, POLL_INTERVAL_MS } from '@babylon/shared';
 import {
   Activity,
   ArrowDown,
@@ -192,9 +192,8 @@ export function GrowthMetricsTab() {
     fetchData();
   }, [fetchData]);
 
-  // Auto-refresh every 60 seconds
   useEffect(() => {
-    const interval = setInterval(() => fetchData(), 60000);
+    const interval = setInterval(() => fetchData(), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchData]);
 

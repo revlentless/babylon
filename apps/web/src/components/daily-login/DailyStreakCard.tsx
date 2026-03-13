@@ -1,6 +1,6 @@
 'use client';
 
-import { logger } from '@babylon/shared';
+import { logger, POLL_INTERVAL_MS } from '@babylon/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -115,7 +115,7 @@ export function DailyStreakCard() {
           canClaim: newCanClaim,
         };
       });
-    }, 60_000);
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [canClaim, fetchData]);
 

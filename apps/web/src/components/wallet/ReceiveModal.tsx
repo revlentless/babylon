@@ -1,5 +1,6 @@
 'use client';
 
+import { COPY_FEEDBACK_DURATION_MS } from '@babylon/shared';
 import { Check, Copy, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -42,7 +43,7 @@ export function ReceiveModal({
     await navigator.clipboard.writeText(address);
     setCopied(true);
     toast.success('Address copied to clipboard');
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   if (!open) return null;

@@ -1,7 +1,7 @@
 'use client';
 
 import type { FeedPost, RepostButtonProps } from '@babylon/shared';
-import { cn } from '@babylon/shared';
+import { ANIMATION_DURATION_MS, cn } from '@babylon/shared';
 import { Repeat2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar } from '@/components/shared/Avatar';
@@ -108,7 +108,7 @@ export function RepostButton({
 
     // Trigger animation
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 300);
+    setTimeout(() => setIsAnimating(false), ANIMATION_DURATION_MS);
 
     const response = await toggleShare(postId, commentToSend);
     onShareChange?.(willBeShared);

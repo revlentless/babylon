@@ -32,6 +32,14 @@ import { cn } from '@babylon/shared';
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/** Score thresholds for color coding and labels */
+const SCORE_THRESHOLDS = {
+  EXCELLENT: 80,
+  GOOD: 60,
+  AVERAGE: 40,
+  BELOW_AVERAGE: 20,
+} as const;
+
 interface ScoreSliderProps {
   value?: number; // 0-100
   onChange?: (score: number) => void;
@@ -62,20 +70,24 @@ export function ScoreSlider({
   const percentage = ((clampedValue - min) / (max - min)) * 100;
 
   const getColorClass = (score: number): string => {
-    if (score >= 80) return 'bg-green-500';
-    if (score >= 60) return 'bg-blue-500';
-    if (score >= 40) return 'bg-yellow-500';
-    if (score >= 20) return 'bg-orange-500';
+    if (score >= SCORE_THRESHOLDS.EXCELLENT) return 'bg-green-500';
+    if (score >= SCORE_THRESHOLDS.GOOD) return 'bg-blue-500';
+    if (score >= SCORE_THRESHOLDS.AVERAGE) return 'bg-yellow-500';
+    if (score >= SCORE_THRESHOLDS.BELOW_AVERAGE) return 'bg-orange-500';
     return 'bg-red-500';
   };
 
   const getScoreLabel = (
     score: number
   ): { label: string; Icon: typeof TrendingUp } => {
-    if (score >= 80) return { label: 'Excellent', Icon: TrendingUp };
-    if (score >= 60) return { label: 'Good', Icon: TrendingUp };
-    if (score >= 40) return { label: 'Average', Icon: Minus };
-    if (score >= 20) return { label: 'Below Average', Icon: TrendingDown };
+    if (score >= SCORE_THRESHOLDS.EXCELLENT)
+      return { label: 'Excellent', Icon: TrendingUp };
+    if (score >= SCORE_THRESHOLDS.GOOD)
+      return { label: 'Good', Icon: TrendingUp };
+    if (score >= SCORE_THRESHOLDS.AVERAGE)
+      return { label: 'Average', Icon: Minus };
+    if (score >= SCORE_THRESHOLDS.BELOW_AVERAGE)
+      return { label: 'Below Average', Icon: TrendingDown };
     return { label: 'Poor', Icon: TrendingDown };
   };
 

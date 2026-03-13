@@ -1,7 +1,7 @@
 'use client';
 
 import type { LikeButtonProps } from '@babylon/shared';
-import { cn } from '@babylon/shared';
+import { ANIMATION_DURATION_MS, cn } from '@babylon/shared';
 import { Frown, Heart, Laugh } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Skeleton } from '@/components/shared/Skeleton';
@@ -166,7 +166,7 @@ export function LikeButton({
     }
     // Trigger animation
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 300);
+    setTimeout(() => setIsAnimating(false), ANIMATION_DURATION_MS);
 
     const willBeLiked = !isLiked;
     if (targetType === 'post') {
@@ -191,7 +191,7 @@ export function LikeButton({
 
     // Trigger animation
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 300);
+    setTimeout(() => setIsAnimating(false), ANIMATION_DURATION_MS);
 
     // If already liked, changing reaction type doesn't toggle the like state
     if (isLiked) return;

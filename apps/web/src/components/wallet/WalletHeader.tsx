@@ -1,6 +1,6 @@
 'use client';
 
-import { CHAIN } from '@babylon/shared';
+import { CHAIN, COPY_FEEDBACK_DURATION_MS } from '@babylon/shared';
 import { useFundWallet } from '@privy-io/react-auth';
 import { Check, Copy, ExternalLink, QrCode, Wallet } from 'lucide-react';
 import { useState } from 'react';
@@ -24,7 +24,7 @@ export function WalletHeader({ address, chainName }: WalletHeaderProps) {
     await navigator.clipboard.writeText(address);
     setCopied(true);
     toast.success('Address copied to clipboard');
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   const handleFund = () => {

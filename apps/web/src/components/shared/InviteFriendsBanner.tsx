@@ -1,6 +1,6 @@
 'use client';
 
-import { getReferralUrl } from '@babylon/shared';
+import { COPY_FEEDBACK_DURATION_MS, getReferralUrl } from '@babylon/shared';
 import { Check, Copy, ExternalLink, Trophy, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -72,7 +72,7 @@ export function InviteFriendsBanner({ onDismiss }: InviteFriendsBannerProps) {
     const referralUrl = getReferralUrl(user.referralCode);
     await navigator.clipboard.writeText(referralUrl);
     setCopiedReferral(true);
-    setTimeout(() => setCopiedReferral(false), 2000);
+    setTimeout(() => setCopiedReferral(false), COPY_FEEDBACK_DURATION_MS);
   };
 
   const handleDismiss = async (e: React.MouseEvent) => {

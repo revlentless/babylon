@@ -112,6 +112,23 @@ export const FEED_TARGETS = {
   MAX_GROUP_MESSAGES: 200,
 } as const;
 
+// ---------------------------------------------------------------------------
+// UI Timing Constants
+// Used across multiple components for consistent timing behavior
+// ---------------------------------------------------------------------------
+
+/** Standard polling interval for background data refreshes (1 minute) */
+export const POLL_INTERVAL_MS = 60_000;
+
+/** Duration to show "copied!" feedback after clipboard copy actions */
+export const COPY_FEEDBACK_DURATION_MS = 2_000;
+
+/** Duration for button press / interaction animations (e.g. like, repost) */
+export const ANIMATION_DURATION_MS = 300;
+
+/** Twitter / post character limit */
+export const MAX_POST_CHAR_LIMIT = 280;
+
 /**
  * Escalation rules for content intensity
  * Controls how wild content can get based on day number
