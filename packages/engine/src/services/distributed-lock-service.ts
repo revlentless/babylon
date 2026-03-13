@@ -22,9 +22,18 @@ export interface DistributedLockProvider {
 
 class InMemoryDistributedLockProvider implements DistributedLockProvider {
   private locks = new Map<string, { expiresAt: number; processId: string }>();
+  private acquireCount = 0;
+  private static readonly CLEANUP_INTERVAL = 100;
 
   async acquireLock(params: DistributedLockParams): Promise<boolean> {
     const now = Date.now();
+
+    this.acquireCount++;
+    if (this.acquireCount >= InMemoryDistributedLockProvider.CLEANUP_INTERVAL) {
+      this.acquireCount = 0;
+      this.removeExpiredEntries(now);
+    }
+
     const current = this.locks.get(params.lockId);
 
     if (current && current.expiresAt > now) {
@@ -37,6 +46,14 @@ class InMemoryDistributedLockProvider implements DistributedLockProvider {
     });
 
     return true;
+  }
+
+  private removeExpiredEntries(now: number): void {
+    for (const [id, lock] of this.locks) {
+      if (lock.expiresAt <= now) {
+        this.locks.delete(id);
+      }
+    }
   }
 
   async releaseLock(lockId: string, processId: string): Promise<void> {
