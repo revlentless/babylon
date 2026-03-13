@@ -107,6 +107,24 @@ export class RelationshipEvolutionEngine {
         const randomChance = Math.random() > 0.7; // 30% chance even without shared context
 
         if (hasSharedContext || randomChance) {
+          // Check if relationship already exists (single query reused below)
+          const [existing] = await db
+            .select()
+            .from(actorRelationships)
+            .where(
+              or(
+                and(
+                  eq(actorRelationships.actor1Id, actor1.id),
+                  eq(actorRelationships.actor2Id, actor2.id)
+                ),
+                and(
+                  eq(actorRelationships.actor1Id, actor2.id),
+                  eq(actorRelationships.actor2Id, actor1.id)
+                )
+              )
+            )
+            .limit(1);
+
           // Generate simple text description using LLM if available, otherwise use templates
           let history: string;
           let type: string;
@@ -116,24 +134,6 @@ export class RelationshipEvolutionEngine {
             // LLM-DRIVEN: Generate relationship from context
             const org = orgMap.get(first(sharedOrgs)!);
             const context = `both affiliated with ${org?.name || 'same organization'}`;
-
-            // Check if relationship already exists
-            const [existing] = await db
-              .select()
-              .from(actorRelationships)
-              .where(
-                or(
-                  and(
-                    eq(actorRelationships.actor1Id, actor1.id),
-                    eq(actorRelationships.actor2Id, actor2.id)
-                  ),
-                  and(
-                    eq(actorRelationships.actor1Id, actor2.id),
-                    eq(actorRelationships.actor2Id, actor1.id)
-                  )
-                )
-              )
-              .limit(1);
 
             const llmResult = await this.generateInitialRelationshipDescription(
               actor1.name,
@@ -165,26 +165,8 @@ export class RelationshipEvolutionEngine {
             sentiment = 0;
           }
 
-          // Create relationship (use insert with conflict handling to avoid duplicates)
-          // Check if relationship already exists first
-          const [existingRel] = await db
-            .select({ id: actorRelationships.id })
-            .from(actorRelationships)
-            .where(
-              or(
-                and(
-                  eq(actorRelationships.actor1Id, actor1.id),
-                  eq(actorRelationships.actor2Id, actor2.id)
-                ),
-                and(
-                  eq(actorRelationships.actor1Id, actor2.id),
-                  eq(actorRelationships.actor2Id, actor1.id)
-                )
-              )
-            )
-            .limit(1);
-
-          if (!existingRel) {
+          // Create relationship if it doesn't already exist
+          if (!existing) {
             await db.insert(actorRelationships).values({
               id: await generateSnowflakeId(),
               actor1Id: actor1.id,
