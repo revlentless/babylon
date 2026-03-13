@@ -7,19 +7,13 @@ import { logger } from '@babylon/shared';
 
 /**
  * Extract day number from timestamp string.
- * Assumes game runs in October 2025 format: "2025-10-DDTHH:MM:SSZ"
+ * Parses the day-of-month from any ISO 8601 date: "YYYY-MM-DDTHH:MM:SSZ"
  */
 export function extractDayFromTimestamp(timestamp: string): number {
-  // Try ISO format: "2025-10-15T12:00:00Z"
-  const isoMatch = timestamp.match(/2025-10-(\d{2})/);
+  // Match any ISO date: YYYY-MM-DD
+  const isoMatch = timestamp.match(/\d{4}-\d{2}-(\d{2})/);
   if (isoMatch) {
     return Number.parseInt(isoMatch[1]!, 10);
-  }
-
-  // Fallback: try to extract from any date format
-  const dateMatch = timestamp.match(/-(\d{2})T/);
-  if (dateMatch) {
-    return Number.parseInt(dateMatch[1]!, 10);
   }
 
   return 0;
@@ -132,4 +126,57 @@ export function toDateString(date: Date | string): string {
  */
 export function getTodayDateString(): string {
   return toDateString(new Date());
+}
+
+/**
+ * Default game start date used for day-number-to-date mapping.
+ * Matches the original genesis game start (October 1, 2025).
+ * Override via GAME_START_DATE env var (ISO 8601 date string).
+ */
+const DEFAULT_GAME_START = '2025-10-01T00:00:00Z';
+
+function getGameStartDate(): Date {
+  const envDate = process.env.GAME_START_DATE;
+  if (envDate) {
+    const parsed = new Date(envDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+    logger.warn(
+      'Invalid GAME_START_DATE env var, falling back to default',
+      { envDate },
+      'DateUtils'
+    );
+  }
+  return new Date(DEFAULT_GAME_START);
+}
+
+/**
+ * Convert a 1-indexed game day number to an ISO date string prefix.
+ * Day 1 maps to the game start date, day 2 to start + 1, etc.
+ *
+ * @param day - 1-indexed game day number
+ * @returns ISO date prefix like "2025-10-01T" (without time portion)
+ *
+ * @example
+ * ```typescript
+ * gameDatePrefix(1)  // "2025-10-01T"
+ * gameDatePrefix(15) // "2025-10-15T"
+ * ```
+ */
+export function gameDatePrefix(day: number): string {
+  const start = getGameStartDate();
+  const date = new Date(start.getTime() + (day - 1) * MS_PER_DAY);
+  return `${toDateString(date)}T`;
+}
+
+/**
+ * Convert a 1-indexed game day number to a full ISO timestamp.
+ *
+ * @param day - 1-indexed game day number
+ * @param time - Time portion like "12:00:00Z" (default "12:00:00Z")
+ * @returns Full ISO timestamp like "2025-10-01T12:00:00Z"
+ */
+export function gameDateTimestamp(day: number, time = '12:00:00Z'): string {
+  return `${gameDatePrefix(day)}${time}`;
 }

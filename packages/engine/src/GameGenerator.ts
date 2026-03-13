@@ -71,7 +71,7 @@ import type {
   SelectedActor,
   WorldEvent,
 } from './types/shared';
-import { toDateString } from './utils/date-utils';
+import { gameDatePrefix, toDateString } from './utils/date-utils';
 import {
   buildRichGameContext,
   formatRichGameContext,
@@ -2891,7 +2891,7 @@ ${req.members
               return {
                 from: msg.actorId,
                 message: messageText,
-                timestamp: `2025-10-${String(day).padStart(2, '0')}T${String(10 + j * 2).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:00Z`,
+                timestamp: `${gameDatePrefix(day)}${String(10 + j * 2).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:00Z`,
                 clueStrength:
                   req.members.find((m) => m.actorId === msg.actorId)?.role ===
                   'main'
