@@ -46,6 +46,98 @@ interface AvailableUser {
 }
 
 /**
+ * Props for the AdminRow component.
+ */
+interface AdminRowProps {
+  admin: AdminUser;
+  processing: boolean;
+  onRemoveClick: (admin: AdminUser) => void;
+  formatDate: (date: string) => string;
+}
+
+/**
+ * Admin row component for displaying a single admin user entry.
+ */
+function AdminRow({
+  admin,
+  processing,
+  onRemoveClick,
+  formatDate,
+}: AdminRowProps) {
+  const displayName = admin.displayName || admin.username || 'Anonymous';
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50">
+      <div className="flex items-start gap-4">
+        {/* Avatar and Basic Info */}
+        <Avatar
+          src={admin.profileImageUrl || undefined}
+          alt={displayName}
+          size="md"
+        />
+
+        <div className="min-w-0 flex-1 space-y-2">
+          {/* Name and Badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-bold text-lg">{displayName}</span>
+            {admin.username && admin.displayName !== admin.username && (
+              <span className="text-muted-foreground text-sm">
+                @{admin.username}
+              </span>
+            )}
+            <span className="flex items-center gap-1 rounded bg-orange-500/20 px-2 py-0.5 text-orange-500 text-xs">
+              <Shield className="h-3 w-3" />
+              Admin
+            </span>
+            {admin.onChainRegistered && (
+              <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-500 text-xs">
+                On-chain
+              </span>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
+            {admin.hasFarcaster && (
+              <span className="flex items-center gap-1">
+                <span className="text-purple-500">●</span>
+                Farcaster
+              </span>
+            )}
+            {admin.hasTwitter && (
+              <span className="flex items-center gap-1">
+                <span className="text-blue-500">●</span>
+                Twitter
+              </span>
+            )}
+            <span>Joined: {formatDate(admin.createdAt)}</span>
+          </div>
+
+          {/* Wallet Address */}
+          {admin.walletAddress && (
+            <div className="truncate font-mono text-muted-foreground text-xs">
+              {admin.walletAddress}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => onRemoveClick(admin)}
+            disabled={processing}
+            className="flex items-center gap-1 whitespace-nowrap rounded bg-red-500/20 px-3 py-1.5 font-medium text-red-500 text-sm transition-colors hover:bg-red-500/30 disabled:opacity-50"
+          >
+            <UserMinus className="h-4 w-4" />
+            Remove Admin
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Admin management tab component for managing admin users.
  *
  * Provides interface for viewing, adding, and removing admin users.
@@ -175,83 +267,6 @@ export function AdminManagementTab() {
     });
   };
 
-  const AdminRow = ({ admin }: { admin: AdminUser }) => {
-    const displayName = admin.displayName || admin.username || 'Anonymous';
-
-    return (
-      <div className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50">
-        <div className="flex items-start gap-4">
-          {/* Avatar and Basic Info */}
-          <Avatar
-            src={admin.profileImageUrl || undefined}
-            alt={displayName}
-            size="md"
-          />
-
-          <div className="min-w-0 flex-1 space-y-2">
-            {/* Name and Badges */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate font-bold text-lg">{displayName}</span>
-              {admin.username && admin.displayName !== admin.username && (
-                <span className="text-muted-foreground text-sm">
-                  @{admin.username}
-                </span>
-              )}
-              <span className="flex items-center gap-1 rounded bg-orange-500/20 px-2 py-0.5 text-orange-500 text-xs">
-                <Shield className="h-3 w-3" />
-                Admin
-              </span>
-              {admin.onChainRegistered && (
-                <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-500 text-xs">
-                  On-chain
-                </span>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
-              {admin.hasFarcaster && (
-                <span className="flex items-center gap-1">
-                  <span className="text-purple-500">●</span>
-                  Farcaster
-                </span>
-              )}
-              {admin.hasTwitter && (
-                <span className="flex items-center gap-1">
-                  <span className="text-blue-500">●</span>
-                  Twitter
-                </span>
-              )}
-              <span>Joined: {formatDate(admin.createdAt)}</span>
-            </div>
-
-            {/* Wallet Address */}
-            {admin.walletAddress && (
-              <div className="truncate font-mono text-muted-foreground text-xs">
-                {admin.walletAddress}
-              </div>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => {
-                setSelectedUser(admin);
-                setShowRemoveModal(true);
-              }}
-              disabled={processing}
-              className="flex items-center gap-1 whitespace-nowrap rounded bg-red-500/20 px-3 py-1.5 font-medium text-red-500 text-sm transition-colors hover:bg-red-500/30 disabled:opacity-50"
-            >
-              <UserMinus className="h-4 w-4" />
-              Remove Admin
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -310,7 +325,16 @@ export function AdminManagementTab() {
       ) : (
         <div className="space-y-3">
           {admins.map((admin) => (
-            <AdminRow key={admin.id} admin={admin} />
+            <AdminRow
+              key={admin.id}
+              admin={admin}
+              processing={processing}
+              onRemoveClick={(a) => {
+                setSelectedUser(a);
+                setShowRemoveModal(true);
+              }}
+              formatDate={formatDate}
+            />
           ))}
         </div>
       )}
