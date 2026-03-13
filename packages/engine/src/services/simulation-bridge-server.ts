@@ -685,137 +685,146 @@ class SimulationState {
 }
 
 // =============================================================================
-// Server Setup
+// Server Factory
 // =============================================================================
 
-const state = new SimulationState();
-const app = new Hono();
+interface SimulationServer {
+  app: Hono;
+  state: SimulationState;
+}
 
-// Middleware
-app.use('*', cors());
-app.use('*', honoLogger());
+function createServer(): SimulationServer {
+  const state = new SimulationState();
+  const app = new Hono();
 
-// Health check
-app.get('/health', (c) => {
-  return c.json({
-    status: 'healthy',
-    initialized: state.isInitialized,
-    tickCount: state.tickCount,
-    npcCount: state.npcArchetypes.size,
+  // Middleware
+  app.use('*', cors());
+  app.use('*', honoLogger());
+
+  // Health check
+  app.get('/health', (c) => {
+    return c.json({
+      status: 'healthy',
+      initialized: state.isInitialized,
+      tickCount: state.tickCount,
+      npcCount: state.npcArchetypes.size,
+    });
   });
-});
 
-// Initialize simulation
-app.post('/init', async (c) => {
-  try {
-    const body = await c.req.json<InitRequest>();
-    const result = await state.initialize(body);
-    return c.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json(
-      { status: 'error', npcIds: [], archetypes: {}, message },
-      500
+  // Initialize simulation
+  app.post('/init', async (c) => {
+    try {
+      const body = await c.req.json<InitRequest>();
+      const result = await state.initialize(body);
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return c.json(
+        { status: 'error', npcIds: [], archetypes: {}, message },
+        500
+      );
+    }
+  });
+
+  // Get scenario for NPC
+  app.get('/scenario/:npcId', async (c) => {
+    const npcId = c.req.param('npcId');
+
+    if (!state.isInitialized) {
+      return c.json({ error: 'Simulation not initialized' }, 400);
+    }
+
+    try {
+      const scenario = await state.getScenario(npcId);
+      return c.json(scenario);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  // Execute action
+  app.post('/execute', async (c) => {
+    try {
+      const body = await c.req.json<ExecuteRequest>();
+      const result = await state.executeAction(body);
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return c.json(
+        {
+          success: false,
+          pnl: 0,
+          newBalance: 0,
+          newPositions: [],
+          socialImpact: { reputationDelta: 0, followersGained: 0 },
+          events: [],
+          error: message,
+        },
+        500
+      );
+    }
+  });
+
+  // Advance simulation
+  app.post('/tick', async (c) => {
+    if (!state.isInitialized) {
+      return c.json({ error: 'Simulation not initialized' }, 400);
+    }
+
+    try {
+      const result = await state.advanceTick();
+      return c.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return c.json({ error: message }, 500);
+    }
+  });
+
+  // Reset simulation
+  app.post('/reset', (c) => {
+    state.reset();
+    return c.json({ status: 'reset' });
+  });
+
+  // List NPCs
+  app.get('/npcs', (c) => {
+    if (!state.isInitialized) {
+      return c.json({ error: 'Simulation not initialized' }, 400);
+    }
+
+    const npcs = Array.from(state.npcArchetypes.entries()).map(
+      ([id, archetype]) => ({
+        id,
+        archetype,
+      })
     );
-  }
-});
 
-// Get scenario for NPC
-app.get('/scenario/:npcId', async (c) => {
-  const npcId = c.req.param('npcId');
+    return c.json({ npcs, count: npcs.length });
+  });
 
-  if (!state.isInitialized) {
-    return c.json({ error: 'Simulation not initialized' }, 400);
-  }
+  // Get all scenarios (for batch processing)
+  app.get('/scenarios', async (c) => {
+    if (!state.isInitialized) {
+      return c.json({ error: 'Simulation not initialized' }, 400);
+    }
 
-  try {
-    const scenario = await state.getScenario(npcId);
-    return c.json(scenario);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: message }, 500);
-  }
-});
+    try {
+      // Fetch all scenarios in parallel for better performance
+      const scenarios = await Promise.all(
+        Array.from(state.npcArchetypes.keys()).map((npcId) =>
+          state.getScenario(npcId)
+        )
+      );
+      return c.json({ scenarios, count: scenarios.length });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return c.json({ error: message }, 500);
+    }
+  });
 
-// Execute action
-app.post('/execute', async (c) => {
-  try {
-    const body = await c.req.json<ExecuteRequest>();
-    const result = await state.executeAction(body);
-    return c.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json(
-      {
-        success: false,
-        pnl: 0,
-        newBalance: 0,
-        newPositions: [],
-        socialImpact: { reputationDelta: 0, followersGained: 0 },
-        events: [],
-        error: message,
-      },
-      500
-    );
-  }
-});
-
-// Advance simulation
-app.post('/tick', async (c) => {
-  if (!state.isInitialized) {
-    return c.json({ error: 'Simulation not initialized' }, 400);
-  }
-
-  try {
-    const result = await state.advanceTick();
-    return c.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: message }, 500);
-  }
-});
-
-// Reset simulation
-app.post('/reset', (c) => {
-  state.reset();
-  return c.json({ status: 'reset' });
-});
-
-// List NPCs
-app.get('/npcs', (c) => {
-  if (!state.isInitialized) {
-    return c.json({ error: 'Simulation not initialized' }, 400);
-  }
-
-  const npcs = Array.from(state.npcArchetypes.entries()).map(
-    ([id, archetype]) => ({
-      id,
-      archetype,
-    })
-  );
-
-  return c.json({ npcs, count: npcs.length });
-});
-
-// Get all scenarios (for batch processing)
-app.get('/scenarios', async (c) => {
-  if (!state.isInitialized) {
-    return c.json({ error: 'Simulation not initialized' }, 400);
-  }
-
-  try {
-    // Fetch all scenarios in parallel for better performance
-    const scenarios = await Promise.all(
-      Array.from(state.npcArchetypes.keys()).map((npcId) =>
-        state.getScenario(npcId)
-      )
-    );
-    return c.json({ scenarios, count: scenarios.length });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return c.json({ error: message }, 500);
-  }
-});
+  return { app, state };
+}
 
 // =============================================================================
 // Main - Use Bun.serve directly
@@ -823,12 +832,12 @@ app.get('/scenarios', async (c) => {
 
 import { initializeSimulationMode } from '../storage-bridge';
 
-const PORT = parseInt(process.env.SIMULATION_BRIDGE_PORT ?? '3001', 10);
-const SIMULATION_DATA_PATH =
-  process.env.SIMULATION_DATA_PATH ?? './simulation-data';
-
 // Only start server if run directly (not imported)
 if (import.meta.main) {
+  const PORT = parseInt(process.env.SIMULATION_BRIDGE_PORT ?? '3001', 10);
+  const SIMULATION_DATA_PATH =
+    process.env.SIMULATION_DATA_PATH ?? './simulation-data';
+
   logger.info(
     `Starting simulation bridge server on port ${PORT}`,
     {},
@@ -850,6 +859,8 @@ if (import.meta.main) {
     'SimulationBridge'
   );
 
+  const { app } = createServer();
+
   Bun.serve({
     fetch: app.fetch,
     port: PORT,
@@ -862,7 +873,7 @@ if (import.meta.main) {
   );
 }
 
-export { app, SimulationState };
+export { createServer, SimulationState };
 export type {
   InitRequest,
   InitResponse,
@@ -870,4 +881,5 @@ export type {
   ExecuteRequest,
   ExecuteResponse,
   TickResponse,
+  SimulationServer,
 };
