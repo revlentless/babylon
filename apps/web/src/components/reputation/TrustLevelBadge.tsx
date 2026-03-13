@@ -24,7 +24,13 @@
  * />
  * ```
  */
-import { Award, Shield, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Award, TrendingUp } from 'lucide-react';
+
+import {
+  calculateTrustProgress,
+  getNextTrustLevel,
+  getTrustLevelConfig,
+} from './reputation-constants';
 
 interface TrustLevelBadgeProps {
   reputationPoints: number;
@@ -33,101 +39,15 @@ interface TrustLevelBadgeProps {
   className?: string;
 }
 
-/**
- * Trust level information structure.
- */
-interface TrustLevelInfo {
-  level: 'newcomer' | 'trusted' | 'veteran' | 'elite';
-  label: string;
-  min: number;
-  max: number;
-  color: string;
-  bgColor: string;
-  Icon: typeof Shield | typeof ShieldCheck | typeof Award;
-}
-
-/**
- * Available trust levels with thresholds and styling.
- */
-const TRUST_LEVELS: TrustLevelInfo[] = [
-  {
-    level: 'newcomer',
-    label: 'Newcomer',
-    min: 0,
-    max: 999,
-    color: 'text-gray-400',
-    bgColor: 'bg-gray-400',
-    Icon: Shield,
-  },
-  {
-    level: 'trusted',
-    label: 'Trusted',
-    min: 1000,
-    max: 4999,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500',
-    Icon: ShieldCheck,
-  },
-  {
-    level: 'veteran',
-    label: 'Veteran',
-    min: 5000,
-    max: 9999,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500',
-    Icon: ShieldCheck,
-  },
-  {
-    level: 'elite',
-    label: 'Elite',
-    min: 10000,
-    max: Number.POSITIVE_INFINITY,
-    color: 'text-yellow-500',
-    bgColor: 'bg-yellow-500',
-    Icon: Award,
-  },
-];
-
-function getCurrentLevel(points: number): TrustLevelInfo {
-  const level = TRUST_LEVELS.find(
-    (level) => points >= level.min && points <= level.max
-  );
-  const defaultLevel = TRUST_LEVELS[0];
-  if (!defaultLevel) {
-    throw new Error('TRUST_LEVELS array is empty');
-  }
-  return level ?? defaultLevel;
-}
-
-function getNextLevel(currentLevel: TrustLevelInfo): TrustLevelInfo | null {
-  const currentIndex = TRUST_LEVELS.indexOf(currentLevel);
-  if (currentIndex < TRUST_LEVELS.length - 1 && currentIndex >= 0) {
-    const nextLevel = TRUST_LEVELS[currentIndex + 1];
-    return nextLevel ?? null;
-  }
-  return null;
-}
-
-function calculateProgress(
-  points: number,
-  currentLevel: TrustLevelInfo
-): number {
-  if (currentLevel.max === Number.POSITIVE_INFINITY) return 100;
-
-  const levelRange = currentLevel.max - currentLevel.min + 1;
-  const pointsInLevel = points - currentLevel.min;
-  return Math.min(100, Math.round((pointsInLevel / levelRange) * 100));
-}
-
 export function TrustLevelBadge({
   reputationPoints,
   size = 'md',
   showProgress = true,
   className = '',
 }: TrustLevelBadgeProps) {
-  const currentLevel = getCurrentLevel(reputationPoints);
-  const nextLevel = getNextLevel(currentLevel);
-  const progress = calculateProgress(reputationPoints, currentLevel);
+  const currentLevel = getTrustLevelConfig(reputationPoints);
+  const nextLevel = getNextTrustLevel(currentLevel);
+  const progress = calculateTrustProgress(reputationPoints, currentLevel);
 
   const { Icon, color, bgColor, label } = currentLevel;
 
@@ -221,7 +141,7 @@ export function TrustLevelIcon({
   size = 'md',
   className = '',
 }: TrustLevelIconProps) {
-  const currentLevel = getCurrentLevel(reputationPoints);
+  const currentLevel = getTrustLevelConfig(reputationPoints);
   const { Icon, color } = currentLevel;
 
   const sizeClasses = {
