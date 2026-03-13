@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useMenuPosition } from '@/hooks/useMenuPosition';
 import { useSocialTracking } from '@/hooks/usePostHog';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { getAuthToken } from '@/lib/auth';
 import { BlockUserModal } from './BlockUserModal';
 import { MuteUserModal } from './MuteUserModal';
@@ -95,15 +96,7 @@ export function ModerationMenu({
   }, []);
 
   // Lock body scroll when mobile sheet is open
-  useEffect(() => {
-    if (showMenu && isMobile) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-    return undefined;
-  }, [showMenu, isMobile]);
+  useScrollLock(showMenu && isMobile);
 
   // Check follow status when menu opens
   useEffect(() => {

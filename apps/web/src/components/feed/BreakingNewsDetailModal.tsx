@@ -3,6 +3,7 @@
 import { Activity, Calendar, DollarSign, TrendingUp, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect } from 'react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 /**
  * Breaking news item structure for detail modal.
@@ -60,13 +61,12 @@ export function BreakingNewsDetailModal({
   onClose,
   item,
 }: BreakingNewsDetailModalProps) {
-  // Handle escape key and body scroll lock
+  // Lock body scroll when modal is open
+  useScrollLock(isOpen);
+
+  // Handle escape key to close
   useEffect(() => {
-    if (!isOpen) {
-      // Ensure body overflow is reset when modal is closed
-      document.body.style.overflow = '';
-      return;
-    }
+    if (!isOpen) return;
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -75,21 +75,11 @@ export function BreakingNewsDetailModal({
     };
 
     document.addEventListener('keydown', handleEscape);
-    // Prevent body scroll when modal is open
-    document.body.style.overflow = 'hidden';
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
-
-  // Cleanup on unmount (for HMR)
-  useEffect(() => {
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, []);
 
   if (!isOpen || !item) return null;
 
