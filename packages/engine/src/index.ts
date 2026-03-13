@@ -23,6 +23,8 @@ export {
 } from './actors-loader';
 // State Store Adapters
 export { DbStateStore, InMemoryStateStore } from './adapters';
+// Continuous Game ID
+export { CONTINUOUS_GAME_ID } from './config';
 // Alpha Group Configuration
 export {
   ALPHA_GROUP_CONFIG,

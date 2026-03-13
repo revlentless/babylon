@@ -18,6 +18,7 @@ import {
   userInteractions,
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
+import { CONTINUOUS_GAME_ID } from '../config';
 import { NPC_SOCIAL_ACTIONS_CONFIG } from '../config/npc-activity';
 import { clamp01 } from '../utils/math-utils';
 import { GroupChatService } from './group-chat-service';
@@ -188,7 +189,9 @@ export class ActorSocialActions {
           const [existingChat] = await db
             .select()
             .from(chats)
-            .where(and(eq(chats.isGroup, true), eq(chats.gameId, 'continuous')))
+            .where(
+              and(eq(chats.isGroup, true), eq(chats.gameId, CONTINUOUS_GAME_ID))
+            )
             .limit(1);
 
           if (existingChat) {

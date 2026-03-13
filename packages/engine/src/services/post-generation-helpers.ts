@@ -115,6 +115,7 @@ export function safeExtractFromResponse<T extends JsonValue>(
   return null;
 }
 
+import { CONTINUOUS_GAME_ID } from '../config';
 import {
   getArcPlan,
   getPhaseForDay,
@@ -717,7 +718,7 @@ ${worldFactsContext}
     content: transformed.transformedText,
     authorId: actor.id,
     relatedQuestion: question.questionNumber,
-    gameId: 'continuous',
+    gameId: CONTINUOUS_GAME_ID,
     dayNumber: currentDay,
     timestamp,
   });
@@ -876,7 +877,7 @@ ${worldFactsContext}
     id: await generateSnowflakeId(),
     content: transformed.transformedText,
     authorId: actor.id,
-    gameId: 'continuous',
+    gameId: CONTINUOUS_GAME_ID,
     dayNumber: currentDay,
     timestamp,
   });
@@ -1030,7 +1031,7 @@ ${worldFactsContext}
     content: transformed.transformedText,
     authorId: actor.id,
     relatedQuestion: question.questionNumber,
-    gameId: 'continuous',
+    gameId: CONTINUOUS_GAME_ID,
     dayNumber: currentDay,
     timestamp,
   });
@@ -1181,7 +1182,7 @@ ${worldFactsContext}
     id: await generateSnowflakeId(),
     content: transformed.transformedText,
     authorId: actor.id,
-    gameId: 'continuous',
+    gameId: CONTINUOUS_GAME_ID,
     dayNumber: currentDay,
     timestamp,
   });
@@ -1281,7 +1282,7 @@ ${worldFactsContext}
     content: transformed.transformedText,
     authorId: org.id,
     relatedQuestion: question.questionNumber,
-    gameId: 'continuous',
+    gameId: CONTINUOUS_GAME_ID,
     dayNumber: currentDay,
     timestamp,
   });
@@ -2022,7 +2023,7 @@ Return your response as XML in this exact format:
         typeof originalPost.relatedQuestion === 'number'
           ? originalPost.relatedQuestion
           : null,
-      gameId: 'continuous',
+      gameId: CONTINUOUS_GAME_ID,
       dayNumber: currentDay,
       timestamp,
     },
@@ -2228,7 +2229,7 @@ Return your response as XML in this exact format:
         typeof originalPost.relatedQuestion === 'number'
           ? originalPost.relatedQuestion
           : null,
-      gameId: 'continuous',
+      gameId: CONTINUOUS_GAME_ID,
       dayNumber: currentDay,
       timestamp,
     },

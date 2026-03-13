@@ -4,6 +4,12 @@
  * Centralized exports for all engine configuration.
  */
 
+/**
+ * The gameId used for the always-running continuous game mode.
+ * All non-simulation content (posts, events, articles, chats) uses this value.
+ */
+export const CONTINUOUS_GAME_ID = 'continuous' as const;
+
 // Alpha Group Configuration
 export {
   ALPHA_GROUP_CONFIG,
