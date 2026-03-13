@@ -132,6 +132,16 @@ describe('Error Utilities', () => {
       );
       expect(result).toBeNull();
     });
+
+    test('returns null on error with error severity', async () => {
+      const result = await safeExecute(
+        () => Promise.reject(new Error('failure')),
+        'test operation',
+        'Engine',
+        'error'
+      );
+      expect(result).toBeNull();
+    });
   });
 
   describe('handleNonCritical', () => {
