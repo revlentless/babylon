@@ -53,6 +53,15 @@ export function FollowButton({
   const [isChecking, setIsChecking] = useState(initialFollowing === undefined);
   const { trackFollow } = useSocialTracking();
 
+  // Check if viewing own profile (userId could be username or user ID)
+  const isOwnProfile =
+    user &&
+    (user.id === userId ||
+      user.username === userId ||
+      (user.username &&
+        user.username.startsWith('@') &&
+        user.username.slice(1) === userId));
+
   // Check follow status on mount
   useEffect(() => {
     if (initialFollowing !== undefined) {
@@ -60,15 +69,6 @@ export function FollowButton({
       setIsChecking(false);
       return;
     }
-
-    // Check if viewing own profile (userId could be username or user ID)
-    const isOwnProfile =
-      user &&
-      (user.id === userId ||
-        user.username === userId ||
-        (user.username &&
-          user.username.startsWith('@') &&
-          user.username.slice(1) === userId));
 
     if (!authenticated || !user || isOwnProfile) {
       setIsChecking(false);
@@ -106,21 +106,13 @@ export function FollowButton({
     };
 
     checkFollowStatus();
-  }, [authenticated, initialFollowing, user, userId]);
+  }, [authenticated, initialFollowing, user, userId, isOwnProfile]);
 
   const handleFollow = async () => {
     if (!authenticated || !user) {
       toast.error('Please sign in to follow users');
       return;
     }
-
-    // Check if viewing own profile (userId could be username or user ID)
-    const isOwnProfile =
-      user.id === userId ||
-      user.username === userId ||
-      (user.username &&
-        user.username.startsWith('@') &&
-        user.username.slice(1) === userId);
 
     if (isOwnProfile) {
       // Don't show error, just return silently (button shouldn't be visible anyway)
@@ -194,15 +186,6 @@ export function FollowButton({
     }
     setIsLoading(false);
   };
-
-  // Don't show button if checking or if user is viewing their own profile
-  const isOwnProfile =
-    user &&
-    (user.id === userId ||
-      user.username === userId ||
-      (user.username &&
-        user.username.startsWith('@') &&
-        user.username.slice(1) === userId));
 
   // Don't show for own profile or when not authenticated
   if (isOwnProfile || !authenticated) {
