@@ -161,11 +161,11 @@ export function DailyLoginModal({ isOpen, onClose, claimResult }: Props) {
         aria-modal="true"
         aria-labelledby="daily-login-modal-title"
         aria-describedby="daily-login-modal-description"
-        className="relative z-10 mx-4 w-full max-w-sm rounded-xl border border-[#0066FF]/30 bg-background p-6 shadow-xl"
+        className="relative z-10 mx-4 w-full max-w-sm rounded-xl border border-brand/30 bg-background p-6 shadow-xl"
       >
         {/* Streak Badge */}
         <div className="mb-4 flex justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#0066FF] to-purple-600">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand to-purple-600">
             <span className="font-bold text-3xl text-white">{streak}</span>
           </div>
         </div>
@@ -189,7 +189,7 @@ export function DailyLoginModal({ isOpen, onClose, claimResult }: Props) {
         <div className="mb-6 space-y-3">
           <div className="flex items-center justify-between rounded-lg bg-muted/30 p-3">
             <span className="text-foreground text-sm">Daily Reward</span>
-            <span className="font-semibold text-[#0066FF]">+{reward} pts</span>
+            <span className="font-semibold text-brand">+{reward} pts</span>
           </div>
 
           {milestoneBonus > 0 && (
@@ -205,7 +205,7 @@ export function DailyLoginModal({ isOpen, onClose, claimResult }: Props) {
 
           <div className="flex items-center justify-between border-border border-t pt-3">
             <span className="font-medium text-foreground">Total Earned</span>
-            <span className="font-bold text-[#0066FF] text-lg">
+            <span className="font-bold text-brand text-lg">
               +{totalAwarded} pts
             </span>
           </div>
@@ -226,7 +226,7 @@ export function DailyLoginModal({ isOpen, onClose, claimResult }: Props) {
 
         <button
           onClick={onClose}
-          className="w-full rounded-lg bg-[#0066FF] py-3 font-semibold text-white transition-colors hover:bg-[#0066FF]/90"
+          className="w-full rounded-lg bg-brand py-3 font-semibold text-white transition-colors hover:bg-brand/90"
         >
           Continue
         </button>

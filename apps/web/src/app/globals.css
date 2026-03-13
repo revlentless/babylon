@@ -162,6 +162,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-onboarding-primary: var(--onboarding-primary);
+  --color-brand: #0066FF;
+  --color-brand-hover: #0055DD;
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);

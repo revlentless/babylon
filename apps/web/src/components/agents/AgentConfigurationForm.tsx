@@ -67,8 +67,8 @@ export const AgentConfigurationForm = memo(function AgentConfigurationForm({
             className={cn(
               'flex flex-1 flex-col justify-start rounded-lg border p-3 text-left transition-colors',
               data.modelTier === 'free'
-                ? 'border-[#0066FF] bg-[#0066FF]/10'
-                : 'border-border hover:border-[#0066FF]/50'
+                ? 'border-brand bg-brand/10'
+                : 'border-border hover:border-brand/50'
             )}
           >
             <div className="font-medium text-sm">
@@ -84,8 +84,8 @@ export const AgentConfigurationForm = memo(function AgentConfigurationForm({
             className={cn(
               'flex flex-1 flex-col justify-start rounded-lg border p-3 text-left transition-colors',
               data.modelTier === 'pro'
-                ? 'border-[#0066FF] bg-[#0066FF]/10'
-                : 'border-border hover:border-[#0066FF]/50'
+                ? 'border-brand bg-brand/10'
+                : 'border-border hover:border-brand/50'
             )}
           >
             <div className="font-medium text-sm">
@@ -94,7 +94,7 @@ export const AgentConfigurationForm = memo(function AgentConfigurationForm({
             <div className="text-muted-foreground text-xs">
               {GROQ_MODELS.PRO.description}
             </div>
-            <div className="mt-1 font-medium text-[#0066FF] text-xs">
+            <div className="mt-1 font-medium text-brand text-xs">
               {MODEL_TIER_POINTS_COST.pro} point per message
             </div>
           </button>
@@ -217,7 +217,7 @@ export const AgentConfigurationForm = memo(function AgentConfigurationForm({
 
         {/* A2A Server Link - only shown for existing agents */}
         {data.a2aEnabled && agentId && (
-          <div className="mt-3 rounded-lg border border-[#0066FF]/20 bg-[#0066FF]/10 p-3">
+          <div className="mt-3 rounded-lg border border-brand/20 bg-brand/10 p-3">
             <div className="mb-1 font-medium text-sm">A2A Server Link</div>
             <div className="flex items-center gap-2 rounded border border-border bg-background p-2">
               <code className="flex-1 overflow-x-auto break-all text-xs">

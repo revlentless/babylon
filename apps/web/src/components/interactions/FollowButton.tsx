@@ -325,7 +325,7 @@ export function FollowButton({
         'border',
         isFollowing
           ? 'border-border bg-background text-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500'
-          : 'border-[#0066FF] bg-[#0066FF] text-primary-foreground hover:bg-[#0052CC]',
+          : 'border-brand bg-brand text-primary-foreground hover:bg-brand-hover',
         sizeClasses[size],
         isLoading && 'cursor-not-allowed opacity-50',
         className

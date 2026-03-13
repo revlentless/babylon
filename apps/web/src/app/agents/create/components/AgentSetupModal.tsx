@@ -351,7 +351,7 @@ export function AgentSetupModal({
               </label>
               <div
                 className={cn(
-                  'flex items-center rounded-lg border bg-muted focus-within:ring-2 focus-within:ring-[#0066FF]',
+                  'flex items-center rounded-lg border bg-muted focus-within:ring-2 focus-within:ring-brand',
                   usernameStatus === 'taken' && 'border-red-500',
                   usernameStatus === 'error' && 'border-yellow-500',
                   usernameStatus === 'available' && 'border-green-500',
@@ -454,7 +454,7 @@ export function AgentSetupModal({
                 }
                 className={cn(
                   'w-full rounded-lg border border-border bg-muted px-4 py-3',
-                  'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                  'focus:outline-none focus:ring-2 focus:ring-brand'
                 )}
                 placeholder="My Awesome Agent"
               />
@@ -481,7 +481,7 @@ export function AgentSetupModal({
                 aria-describedby="bio-help"
                 className={cn(
                   'w-full resize-none rounded-lg border border-border bg-muted px-4 py-3',
-                  'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+                  'focus:outline-none focus:ring-2 focus:ring-brand'
                 )}
                 placeholder="A short description of your agent..."
               />
@@ -506,7 +506,7 @@ export function AgentSetupModal({
               disabled={isContinueDisabled}
               className={cn(
                 'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-all sm:py-3',
-                'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+                'bg-brand text-primary-foreground hover:bg-brand-hover',
                 'disabled:cursor-not-allowed disabled:opacity-50'
               )}
             >

@@ -159,7 +159,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
     return (
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-sidebar-accent/30 p-4">
         <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-[#0066FF]" />
+          <Award className="h-5 w-5 text-brand" />
           <h3 className="font-semibold text-foreground">Rewards</h3>
         </div>
         <div className="flex items-center justify-center py-8">
@@ -176,7 +176,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
     return (
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-sidebar-accent/30 p-4">
         <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-[#0066FF]" />
+          <Award className="h-5 w-5 text-brand" />
           <h3 className="font-semibold text-foreground">Rewards</h3>
         </div>
         <p className="text-muted-foreground text-sm">
@@ -194,7 +194,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
       {/* Stats Summary */}
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-sidebar-accent/30 p-4">
         <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-[#0066FF]" />
+          <Award className="h-5 w-5 text-brand" />
           <h3 className="font-semibold text-foreground">Rewards</h3>
         </div>
 
@@ -243,10 +243,10 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
         {/* Following */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-[#0066FF]" />
+            <UserPlus className="h-4 w-4 text-brand" />
             <span className="text-muted-foreground text-sm">Following</span>
           </div>
-          <span className="font-bold text-[#0066FF] text-lg">
+          <span className="font-bold text-brand text-lg">
             {data.stats.followingCount}
           </span>
         </div>
@@ -261,7 +261,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
           {data.stats.totalReferrals > 5 && (
             <Link
               href="/rewards"
-              className="flex items-center gap-1 text-[#0066FF] text-xs transition-colors hover:text-[#2952d9]"
+              className="flex items-center gap-1 text-brand text-xs transition-colors hover:text-brand-hover"
             >
               View All
               <ArrowRight className="h-3 w-3" />
@@ -293,7 +293,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
                   size="sm"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground text-sm transition-colors group-hover:text-[#0066FF]">
+                  <p className="truncate font-medium text-foreground text-sm transition-colors group-hover:text-brand">
                     {referredUser.displayName ||
                       referredUser.username ||
                       'Anonymous'}
@@ -309,7 +309,7 @@ export function RewardsWidget({ userId }: RewardsWidgetProps) {
                     +{POINTS.REFERRAL_SIGNUP}
                   </span>
                   {referredUser.isFollowing && (
-                    <UserPlus className="h-3 w-3 text-[#0066FF]" />
+                    <UserPlus className="h-3 w-3 text-brand" />
                   )}
                 </div>
               </Link>

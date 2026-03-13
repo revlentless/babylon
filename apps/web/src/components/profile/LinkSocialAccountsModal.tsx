@@ -208,7 +208,7 @@ export function LinkSocialAccountsModal({
                   disabled={linking === 'email'}
                   className={cn(
                     'w-full rounded-lg px-4 py-2 font-semibold transition-colors',
-                    'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+                    'bg-brand text-primary-foreground hover:bg-brand-hover',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                     'flex items-center justify-center gap-2'
                   )}
@@ -317,7 +317,7 @@ export function LinkSocialAccountsModal({
                   disabled={linking === 'twitter'}
                   className={cn(
                     'w-full rounded-lg px-4 py-2 font-semibold transition-colors',
-                    'bg-[#0066FF] text-primary-foreground hover:bg-[#2952d9]',
+                    'bg-brand text-primary-foreground hover:bg-brand-hover',
                     'disabled:cursor-not-allowed disabled:opacity-50',
                     'flex items-center justify-center gap-2'
                   )}

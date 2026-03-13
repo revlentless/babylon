@@ -25,7 +25,7 @@ export const TrendingPerpCard = memo(function TrendingPerpCard({
     <button
       type="button"
       onClick={() => onClick(market)}
-      className="w-full cursor-pointer rounded-lg border border-transparent bg-muted/30 p-3 text-left transition-all hover:border-[#0066FF]/30 hover:bg-muted"
+      className="w-full cursor-pointer rounded-lg border border-transparent bg-muted/30 p-3 text-left transition-all hover:border-brand/30 hover:bg-muted"
     >
       <div className="flex items-center justify-between">
         <div className="min-w-0 flex-1">

@@ -75,7 +75,7 @@ const FieldWithAI = memo(function FieldWithAI({
         rows={rows}
         className={cn(
           'w-full resize-none rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
-          'focus:outline-none focus:ring-2 focus:ring-[#0066FF]',
+          'focus:outline-none focus:ring-2 focus:ring-brand',
           isGenerating && 'animate-pulse opacity-70'
         )}
       />
@@ -164,7 +164,7 @@ export const AgentConfigForm = memo(function AgentConfigForm({
           }}
           className={cn(
             'w-full rounded-lg border border-border bg-muted px-3 py-2 font-mono text-sm sm:px-4 sm:py-3',
-            'focus:outline-none focus:ring-2 focus:ring-[#0066FF]'
+            'focus:outline-none focus:ring-2 focus:ring-brand'
           )}
         />
         <p className="text-muted-foreground text-xs">

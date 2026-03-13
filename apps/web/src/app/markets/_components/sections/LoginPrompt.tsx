@@ -20,7 +20,7 @@ export const LoginPrompt = memo(function LoginPrompt({
       <button
         type="button"
         onClick={onLogin}
-        className="cursor-pointer rounded bg-[#0066FF] px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-[#2952d9]"
+        className="cursor-pointer rounded bg-brand px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-brand-hover"
       >
         Connect Wallet
       </button>

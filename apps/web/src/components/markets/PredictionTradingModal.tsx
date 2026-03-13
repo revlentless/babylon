@@ -556,7 +556,7 @@ export function PredictionTradingModal({
                       step="1"
                       disabled={loading}
                       className={cn(
-                        'w-full rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30 sm:text-lg',
+                        'w-full rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-brand/30 sm:text-lg',
                         loading && 'cursor-not-allowed opacity-50'
                       )}
                       placeholder={`Min: ${BABYLON_POINTS_SYMBOL}1`}
@@ -724,7 +724,7 @@ export function PredictionTradingModal({
                         max={userPosition.shares}
                         disabled={loading}
                         className={cn(
-                          'flex-1 rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30 sm:text-lg',
+                          'flex-1 rounded bg-muted/50 px-4 py-3 font-medium text-base text-foreground focus:bg-muted focus:outline-none focus:ring-2 focus:ring-brand/30 sm:text-lg',
                           loading && 'cursor-not-allowed opacity-50'
                         )}
                         placeholder="0.00"

@@ -293,7 +293,7 @@ export function PerpTradingModal({
                 step="10"
                 disabled={loading}
                 className={cn(
-                  'w-32 rounded bg-background/50 px-3 py-1.5 text-right font-medium text-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-[#0066FF]/30',
+                  'w-32 rounded bg-background/50 px-3 py-1.5 text-right font-medium text-foreground focus:bg-background focus:outline-none focus:ring-2 focus:ring-brand/30',
                   loading && 'cursor-not-allowed opacity-50'
                 )}
                 placeholder={`Min: ${BABYLON_POINTS_SYMBOL}${market.minOrderSize}`}

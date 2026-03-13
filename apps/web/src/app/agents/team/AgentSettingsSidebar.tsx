@@ -471,8 +471,8 @@ export function AgentSettingsSidebar({
                     className={cn(
                       'rounded-md border p-2 text-left text-xs transition-colors',
                       formData.modelTier === 'free'
-                        ? 'border-[#0066FF] bg-[#0066FF]/10'
-                        : 'border-border hover:border-[#0066FF]/50'
+                        ? 'border-brand bg-brand/10'
+                        : 'border-border hover:border-brand/50'
                     )}
                   >
                     <div className="font-medium">Free</div>
@@ -492,8 +492,8 @@ export function AgentSettingsSidebar({
                     className={cn(
                       'rounded-md border p-2 text-left text-xs transition-colors',
                       formData.modelTier === 'pro'
-                        ? 'border-[#0066FF] bg-[#0066FF]/10'
-                        : 'border-border hover:border-[#0066FF]/50'
+                        ? 'border-brand bg-brand/10'
+                        : 'border-border hover:border-brand/50'
                     )}
                   >
                     <div className="font-medium">Pro</div>
@@ -503,7 +503,7 @@ export function AgentSettingsSidebar({
                     <div className="mt-0.5 text-[9px] text-muted-foreground/70">
                       {GROQ_MODELS.PRO.description}
                     </div>
-                    <div className="mt-0.5 font-medium text-[#0066FF] text-[9px]">
+                    <div className="mt-0.5 font-medium text-[9px] text-brand">
                       {MODEL_TIER_POINTS_COST.pro} pt/msg
                     </div>
                   </button>
@@ -574,7 +574,7 @@ export function AgentSettingsSidebar({
 
               {/* A2A Server Link */}
               {formData.a2aEnabled && (
-                <div className="rounded-md border border-[#0066FF]/20 bg-[#0066FF]/5 p-2">
+                <div className="rounded-md border border-brand/20 bg-brand/5 p-2">
                   <div className="mb-1 font-medium text-xs">
                     A2A Server Link
                   </div>
@@ -649,7 +649,7 @@ export function AgentSettingsSidebar({
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex w-full items-center justify-center gap-2 rounded-md bg-[#0066FF] px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-[#0055DD] disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-brand px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" />

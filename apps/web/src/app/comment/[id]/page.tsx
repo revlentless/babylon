@@ -430,7 +430,7 @@ function ReplyCard({
                 'flex flex-1 items-center gap-1',
                 'bg-transparent transition-all duration-200 hover:opacity-70',
                 'cursor-pointer text-muted-foreground text-xs',
-                isReplying && 'text-[#0066FF]'
+                isReplying && 'text-brand'
               )}
             >
               <MessageCircle size={18} />
@@ -767,7 +767,7 @@ export default function CommentPage({ params }: CommentPageProps) {
                   'flex flex-1 items-center gap-1',
                   'bg-transparent transition-all duration-200 hover:opacity-70',
                   'cursor-pointer text-muted-foreground text-xs',
-                  isReplying && 'text-[#0066FF]'
+                  isReplying && 'text-brand'
                 )}
               >
                 <MessageCircle size={18} />
@@ -869,7 +869,7 @@ export default function CommentPage({ params }: CommentPageProps) {
                   <ArrowLeft size={20} />
                 </button>
                 <div className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-[#0066FF]" />
+                  <MessageCircle className="h-5 w-5 text-brand" />
                   <h1 className="font-semibold text-lg">Thread</h1>
                 </div>
               </div>
@@ -899,7 +899,7 @@ export default function CommentPage({ params }: CommentPageProps) {
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-[#0066FF]" />
+                <MessageCircle className="h-5 w-5 text-brand" />
                 <h1 className="font-semibold text-lg">Thread</h1>
               </div>
             </div>

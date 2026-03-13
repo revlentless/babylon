@@ -108,9 +108,9 @@ function UserWallet({
   return (
     <div className="flex flex-col gap-3 p-4">
       {/* Balance Card */}
-      <div className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/5 p-4">
+      <div className="rounded-lg border border-brand/30 bg-brand/5 p-4">
         <div>
-          <div className="flex items-center gap-1.5 text-[#0066FF] text-xs">
+          <div className="flex items-center gap-1.5 text-brand text-xs">
             <Wallet className="h-3.5 w-3.5" />
             Your Balance
           </div>
@@ -125,7 +125,7 @@ function UserWallet({
       <button
         type="button"
         onClick={() => setBuyPointsOpen(true)}
-        className="flex items-center justify-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2.5 font-medium text-white transition-all hover:bg-[#0055DD]"
+        className="flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 font-medium text-white transition-all hover:bg-brand-hover"
       >
         <Sparkles className="h-4 w-4" />
         Buy Points
@@ -295,10 +295,10 @@ function AgentWallet({
   return (
     <div className="flex flex-col gap-3 p-4">
       {/* Balance Card */}
-      <div className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/5 p-4">
+      <div className="rounded-lg border border-brand/30 bg-brand/5 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-[#0066FF] text-xs">
+            <div className="flex items-center gap-1.5 text-brand text-xs">
               <Wallet className="h-3.5 w-3.5" />
               Agent Balance
             </div>
@@ -330,7 +330,7 @@ function AgentWallet({
               className={cn(
                 'flex items-center justify-center gap-1.5 rounded-md py-2.5 font-medium text-sm transition-all',
                 action === 'deposit'
-                  ? 'bg-[#0066FF] text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-muted text-foreground hover:bg-muted/80'
               )}
             >
@@ -343,7 +343,7 @@ function AgentWallet({
               className={cn(
                 'flex items-center justify-center gap-1.5 rounded-md py-2.5 font-medium text-sm transition-all',
                 action === 'withdraw'
-                  ? 'bg-[#0066FF] text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-muted text-foreground hover:bg-muted/80'
               )}
             >
@@ -367,7 +367,7 @@ function AgentWallet({
               type="button"
               onClick={handleTransaction}
               disabled={processing || !amount}
-              className="h-10 rounded-md bg-[#0066FF] px-5 font-medium text-white transition-all hover:bg-[#0055DD] disabled:opacity-50"
+              className="h-10 rounded-md bg-brand px-5 font-medium text-white transition-all hover:bg-brand-hover disabled:opacity-50"
             >
               {processing ? '...' : 'Go'}
             </button>

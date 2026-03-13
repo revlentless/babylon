@@ -350,7 +350,7 @@ export function CommentCard({
                 'flex flex-1 items-center gap-1',
                 'bg-transparent transition-all duration-200 hover:opacity-70',
                 'cursor-pointer text-muted-foreground text-xs',
-                isReplying && 'text-[#0066FF]'
+                isReplying && 'text-brand'
               )}
             >
               <MessageCircle size={18} />

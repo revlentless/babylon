@@ -181,7 +181,7 @@ export function ApiKeysTab() {
       {/* Header */}
       <div className="space-y-2">
         <h2 className="flex items-center gap-2 font-bold text-2xl">
-          <Key className="h-6 w-6 text-[#0066FF]" />
+          <Key className="h-6 w-6 text-brand" />
           API Keys
         </h2>
         <p className="text-muted-foreground text-sm">
@@ -254,12 +254,12 @@ export function ApiKeysTab() {
             value={keyName}
             onChange={(e) => setKeyName(e.target.value)}
             placeholder="Optional: Name for this key (e.g., 'Cursor Desktop')"
-            className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0066FF]"
+            className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
           />
           <button
             onClick={handleGenerateKey}
             disabled={generating}
-            className="flex items-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-white transition-colors hover:bg-[#2952d9] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             <span>{generating ? 'Generating...' : 'Generate Key'}</span>

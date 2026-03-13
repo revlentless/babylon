@@ -147,7 +147,7 @@ export default function AgentsPage() {
             </p>
           </div>
           <Link href="/agents/create">
-            <Button className="flex items-center gap-2 bg-[#0066FF] px-4 py-2 text-primary-foreground hover:bg-[#2952d9]">
+            <Button className="flex items-center gap-2 bg-brand px-4 py-2 text-primary-foreground hover:bg-brand-hover">
               <Plus className="h-5 w-5" />
               Create Agent
             </Button>
@@ -193,7 +193,7 @@ export default function AgentsPage() {
             className={cn(
               'rounded-full px-4 py-2 font-medium text-sm transition-all',
               filter === 'all'
-                ? 'bg-[#0066FF] text-primary-foreground'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
           >
@@ -204,7 +204,7 @@ export default function AgentsPage() {
             className={cn(
               'rounded-full px-4 py-2 font-medium text-sm transition-all',
               filter === 'active'
-                ? 'bg-[#0066FF] text-primary-foreground'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
           >
@@ -215,7 +215,7 @@ export default function AgentsPage() {
             className={cn(
               'rounded-full px-4 py-2 font-medium text-sm transition-all',
               filter === 'idle'
-                ? 'bg-[#0066FF] text-primary-foreground'
+                ? 'bg-brand text-primary-foreground'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted'
             )}
           >
@@ -243,14 +243,14 @@ export default function AgentsPage() {
             ))}
           </div>
         ) : agents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-[#0066FF]/20 bg-gradient-to-br from-[#0066FF]/10 to-purple-500/10 px-4 py-16">
-            <Bot className="mb-4 h-16 w-16 text-[#0066FF]" />
+          <div className="flex flex-col items-center justify-center rounded-lg border border-brand/20 bg-gradient-to-br from-brand/10 to-purple-500/10 px-4 py-16">
+            <Bot className="mb-4 h-16 w-16 text-brand" />
             <h3 className="mb-2 font-bold text-2xl">No Agents Yet</h3>
             <p className="mb-6 max-w-md text-center text-muted-foreground text-sm">
               Create your first AI agent to start trading and chatting
             </p>
             <Link href="/agents/create">
-              <Button className="flex items-center gap-2 bg-[#0066FF] px-4 py-2 text-primary-foreground hover:bg-[#2952d9]">
+              <Button className="flex items-center gap-2 bg-brand px-4 py-2 text-primary-foreground hover:bg-brand-hover">
                 <Plus className="h-5 w-5" />
                 Create Agent
               </Button>
@@ -265,7 +265,7 @@ export default function AgentsPage() {
                   href={`/agents/${agent.id}`}
                   className="h-full"
                 >
-                  <div className="flex h-full cursor-pointer flex-col rounded-lg border border-transparent bg-muted/30 p-6 transition-all hover:border-[#0066FF]/30 hover:bg-muted">
+                  <div className="flex h-full cursor-pointer flex-col rounded-lg border border-transparent bg-muted/30 p-6 transition-all hover:border-brand/30 hover:bg-muted">
                     {/* Header */}
                     <div className="mb-4 flex items-start gap-4">
                       <Avatar
@@ -368,7 +368,7 @@ export default function AgentsPage() {
             <div className="mt-8 rounded-lg border border-border bg-card/50 p-6 backdrop-blur">
               <div className="mb-4">
                 <h2 className="flex items-center gap-2 font-bold text-xl">
-                  <Activity className="h-5 w-5 text-[#0066FF]" />
+                  <Activity className="h-5 w-5 text-brand" />
                   My Moves
                 </h2>
                 <p className="mt-1 text-muted-foreground text-sm">

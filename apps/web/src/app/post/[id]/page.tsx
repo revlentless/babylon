@@ -288,7 +288,7 @@ export default function PostPage({ params }: PostPageProps) {
                   <ArrowLeft size={20} />
                 </button>
                 <div className="flex items-center gap-2">
-                  <MessageCircle className="h-5 w-5 text-[#0066FF]" />
+                  <MessageCircle className="h-5 w-5 text-brand" />
                   <h1 className="font-semibold text-lg">Post</h1>
                 </div>
               </div>
@@ -308,7 +308,7 @@ export default function PostPage({ params }: PostPageProps) {
                     {/* Category badge */}
                     {post.category && (
                       <div className="mb-4">
-                        <span className="rounded bg-[#0066FF]/20 px-3 py-1 font-semibold text-[#0066FF] text-sm uppercase">
+                        <span className="rounded bg-brand/20 px-3 py-1 font-semibold text-brand text-sm uppercase">
                           {post.category}
                         </span>
                       </div>
@@ -321,7 +321,7 @@ export default function PostPage({ params }: PostPageProps) {
 
                     {/* Article metadata */}
                     <div className="mb-6 flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
-                      <span className="font-semibold text-[#0066FF]">
+                      <span className="font-semibold text-brand">
                         {post.authorName}
                       </span>
                       {post.byline && (
@@ -401,7 +401,7 @@ export default function PostPage({ params }: PostPageProps) {
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-[#0066FF]" />
+                <MessageCircle className="h-5 w-5 text-brand" />
                 <h1 className="font-semibold text-lg">Post</h1>
               </div>
             </div>
@@ -419,7 +419,7 @@ export default function PostPage({ params }: PostPageProps) {
                   {/* Category badge */}
                   {post.category && (
                     <div className="mb-4">
-                      <span className="rounded bg-[#0066FF]/20 px-3 py-1 font-semibold text-[#0066FF] text-sm uppercase">
+                      <span className="rounded bg-brand/20 px-3 py-1 font-semibold text-brand text-sm uppercase">
                         {post.category}
                       </span>
                     </div>
@@ -432,7 +432,7 @@ export default function PostPage({ params }: PostPageProps) {
 
                   {/* Article metadata */}
                   <div className="mb-4 flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
-                    <span className="font-semibold text-[#0066FF]">
+                    <span className="font-semibold text-brand">
                       {post.authorName}
                     </span>
                     {post.byline && (

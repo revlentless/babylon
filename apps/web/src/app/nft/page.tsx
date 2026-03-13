@@ -181,7 +181,7 @@ export default function NftGalleryPage() {
               <button
                 onClick={handleClaimClick}
                 disabled={isMinting || isCheckingEligibility}
-                className="rounded-full bg-[#0066FF] px-5 py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+                className="rounded-full bg-brand px-5 py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
               >
                 {isCheckingEligibility ? 'Checking...' : 'Claim'}
               </button>
@@ -193,7 +193,7 @@ export default function NftGalleryPage() {
                   type="button"
                   onClick={handleOpenGatedChat}
                   disabled={ensuringChatAccess}
-                  className="rounded-lg border border-[#0066FF]/30 bg-[#0066FF]/10 px-4 py-2 text-[#0066FF] text-sm transition-colors hover:bg-[#0066FF]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg border border-brand/30 bg-brand/10 px-4 py-2 text-brand text-sm transition-colors hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {ensuringChatAccess
                     ? 'Opening chat...'
@@ -240,7 +240,7 @@ export default function NftGalleryPage() {
               onClick={() => setViewTab('all')}
               className={`rounded-md px-4 py-2 font-medium text-sm transition-colors ${
                 viewTab === 'all'
-                  ? 'bg-[#0066FF] text-white'
+                  ? 'bg-brand text-white'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
@@ -252,7 +252,7 @@ export default function NftGalleryPage() {
                 onClick={() => setViewTab('mine')}
                 className={`rounded-md px-4 py-2 font-medium text-sm transition-colors ${
                   viewTab === 'mine'
-                    ? 'bg-[#0066FF] text-white'
+                    ? 'bg-brand text-white'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
@@ -273,7 +273,7 @@ export default function NftGalleryPage() {
               placeholder="Search by name or #..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:border-[#0066FF] focus:outline-none"
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:border-brand focus:outline-none"
             />
             {searchQuery && (
               <button
@@ -320,7 +320,7 @@ export default function NftGalleryPage() {
           <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
             {isCheckingEligibility ? (
               <div className="py-8 text-center">
-                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-[#0066FF] border-t-transparent" />
+                <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" />
                 <p className="text-muted-foreground">
                   Checking your eligibility...
                 </p>
@@ -333,7 +333,7 @@ export default function NftGalleryPage() {
                 </h3>
                 <p className="mb-2 text-muted-foreground">
                   You ranked{' '}
-                  <span className="font-bold text-[#0066FF]">
+                  <span className="font-bold text-brand">
                     #{eligibility.snapshotRank}
                   </span>{' '}
                   on the leaderboard
@@ -351,7 +351,7 @@ export default function NftGalleryPage() {
                   <button
                     onClick={handleMintFromModal}
                     disabled={isMinting}
-                    className="flex-1 rounded-full bg-[#0066FF] py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
+                    className="flex-1 rounded-full bg-brand py-2.5 font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100"
                   >
                     {isMinting ? 'Claiming...' : 'Claim My NFT'}
                   </button>
@@ -376,7 +376,7 @@ export default function NftGalleryPage() {
                   {eligibility.mintedNft && (
                     <a
                       href={`/nft/${eligibility.mintedNft.tokenId}`}
-                      className="flex-1 rounded-full bg-[#0066FF] py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg"
+                      className="flex-1 rounded-full bg-brand py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg"
                     >
                       View My NFT
                     </a>
@@ -402,7 +402,7 @@ export default function NftGalleryPage() {
                   </button>
                   <a
                     href="/leaderboard"
-                    className="flex-1 rounded-full bg-[#0066FF] py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-[#2952d9] hover:shadow-lg"
+                    className="flex-1 rounded-full bg-brand py-2.5 text-center font-semibold text-sm text-white shadow-md transition-all hover:scale-105 hover:bg-brand-hover hover:shadow-lg"
                   >
                     View Leaderboard
                   </a>
@@ -426,9 +426,9 @@ export default function NftGalleryPage() {
           <div className="mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-5 flex justify-center">
               <div className="relative h-16 w-16">
-                <div className="absolute inset-0 animate-ping rounded-full bg-[#0066FF]/25" />
-                <div className="absolute inset-0 animate-spin rounded-full border-2 border-[#0066FF]/20 border-t-[#0066FF]" />
-                <div className="absolute inset-2 rounded-full bg-[#0066FF]/10" />
+                <div className="absolute inset-0 animate-ping rounded-full bg-brand/25" />
+                <div className="absolute inset-0 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
+                <div className="absolute inset-2 rounded-full bg-brand/10" />
               </div>
             </div>
 
@@ -449,7 +449,7 @@ export default function NftGalleryPage() {
                     <div
                       className={`h-1.5 rounded-full transition-colors ${
                         isComplete || isActive
-                          ? 'bg-[#0066FF]'
+                          ? 'bg-brand'
                           : 'bg-muted-foreground/20'
                       }`}
                     />

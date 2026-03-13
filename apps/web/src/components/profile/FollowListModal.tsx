@@ -370,7 +370,7 @@ export function FollowListModal({
                           'group relative flex shrink-0 items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 font-bold text-sm transition-all duration-200',
                           isFollowing
                             ? 'border-border bg-background text-foreground hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500'
-                            : 'border-[#0066FF] bg-[#0066FF] text-primary-foreground hover:bg-[#0052CC]',
+                            : 'border-brand bg-brand text-primary-foreground hover:bg-brand-hover',
                           isLoadingThis && 'cursor-not-allowed opacity-50'
                         )}
                       >

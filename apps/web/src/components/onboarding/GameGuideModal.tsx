@@ -162,9 +162,9 @@ export function GameGuideModal({
                   className={cn(
                     'h-2 rounded-full transition-all duration-200',
                     i === currentSlide
-                      ? 'w-6 bg-[#0066FF]'
+                      ? 'w-6 bg-brand'
                       : i < currentSlide
-                        ? 'w-2 bg-[#0066FF]/50'
+                        ? 'w-2 bg-brand/50'
                         : 'w-2 bg-muted-foreground/30'
                   )}
                 />
@@ -210,7 +210,7 @@ export function GameGuideModal({
                         className={cn(
                           'rounded-lg px-4 py-2 font-medium text-sm transition-colors',
                           i === 0
-                            ? 'bg-[#0066FF] text-primary-foreground hover:bg-[#0066FF]/90'
+                            ? 'bg-brand text-primary-foreground hover:bg-brand/90'
                             : 'border border-border text-foreground hover:bg-muted'
                         )}
                       >
@@ -251,10 +251,10 @@ export function GameGuideModal({
                 onClick={goToNextSlide}
                 disabled={isSubmitting}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg bg-[#0066FF] px-4 py-2 font-medium text-primary-foreground text-sm transition-colors',
+                  'flex items-center gap-2 rounded-lg bg-brand px-4 py-2 font-medium text-primary-foreground text-sm transition-colors',
                   isSubmitting
                     ? 'cursor-not-allowed opacity-70'
-                    : 'hover:bg-[#0066FF]/90'
+                    : 'hover:bg-brand/90'
                 )}
               >
                 {isSubmitting ? (

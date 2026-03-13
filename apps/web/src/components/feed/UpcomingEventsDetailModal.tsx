@@ -123,7 +123,7 @@ export function UpcomingEventsDetailModal({
           {/* Header */}
           <div className="flex shrink-0 items-start justify-between border-white/10 border-b p-6">
             <div className="flex flex-1 items-start gap-4">
-              <div className="mt-1 shrink-0 text-[#0066FF]">
+              <div className="mt-1 shrink-0 text-brand">
                 <Calendar className="h-8 w-8" />
               </div>
               <div className="min-w-0 flex-1">
@@ -136,7 +136,7 @@ export function UpcomingEventsDetailModal({
                     <span>{formatFullDate(event.date, event.time)}</span>
                   </div>
                   {event.isLive && (
-                    <span className="shrink-0 rounded bg-[#0066FF]/10 px-3 py-1 font-semibold text-[#0066FF] text-sm">
+                    <span className="shrink-0 rounded bg-brand/10 px-3 py-1 font-semibold text-brand text-sm">
                       LIVE
                     </span>
                   )}

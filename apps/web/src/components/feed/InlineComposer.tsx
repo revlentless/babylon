@@ -299,7 +299,7 @@ export function InlineComposer({
                     'flex items-center gap-2 rounded-full px-4 py-2 font-semibold text-sm',
                     'transition-all duration-200',
                     canSubmit
-                      ? 'bg-[#0066FF] text-white hover:bg-[#0052CC]'
+                      ? 'bg-brand text-white hover:bg-brand-hover'
                       : 'cursor-not-allowed bg-muted text-muted-foreground'
                   )}
                 >

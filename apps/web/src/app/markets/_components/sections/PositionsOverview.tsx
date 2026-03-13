@@ -27,9 +27,9 @@ export function PositionsOverview({
   if (!hasPositions) return null;
 
   return (
-    <div className="rounded-lg border border-[#0066FF]/20 bg-gradient-to-br from-[#0066FF]/10 to-purple-500/10 p-4">
+    <div className="rounded-lg border border-brand/20 bg-gradient-to-br from-brand/10 to-purple-500/10 p-4">
       <h2 className="mb-3 flex items-center gap-2 font-bold text-lg">
-        <div className="h-5 w-1 rounded-full bg-[#0066FF]" />
+        <div className="h-5 w-1 rounded-full bg-brand" />
         Your Positions
       </h2>
 

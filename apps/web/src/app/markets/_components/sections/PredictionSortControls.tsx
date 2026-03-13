@@ -60,7 +60,7 @@ export const PredictionSortControls = memo(function PredictionSortControls({
             'rounded-full px-3 py-1.5 font-medium text-xs transition-all',
             compact && 'flex-shrink-0 whitespace-nowrap',
             activeSort === value
-              ? 'bg-[#0066FF] text-primary-foreground'
+              ? 'bg-brand text-primary-foreground'
               : 'bg-muted/50 text-muted-foreground hover:bg-muted'
           )}
         >

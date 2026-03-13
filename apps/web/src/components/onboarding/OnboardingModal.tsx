@@ -484,7 +484,7 @@ export function OnboardingModal({
             }
             placeholder="your_username"
             className={cn(
-              'w-full rounded-xl border-2 bg-muted px-4 py-3.5 pr-12 pl-9 text-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#0066FF] focus:ring-offset-2',
+              'w-full rounded-xl border-2 bg-muted px-4 py-3.5 pr-12 pl-9 text-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2',
               usernameStatus === 'available' && 'border-green-500/50',
               usernameStatus === 'taken' && 'border-red-500/50',
               !usernameStatus && 'border-border'
@@ -513,7 +513,7 @@ export function OnboardingModal({
             Username taken. Try:{' '}
             <button
               type="button"
-              className="font-medium text-[#0066FF] hover:underline"
+              className="font-medium text-brand hover:underline"
               onClick={() => setUsername(usernameSuggestion)}
             >
               @{usernameSuggestion}
@@ -552,7 +552,7 @@ export function OnboardingModal({
             type="checkbox"
             checked={acceptedTerms}
             onChange={(e) => setAcceptedTerms(e.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-[#0066FF] focus:ring-2 focus:ring-[#0066FF] focus:ring-offset-2"
+            className="mt-0.5 h-5 w-5 shrink-0 rounded border-border text-brand focus:ring-2 focus:ring-brand focus:ring-offset-2"
           />
           <span className="text-muted-foreground text-sm leading-relaxed group-hover:text-foreground">
             I accept the{' '}
@@ -560,7 +560,7 @@ export function OnboardingModal({
               href="https://docs.babylon.market/legal/terms-of-service/"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-[#0066FF] hover:underline"
+              className="font-medium text-brand hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               Terms of Service
@@ -570,7 +570,7 @@ export function OnboardingModal({
               href="https://docs.babylon.market/legal/privacy-policy/"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-[#0066FF] hover:underline"
+              className="font-medium text-brand hover:underline"
               onClick={(e) => e.stopPropagation()}
             >
               Privacy Policy
@@ -580,7 +580,7 @@ export function OnboardingModal({
         <button
           type="submit"
           className={cn(
-            'w-full rounded-xl bg-[#0066FF] px-6 py-4 font-semibold text-white shadow-lg transition-all hover:bg-[#0055DD] hover:shadow-xl active:scale-[0.98]',
+            'w-full rounded-xl bg-brand px-6 py-4 font-semibold text-white shadow-lg transition-all hover:bg-brand-hover hover:shadow-xl active:scale-[0.98]',
             (isSubmitting ||
               usernameStatus === 'taken' ||
               !acceptedTerms ||
@@ -737,8 +737,8 @@ export function OnboardingModal({
       {/* Header with safe area for notched phones */}
       <div className="flex shrink-0 items-center justify-between border-border border-b px-4 py-4 pt-safe md:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="shrink-0 rounded-lg bg-[#0066FF]/10 p-2">
-            <Sparkles className="h-5 w-5 text-[#0066FF] md:h-6 md:w-6" />
+          <div className="shrink-0 rounded-lg bg-brand/10 p-2">
+            <Sparkles className="h-5 w-5 text-brand md:h-6 md:w-6" />
           </div>
           <div className="min-w-0">
             <h2 className="truncate font-bold text-lg md:text-xl">
@@ -747,7 +747,7 @@ export function OnboardingModal({
                 : 'Set up your profile'}
             </h2>
             {stage === 'PROFILE' && importedData && (
-              <p className="text-[#0066FF] text-xs">
+              <p className="text-brand text-xs">
                 Imported from{' '}
                 {importedData.platform === 'twitter' ? '𝕏' : 'Farcaster'}
               </p>
@@ -797,7 +797,7 @@ export function OnboardingModal({
               </div>
               <button
                 type="button"
-                className="w-full max-w-xs rounded-xl bg-[#0066FF] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:bg-[#0055DD] hover:shadow-xl active:scale-[0.98]"
+                className="w-full max-w-xs rounded-xl bg-brand px-8 py-4 font-semibold text-white shadow-lg transition-all hover:bg-brand-hover hover:shadow-xl active:scale-[0.98]"
                 onClick={onComplete}
               >
                 Start Exploring
@@ -836,7 +836,7 @@ export function OnboardingModal({
               className={cn(
                 'flex h-6 w-6 items-center justify-center rounded-full font-medium text-xs transition-all',
                 stage === 'PROFILE'
-                  ? 'bg-[#0066FF] text-white'
+                  ? 'bg-brand text-white'
                   : 'bg-green-500 text-white'
               )}
             >
