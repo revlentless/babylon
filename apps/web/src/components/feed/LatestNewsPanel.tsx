@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/shared/Skeleton';
 // ArticleDetailModal removed - articles now use /post/[id] page
 import { useWidgetRefresh } from '@/contexts/WidgetRefreshContext';
 import { useSSEChannel } from '@/hooks/useSSE';
+import { deduplicateArticles } from '@/lib/articleDeduplication';
 import { useWidgetCacheStore } from '@/stores/widgetCacheStore';
 
 /**
@@ -34,132 +35,6 @@ export function LatestNewsPanel() {
 
   // Use ref to store fetchArticles function to break dependency chain
   const fetchArticlesRef = useRef<(() => void) | null>(null);
-
-  /**
-   * Deduplicate articles about the same event
-   * Uses improved heuristics: combines category, title similarity, and publish time proximity
-   */
-  const deduplicateArticles = useCallback(
-    (articles: ArticleItem[]): ArticleItem[] => {
-      if (articles.length <= 1) return articles;
-
-      const uniqueArticles: ArticleItem[] = [];
-      const seenArticles: Array<{
-        article: ArticleItem;
-        titleWords: Set<string>;
-        timestamp: number;
-      }> = [];
-
-      // Sort by published date (most recent first)
-      const sorted = [...articles].sort(
-        (a, b) =>
-          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
-
-      for (const article of sorted) {
-        // Extract significant words from title (3+ chars, excluding common words)
-        const commonWords = new Set([
-          'the',
-          'and',
-          'for',
-          'are',
-          'but',
-          'not',
-          'you',
-          'all',
-          'can',
-          'her',
-          'was',
-          'one',
-          'our',
-          'out',
-          'day',
-          'has',
-        ]);
-        const titleWords = new Set(
-          article.title
-            .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '')
-            .split(' ')
-            .filter((w) => w.length > 3 && !commonWords.has(w))
-        );
-
-        const timestamp = new Date(article.publishedAt).getTime();
-
-        // Check if this is a duplicate of an existing article
-        let isDuplicate = false;
-        for (const seen of seenArticles) {
-          // Rule 1: Same category + significant title overlap + published within 6 hours
-          const timeDiff = Math.abs(timestamp - seen.timestamp);
-          const isSameTimeWindow = timeDiff < 6 * 60 * 60 * 1000; // 6 hours
-
-          if (isSameTimeWindow && article.category === seen.article.category) {
-            // Calculate word overlap
-            const intersection = new Set(
-              [...titleWords].filter((w) => seen.titleWords.has(w))
-            );
-            const union = new Set([...titleWords, ...seen.titleWords]);
-            const jaccardSimilarity = intersection.size / union.size;
-
-            // If 40%+ similar titles in same category and time window, it's likely the same event
-            if (jaccardSimilarity >= 0.4) {
-              isDuplicate = true;
-              logger.debug(
-                'Duplicate article detected',
-                {
-                  kept: seen.article.title,
-                  discarded: article.title,
-                  similarity: jaccardSimilarity,
-                  timeDiffMinutes: Math.round(timeDiff / 60000),
-                },
-                'LatestNewsPanel'
-              );
-              break;
-            }
-          }
-
-          // Rule 2: Very high title similarity (70%+) regardless of category = same event
-          const intersection = new Set(
-            [...titleWords].filter((w) => seen.titleWords.has(w))
-          );
-          const union = new Set([...titleWords, ...seen.titleWords]);
-          const jaccardSimilarity = intersection.size / union.size;
-
-          if (jaccardSimilarity >= 0.7) {
-            isDuplicate = true;
-            logger.debug(
-              'Duplicate article detected (high similarity)',
-              {
-                kept: seen.article.title,
-                discarded: article.title,
-                similarity: jaccardSimilarity,
-              },
-              'LatestNewsPanel'
-            );
-            break;
-          }
-        }
-
-        if (!isDuplicate) {
-          uniqueArticles.push(article);
-          seenArticles.push({ article, titleWords, timestamp });
-        }
-      }
-
-      logger.debug(
-        'Deduplicated articles',
-        {
-          before: articles.length,
-          after: uniqueArticles.length,
-          removed: articles.length - uniqueArticles.length,
-        },
-        'LatestNewsPanel'
-      );
-
-      return uniqueArticles;
-    },
-    []
-  );
 
   const fetchArticles = useCallback(
     async (skipCache = false) => {
@@ -256,7 +131,7 @@ export function LatestNewsPanel() {
       }
       setLoading(false);
     },
-    [getLatestNews, setLatestNews, deduplicateArticles]
+    [getLatestNews, setLatestNews]
   );
 
   // Update ref when fetchArticles changes
