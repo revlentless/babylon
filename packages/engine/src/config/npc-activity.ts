@@ -248,6 +248,65 @@ export const NPC_TRADING_CONFIG = {
     'NPC_MIN_MINUTES_BETWEEN_TRADES',
     5
   ),
+
+  /**
+   * Default leverage multiplier for NPC trades.
+   *
+   * @default 5
+   * @env NPC_DEFAULT_LEVERAGE
+   */
+  defaultLeverage: envPositiveNumber('NPC_DEFAULT_LEVERAGE', 5),
+
+  /**
+   * Maximum position size (in USD) for NPC trades.
+   *
+   * @default 10_000
+   * @env NPC_MAX_POSITION_SIZE
+   */
+  maxPositionSize: envPositiveNumber('NPC_MAX_POSITION_SIZE', 10_000),
+
+  /**
+   * Starting trading balance for new NPC actor states.
+   *
+   * @default 10_000
+   * @env NPC_STARTING_BALANCE
+   */
+  startingBalance: envPositiveNumber('NPC_STARTING_BALANCE', 10_000),
+
+  /**
+   * Starting reputation points for new NPC actor states.
+   *
+   * @default 10_000
+   * @env NPC_STARTING_REPUTATION
+   */
+  startingReputation: envPositiveNumber('NPC_STARTING_REPUTATION', 10_000),
+
+  /**
+   * Unrealized loss threshold (as a fraction) to trigger stop-loss.
+   * E.g. 0.2 means >20% drawdown triggers close.
+   *
+   * @default 0.2
+   * @env NPC_MAX_DRAWDOWN_THRESHOLD
+   */
+  maxDrawdownThreshold: envProbability('NPC_MAX_DRAWDOWN_THRESHOLD', 0.2),
+
+  /**
+   * Unrealized profit threshold (as a fraction) to trigger profit-taking.
+   * E.g. 0.25 means >25% profit triggers partial close.
+   *
+   * @default 0.25
+   * @env NPC_PROFIT_TAKE_THRESHOLD
+   */
+  profitTakeThreshold: envProbability('NPC_PROFIT_TAKE_THRESHOLD', 0.25),
+
+  /**
+   * Fraction of available balance to allocate for new investments.
+   * E.g. 0.8 means 80% of available balance is investable.
+   *
+   * @default 0.8
+   * @env NPC_INVEST_BUDGET_RATIO
+   */
+  investBudgetRatio: envProbability('NPC_INVEST_BUDGET_RATIO', 0.8),
 } as const;
 
 // =============================================================================
@@ -607,6 +666,37 @@ export const NPC_GROUP_DYNAMICS_CONFIG = {
     'NPC_AUTO_JOIN_EMPTY_USERS_BATCH_SIZE',
     25
   ),
+
+  /**
+   * Tier-based message frequency chances for group chats.
+   * Determines the probability an NPC posts a message in a group chat per tick.
+   */
+  tierMessageChance: {
+    /** Tier 1 groups */
+    t1: 0.25,
+    /** Tier 2 groups */
+    t2: 0.15,
+    /** Tier 3 groups */
+    t3: 0.05,
+    /** Legacy/untiered groups */
+    legacy: 0.25,
+  },
+
+  /**
+   * Engagement scoring weights for user-NPC interaction quality.
+   */
+  engagementScoring: {
+    /** Points per NPC follow */
+    followWeight: 5,
+    /** Points per comment in the ideal range (1-3 per week) */
+    commentIdealWeight: 3,
+    /** Points per comment in the diminishing range (4-10 per week) */
+    commentDiminishingWeight: 2,
+    /** Penalty per comment beyond the spam threshold */
+    commentSpamPenalty: -2,
+    /** Number of comments before spam penalty kicks in */
+    commentSpamThreshold: 10,
+  },
 } as const;
 
 // Validate minGroupSize <= maxGroupSize at module initialization

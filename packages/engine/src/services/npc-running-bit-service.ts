@@ -12,6 +12,7 @@
 
 import { db, type NpcMemory } from '@babylon/db';
 import { generateSnowflakeId } from '@babylon/shared';
+import { NPC_TRADING_CONFIG } from '../config/npc-activity';
 import { SeededRandom } from '../utils/entropy';
 import { isDegenSpeaker } from '../utils/shared-utils';
 import { parseMemoriesSafe } from './jsonb-validators';
@@ -190,8 +191,8 @@ export async function ensureRunningBits(
         db.actorState.create({
           data: {
             id,
-            tradingBalance: '10000',
-            reputationPoints: 10000,
+            tradingBalance: String(NPC_TRADING_CONFIG.startingBalance),
+            reputationPoints: NPC_TRADING_CONFIG.startingReputation,
             hasPool: false,
             postsToday: 0,
             currentMood: '0',

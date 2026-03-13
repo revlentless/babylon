@@ -21,6 +21,7 @@ import {
 } from '@babylon/db';
 import { logger } from '@babylon/shared';
 import { desc, eq, inArray, or } from 'drizzle-orm';
+import { NPC_TRADING_CONFIG } from '../config/npc-activity';
 import { getReputationBreakdown } from '../reputation';
 import { StaticDataRegistry } from '../services/static-data-registry';
 import { TradeExecutionService } from '../services/trade-execution-service';
@@ -326,7 +327,10 @@ export class NPCInvestmentManager {
 
     // Check for positions with large unrealized losses
     const lossyPositions =
-      await NPCInvestmentManager.findPositionsWithLargeDrawdowns(poolId, 0.2); // >20% loss
+      await NPCInvestmentManager.findPositionsWithLargeDrawdowns(
+        poolId,
+        NPC_TRADING_CONFIG.maxDrawdownThreshold
+      );
     if (lossyPositions.length > 0) {
       logger.warn(
         `Found ${lossyPositions.length} positions with large drawdowns`,
@@ -350,7 +354,10 @@ export class NPCInvestmentManager {
 
     // Check for positions with large unrealized profits (profit-taking)
     const profitablePositions =
-      await NPCInvestmentManager.findPositionsWithLargeProfits(poolId, 0.25); // >25% profit
+      await NPCInvestmentManager.findPositionsWithLargeProfits(
+        poolId,
+        NPC_TRADING_CONFIG.profitTakeThreshold
+      );
     if (profitablePositions.length > 0) {
       logger.info(
         `Found ${profitablePositions.length} positions with large profits`,
@@ -610,7 +617,8 @@ export class NPCInvestmentManager {
         continue;
       }
 
-      const investBudget = availableBalance * 0.8;
+      const investBudget =
+        availableBalance * NPC_TRADING_CONFIG.investBudgetRatio;
       if (investBudget < 1) {
         continue;
       }
