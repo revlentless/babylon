@@ -4,6 +4,7 @@
  * Consolidated utility functions used across the engine
  */
 
+import { logger } from '@babylon/shared';
 import { CONTEXT_LIMITS, truncateText } from './context-limits';
 import { shuffleArray } from './randomization';
 
@@ -883,7 +884,11 @@ export async function rateLimitedParallel<T>(
       if (result.status === 'fulfilled') {
         results.push(result.value);
       } else {
-        // Silently handle failures - caller can filter nulls
+        logger.warn(
+          'rateLimitedParallel task failed',
+          { error: result.reason },
+          'rateLimitedParallel'
+        );
         results.push(null);
       }
     }
