@@ -66,6 +66,30 @@ export interface RebalanceAction {
   reason: string;
 }
 
+/**
+ * Map a database PoolPosition row to the PortfolioPosition interface.
+ */
+function toPortfolioPosition(
+  row: typeof poolPositions.$inferSelect
+): PortfolioPosition {
+  return {
+    id: row.id,
+    poolId: row.poolId,
+    marketType:
+      row.marketType === 'perp' || row.marketType === 'prediction'
+        ? row.marketType
+        : 'prediction',
+    ticker: row.ticker ?? undefined,
+    marketId: row.marketId ?? undefined,
+    side: row.side,
+    size: Number(row.size),
+    entryPrice: Number(row.entryPrice),
+    currentPrice: Number(row.currentPrice),
+    unrealizedPnL: Number(row.unrealizedPnL),
+    leverage: row.leverage ?? undefined,
+  };
+}
+
 export class NPCInvestmentManager {
   /**
    * Get portfolio metrics for an NPC pool
@@ -135,23 +159,8 @@ export class NPCInvestmentManager {
       (p) => p.closedAt !== null && shouldIncludePoolPosition(p)
     );
 
-    // Map database PoolPosition to PortfolioPosition interface
-    const positions: PortfolioPosition[] = openPositions.map((p) => ({
-      id: p.id,
-      poolId: p.poolId,
-      marketType:
-        p.marketType === 'perp' || p.marketType === 'prediction'
-          ? p.marketType
-          : 'prediction',
-      ticker: p.ticker ?? undefined,
-      marketId: p.marketId ?? undefined,
-      side: p.side,
-      size: Number(p.size),
-      entryPrice: Number(p.entryPrice),
-      currentPrice: Number(p.currentPrice),
-      unrealizedPnL: Number(p.unrealizedPnL),
-      leverage: p.leverage ?? undefined,
-    }));
+    const positions: PortfolioPosition[] =
+      openPositions.map(toPortfolioPosition);
 
     const perpPortfolioPositions: PortfolioPosition[] = openPerpPositions.map(
       (p) => ({
@@ -759,25 +768,7 @@ export class NPCInvestmentManager {
         const lossPercentage = unrealizedPnL / size;
 
         if (lossPercentage < -threshold) {
-          // Map database PoolPosition to PortfolioPosition interface
-          const portfolioPosition: PortfolioPosition = {
-            id: position.id,
-            poolId: position.poolId,
-            marketType:
-              position.marketType === 'perp' ||
-              position.marketType === 'prediction'
-                ? position.marketType
-                : 'prediction',
-            ticker: position.ticker ?? undefined,
-            marketId: position.marketId ?? undefined,
-            side: position.side,
-            size: Number(position.size),
-            entryPrice: Number(position.entryPrice),
-            currentPrice: Number(position.currentPrice),
-            unrealizedPnL: Number(position.unrealizedPnL),
-            leverage: position.leverage ?? undefined,
-          };
-          lossyPositions.push(portfolioPosition);
+          lossyPositions.push(toPortfolioPosition(position));
         }
       }
     }
@@ -812,25 +803,7 @@ export class NPCInvestmentManager {
         const profitPercentage = unrealizedPnL / size;
 
         if (profitPercentage > threshold) {
-          // Map database PoolPosition to PortfolioPosition interface
-          const portfolioPosition: PortfolioPosition = {
-            id: position.id,
-            poolId: position.poolId,
-            marketType:
-              position.marketType === 'perp' ||
-              position.marketType === 'prediction'
-                ? position.marketType
-                : 'prediction',
-            ticker: position.ticker ?? undefined,
-            marketId: position.marketId ?? undefined,
-            side: position.side,
-            size: Number(position.size),
-            entryPrice: Number(position.entryPrice),
-            currentPrice: Number(position.currentPrice),
-            unrealizedPnL: Number(position.unrealizedPnL),
-            leverage: position.leverage ?? undefined,
-          };
-          profitablePositions.push(portfolioPosition);
+          profitablePositions.push(toPortfolioPosition(position));
         }
       }
     }
