@@ -34,120 +34,14 @@
  */
 
 import { logger } from '@babylon/shared';
-import { clamp01 } from '../utils/math-utils';
-
-// =============================================================================
-// HELPER FUNCTIONS
-// =============================================================================
-
-/**
- * Parse an environment variable as a number with a default fallback.
- * Returns the default if the env var is not set or not a valid number.
- */
-function envNumber(key: string, defaultValue: number): number {
-  const value = process.env[key];
-  if (value === undefined || value === '') {
-    return defaultValue;
-  }
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? defaultValue : parsed;
-}
-
-/**
- * Parse an environment variable as a positive number (> 0) with bounds checking.
- * Returns the default and logs a warning if the value is <= 0.
- */
-function envPositiveNumber(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value <= 0) {
-    logger.warn(
-      `${key}=${value} must be positive (> 0), using default ${defaultValue}`,
-      { key, value, defaultValue },
-      'npc-activity'
-    );
-    return defaultValue;
-  }
-  return value;
-}
-
-/**
- * Parse an environment variable as a non-negative number (>= 0) with bounds checking.
- * Returns the default and logs a warning if the value is < 0.
- * Use for values where 0 is valid (e.g., to disable a feature).
- */
-function envNonNegativeNumber(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value < 0) {
-    logger.warn(
-      `${key}=${value} must be non-negative (>= 0), using default ${defaultValue}`,
-      { key, value, defaultValue },
-      'npc-activity'
-    );
-    return defaultValue;
-  }
-  return value;
-}
-
-/**
- * Parse an environment variable as a probability (0.0-1.0) with bounds checking.
- * Clamps the value to valid probability range to prevent configuration errors.
- */
-function envProbability(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value < 0 || value > 1) {
-    logger.warn(
-      `${key}=${value} is outside valid probability range (0-1), clamping to bounds`,
-      { key, value },
-      'npc-activity'
-    );
-  }
-  return clamp01(value);
-}
-
-/**
- * Parse an environment variable as a score (0.0-1.0) with bounds checking.
- * Similar to envProbability but semantically distinct for quality scores, thresholds, etc.
- * Clamps the value to valid [0,1] range to prevent configuration errors.
- */
-function envScore(key: string, defaultValue: number): number {
-  const value = envNumber(key, defaultValue);
-  if (value < 0 || value > 1) {
-    logger.warn(
-      `${key}=${value} is outside valid score range (0-1), clamping to bounds`,
-      { key, value },
-      'npc-activity'
-    );
-  }
-  return clamp01(value);
-}
-
-/**
- * Parse an environment variable as a boolean with a default fallback.
- *
- * Accepts: true/false, 1/0, yes/no (case-insensitive).
- * Logs a warning and returns default for unrecognized values.
- */
-function envBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key];
-  if (value === undefined || value === '') {
-    return defaultValue;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
-    return true;
-  }
-  if (normalized === 'false' || normalized === '0' || normalized === 'no') {
-    return false;
-  }
-
-  logger.warn(
-    `${key}="${value}" is not a valid boolean, using default ${defaultValue}`,
-    { key, value, defaultValue },
-    'npc-activity'
-  );
-  return defaultValue;
-}
+import {
+  envBoolean,
+  envNonNegativeNumber,
+  envNumber,
+  envPositiveNumber,
+  envProbability,
+  envScore,
+} from './env-helpers';
 
 // =============================================================================
 // POSTING CONFIGURATION
