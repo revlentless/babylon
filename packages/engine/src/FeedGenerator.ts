@@ -670,8 +670,13 @@ export class FeedGenerator extends EventEmitter {
       a.timestamp.localeCompare(b.timestamp)
     );
 
-    // Clear world context after generation
+    // Clear all caches after generation to prevent unbounded memory growth
     this.worldContext = null;
+    this.relationshipContextCache.clear();
+    this.actorGroupContexts.clear();
+    this._allPreviousEvents = [];
+    this._allPreviousPosts = [];
+    this._questions = [];
 
     return sortedFeed;
   }
