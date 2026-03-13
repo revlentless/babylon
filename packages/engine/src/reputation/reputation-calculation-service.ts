@@ -892,12 +892,21 @@ export async function generateBatchGameFeedback(
   >[] = [];
 
   for (const completion of completions) {
-    const result = await generateGameCompletionFeedback(
-      completion.agentId,
-      completion.gameId,
-      completion.metrics
-    );
-    results.push({ status: 'fulfilled', value: result });
+    try {
+      const result = await generateGameCompletionFeedback(
+        completion.agentId,
+        completion.gameId,
+        completion.metrics
+      );
+      results.push({ status: 'fulfilled', value: result });
+    } catch (error) {
+      logger.error(
+        'Failed to generate game feedback',
+        { agentId: completion.agentId, gameId: completion.gameId, error },
+        'AutoFeedback'
+      );
+      results.push({ status: 'rejected', reason: error });
+    }
   }
 
   const successful = results.filter((r) => r.status === 'fulfilled').length;
