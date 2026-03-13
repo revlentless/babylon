@@ -31,21 +31,8 @@ import { generateSnowflakeId, logger } from '@babylon/shared';
 import { NPC_FOLLOWING_CONFIG } from '../config/npc-activity';
 import { secureRandom } from '../utils/entropy';
 import { formatError } from '../utils/error-utils';
+import { shuffleArray } from '../utils/randomization';
 import { StaticDataRegistry } from './static-data-registry';
-
-/**
- * Fisher-Yates shuffle for uniform random sampling.
- * Shuffles in place and returns the array.
- */
-function shuffleArray<T>(array: T[]): T[] {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(secureRandom() * (i + 1));
-    const temp = array[i]!;
-    array[i] = array[j]!;
-    array[j] = temp;
-  }
-  return array;
-}
 
 /**
  * Notifier interface for follow events.
@@ -530,7 +517,7 @@ export class FollowingMechanics {
         allNpcs.length,
         NPC_FOLLOWING_CONFIG.totalMaxNpcCandidatesPerTick
       );
-      const shuffledNpcs = shuffleArray([...allNpcs]);
+      const shuffledNpcs = shuffleArray([...allNpcs], secureRandom);
       const candidateNpcs = shuffledNpcs.slice(0, maxNpcCandidates);
       const candidateNpcIds = candidateNpcs.map((n) => n.id);
 
@@ -564,7 +551,10 @@ export class FollowingMechanics {
 
       // Shuffle candidate NPCs once outside the per-player loop for efficiency
       // Each player will use a slice from this pre-shuffled array
-      const shuffledCandidateNpcs = shuffleArray([...candidateNpcs]);
+      const shuffledCandidateNpcs = shuffleArray(
+        [...candidateNpcs],
+        secureRandom
+      );
       const perPlayerCap =
         NPC_FOLLOWING_CONFIG.maxNpcCandidatesPerPlayerPerTick;
 
