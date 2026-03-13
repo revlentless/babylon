@@ -518,9 +518,16 @@ export class NPCGroupDynamicsService {
       // Tier is already available from the JOIN
       const tier = group.tier as 1 | 2 | 3 | null;
 
-      // Tier-based message frequency: T1=25%, T2=15%, T3=5%, legacy=25%
+      // Tier-based message frequency
+      const { tierMessageChance } = NPC_GROUP_DYNAMICS_CONFIG;
       const messageChance =
-        tier === 1 ? 0.25 : tier === 2 ? 0.15 : tier === 3 ? 0.05 : 0.25;
+        tier === 1
+          ? tierMessageChance.t1
+          : tier === 2
+            ? tierMessageChance.t2
+            : tier === 3
+              ? tierMessageChance.t3
+              : tierMessageChance.legacy;
 
       if (!randomChance(messageChance, rng)) {
         continue;
@@ -807,7 +814,8 @@ Return your response as XML:
             )
         : [{ count: 0 }];
     const followCount = followResult?.count ?? 0;
-    breakdown.follows = followCount * 5;
+    const { engagementScoring } = NPC_GROUP_DYNAMICS_CONFIG;
+    breakdown.follows = followCount * engagementScoring.followWeight;
     score += breakdown.follows;
 
     // 2. Count comments on NPC posts (last 7 days)
@@ -838,17 +846,24 @@ Return your response as XML:
 
     // Ideal: 1-3 comments per week
     if (commentCount >= 1 && commentCount <= 3) {
-      breakdown.comments = commentCount * 3;
+      breakdown.comments = commentCount * engagementScoring.commentIdealWeight;
       score += breakdown.comments;
-    } else if (commentCount > 3 && commentCount <= 10) {
+    } else if (
+      commentCount > 3 &&
+      commentCount <= engagementScoring.commentSpamThreshold
+    ) {
       // Still okay, but diminishing returns
-      breakdown.comments = commentCount * 2;
+      breakdown.comments =
+        commentCount * engagementScoring.commentDiminishingWeight;
       score += breakdown.comments;
-    } else if (commentCount > 10) {
+    } else if (commentCount > engagementScoring.commentSpamThreshold) {
       // Spam behavior - penalty
-      const goodComments = 10 * 2; // First 10 get points
-      const excessComments = commentCount - 10;
-      const penalty = excessComments * -2;
+      const goodComments =
+        engagementScoring.commentSpamThreshold *
+        engagementScoring.commentDiminishingWeight;
+      const excessComments =
+        commentCount - engagementScoring.commentSpamThreshold;
+      const penalty = excessComments * engagementScoring.commentSpamPenalty;
       breakdown.comments = goodComments;
       breakdown.penalties += penalty;
       score += goodComments + penalty;

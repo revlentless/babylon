@@ -48,6 +48,7 @@ import {
 } from '@babylon/db';
 import { generateSnowflakeId, logger } from '@babylon/shared';
 import { FEE_CONFIG } from '../config/fees';
+import { NPC_TRADING_CONFIG } from '../config/npc-activity';
 import { isSimulationMode } from '../storage-bridge';
 import type {
   ExecutedTrade,
@@ -476,12 +477,12 @@ export class TradeExecutionService {
     // Use staticOrg for the rest of the function
     const org = staticOrg;
 
-    const leverage = 5; // Standard leverage for NPCs
+    const leverage = NPC_TRADING_CONFIG.defaultLeverage;
     const side = decision.action === 'open_long' ? 'long' : 'short';
 
-    // Cap position size to market limit (max 10,000 or 10% of open interest)
+    // Cap position size to market limit or 10% of open interest
     // This prevents NPC trades from exceeding market limits
-    const MAX_POSITION_SIZE = 10_000;
+    const MAX_POSITION_SIZE = NPC_TRADING_CONFIG.maxPositionSize;
     const maxAmount = MAX_POSITION_SIZE / leverage; // e.g., 10,000 / 5 = 2,000
     const cappedAmount = Math.min(decision.amount, maxAmount);
     const positionSize = cappedAmount * leverage;
