@@ -31,7 +31,7 @@ export interface ActorRecord {
   personality?: string;
   domain?: string[];
   description?: string;
-  tradingBalance: number;
+  tradingBalance: string;
   reputationPoints: number;
   hasPool?: boolean;
 }
