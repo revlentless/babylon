@@ -52,6 +52,39 @@ export class PerpMarketService {
   }
 
   /**
+   * Validate that a user's total notional exposure (including the new amount)
+   * does not exceed MAX_USER_EXPOSURE, and that the position count stays
+   * within MAX_POSITIONS_PER_USER.
+   *
+   * @returns The current exposure and open positions for informational use.
+   */
+  private async checkUserExposure(
+    userId: string,
+    additionalNotional: number
+  ): Promise<{
+    currentExposure: number;
+    positions: PerpPositionRecord[];
+  }> {
+    const positions = await this.db.getOpenPositionsByUser(userId);
+    const currentExposure = positions.reduce(
+      (sum, p) => sum + p.size * p.leverage,
+      0
+    );
+    if (currentExposure + additionalNotional > MAX_USER_EXPOSURE) {
+      throw new Error(
+        `Total exposure would exceed limit: current ${currentExposure.toLocaleString()}, ` +
+          `adding ${additionalNotional.toLocaleString()}, max ${MAX_USER_EXPOSURE.toLocaleString()}`
+      );
+    }
+    if (positions.length >= MAX_POSITIONS_PER_USER) {
+      throw new Error(
+        `Maximum positions reached (${MAX_POSITIONS_PER_USER}). Close a position first.`
+      );
+    }
+    return { currentExposure, positions };
+  }
+
+  /**
    * Apply post-trade price impact and adjust the position's entry price
    * to the delta-based average fill price.
    *
@@ -277,23 +310,8 @@ export class PerpMarketService {
     }
 
     // Check total user exposure across all positions
-    const userPositions = await this.db.getOpenPositionsByUser(input.userId);
-    const currentExposure = userPositions.reduce(
-      (sum, p) => sum + p.size * p.leverage,
-      0
-    );
     const newNotional = size * leverage;
-    if (currentExposure + newNotional > MAX_USER_EXPOSURE) {
-      throw new Error(
-        `Total exposure would exceed limit: current ${currentExposure.toLocaleString()}, ` +
-          `new ${newNotional.toLocaleString()}, max ${MAX_USER_EXPOSURE.toLocaleString()}`
-      );
-    }
-    if (userPositions.length >= MAX_POSITIONS_PER_USER) {
-      throw new Error(
-        `Maximum positions reached (${MAX_POSITIONS_PER_USER}). Close a position first.`
-      );
-    }
+    await this.checkUserExposure(input.userId, newNotional);
 
     const entryPrice = market.currentPrice;
 
@@ -986,20 +1004,10 @@ export class PerpMarketService {
     }
 
     // Check total user exposure
-    const userPositions = await this.db.getOpenPositionsByUser(input.userId);
-    const currentExposure = userPositions.reduce(
-      (sum, p) => sum + p.size * p.leverage,
-      0
-    );
     // Use existing leverage for the added portion (consistent with industry standard)
     const effectiveLeverage = existing.leverage;
     const addedNotional = addedSize * effectiveLeverage;
-    if (currentExposure + addedNotional > MAX_USER_EXPOSURE) {
-      throw new Error(
-        `Total exposure would exceed limit: current ${currentExposure.toLocaleString()}, ` +
-          `adding ${addedNotional.toLocaleString()}, max ${MAX_USER_EXPOSURE.toLocaleString()}`
-      );
-    }
+    await this.checkUserExposure(input.userId, addedNotional);
 
     // Calculate margin and fees for added portion only
     const marginRequired = addedSize / effectiveLeverage;
