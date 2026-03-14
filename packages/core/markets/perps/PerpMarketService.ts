@@ -570,30 +570,15 @@ export class PerpMarketService {
       this.deps.wallet.getBalance(input.userId),
     ]);
 
-    // Fee processing is bookkeeping (referral distribution, fee records).
-    // The position is already settled, so this is safe to run without blocking
-    // the response back to the user.
+    // Fee processing (referral distribution, fee records).
     if (this.deps.feeProcessor) {
-      void this.deps.feeProcessor
-        .processTradingFee({
-          userId: input.userId,
-          amount: position.size,
-          type: 'perp_close',
-          relatedId: position.ticker,
-          positionId: position.id,
-        })
-        .catch((err) => {
-          logger.error(
-            'Fee processing failed after close settlement',
-            {
-              positionId: position.id,
-              userId: input.userId,
-              ticker: position.ticker,
-              error: err instanceof Error ? err.message : String(err),
-            },
-            'PerpService'
-          );
-        });
+      await this.deps.feeProcessor.processTradingFee({
+        userId: input.userId,
+        amount: position.size,
+        type: 'perp_close',
+        relatedId: position.ticker,
+        positionId: position.id,
+      });
     }
 
     // Apply market-level post-close impact after settlement to keep the close
