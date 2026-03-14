@@ -26,6 +26,8 @@ const FUNDING_PERIOD_HOURS = 8;
 const BASE_FUNDING_RATE = 0.01; // 1% APR base
 const MAX_FUNDING_RATE = 0.5; // 50% APR cap
 const IMBALANCE_EXPONENT = 3.0;
+const MAINTENANCE_MARGIN_RATIO = 0.9;
+const BALANCED_IMBALANCE_THRESHOLD = 0.05;
 
 /** Maximum total notional exposure per user across all positions */
 const MAX_USER_EXPOSURE = 1_000_000;
@@ -1404,7 +1406,7 @@ function calculateLiquidationPrice(
 ): number {
   // Guard against division by zero - leverage must be >= 1
   if (leverage < 1) leverage = 1;
-  const liquidationThreshold = 0.9 / leverage;
+  const liquidationThreshold = MAINTENANCE_MARGIN_RATIO / leverage;
   if (side === 'long') {
     return entryPrice * (1 - liquidationThreshold);
   }
@@ -1503,7 +1505,7 @@ function calculateDynamicFundingRate(params: {
 
   const imbalance = (longOpenInterest - shortOpenInterest) / totalOI;
   let paymentDirection: 'longs_pay' | 'shorts_pay' | 'balanced';
-  if (Math.abs(imbalance) < 0.05) {
+  if (Math.abs(imbalance) < BALANCED_IMBALANCE_THRESHOLD) {
     paymentDirection = 'balanced';
   } else if (imbalance > 0) {
     paymentDirection = 'longs_pay';
