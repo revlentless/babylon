@@ -621,7 +621,7 @@ export class PredictionMarketService {
     if (market.resolved) {
       throw new Error('Market has resolved');
     }
-    if (new Date() > market.endDate) {
+    if (this.now() > market.endDate) {
       throw new Error('Market expired');
     }
     if (market.liquidity <= 0) {
