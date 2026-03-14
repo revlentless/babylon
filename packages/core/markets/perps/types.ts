@@ -174,6 +174,8 @@ export interface PerpTradeResult {
   previousSize?: number;
   /** Previous entry price before modification */
   previousEntryPrice?: number;
+  /** Whether price impact was successfully applied to this trade */
+  priceImpactApplied?: boolean;
 }
 
 /**
