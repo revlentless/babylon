@@ -63,12 +63,24 @@ export class PerpDbAdapter implements PerpDbPort {
     }));
   }
 
-  async listOpenPositions(): Promise<PerpPositionRecord[]> {
-    const positions = await this.dbClient
+  async listOpenPositions(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<PerpPositionRecord[]> {
+    let query = this.dbClient
       .select()
       .from(perpPositions)
-      .where(isNull(perpPositions.closedAt));
+      .where(isNull(perpPositions.closedAt))
+      .$dynamic();
 
+    if (options?.limit !== undefined) {
+      query = query.limit(options.limit);
+    }
+    if (options?.offset !== undefined) {
+      query = query.offset(options.offset);
+    }
+
+    const positions = await query;
     return positions.map(mapPosition);
   }
 

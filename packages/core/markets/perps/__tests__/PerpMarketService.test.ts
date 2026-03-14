@@ -79,10 +79,20 @@ class InMemoryPerpDb implements PerpDbPort {
     return Array.from(this.markets.values()).map((m) => ({ ...m }));
   }
 
-  async listOpenPositions(): Promise<PerpPositionRecord[]> {
-    return Array.from(this.positions.values())
+  async listOpenPositions(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<PerpPositionRecord[]> {
+    let result = Array.from(this.positions.values())
       .filter((p) => !p.closedAt)
       .map((p) => ({ ...p }));
+    if (options?.offset !== undefined) {
+      result = result.slice(options.offset);
+    }
+    if (options?.limit !== undefined) {
+      result = result.slice(0, options.limit);
+    }
+    return result;
   }
 
   async getPositionById(id: string): Promise<PerpPositionRecord | null> {
