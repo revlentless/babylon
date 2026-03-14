@@ -9,6 +9,7 @@ import {
 import { generateSnowflakeId } from '@babylon/shared';
 import type { InferInsertModel } from 'drizzle-orm';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { MIN_SHARES } from '../../constants';
 import type {
   PredictionDbPort,
   PredictionMarketRecord,
@@ -109,7 +110,7 @@ export class PredictionDbAdapter implements PredictionDbPort {
         )
       );
     // Filter out positions with negligible shares (closed but not marked resolved)
-    return rows.map(mapPosition).filter((p) => p.shares >= 0.01);
+    return rows.map(mapPosition).filter((p) => p.shares >= MIN_SHARES);
   }
 
   async getQuestion(idOrNumber: string): Promise<QuestionRecord | null> {
