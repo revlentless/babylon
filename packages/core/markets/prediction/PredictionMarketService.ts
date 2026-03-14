@@ -1,3 +1,9 @@
+import {
+  DEFAULT_LIQUIDITY,
+  MIN_SHARES,
+  MIN_TRADE_AMOUNT,
+  SHARES_EPSILON,
+} from './constants';
 import { PredictionPricing } from './pricing';
 import type {
   PredictionBuyInput,
@@ -13,10 +19,6 @@ import type {
   PredictionSide,
   PredictionTradeResult,
 } from './types';
-
-const DEFAULT_LIQUIDITY = 10_000;
-const MIN_SHARES = 0.01;
-const MIN_TRADE_AMOUNT = 1;
 
 function grossUpBuyAmount(netAmount: number, feeRate: number): number {
   if (!Number.isFinite(netAmount)) return 0;
@@ -255,7 +257,7 @@ export class PredictionMarketService {
       throw new Error('Position not found');
     }
 
-    if (pos.shares < shares - 1e-9) {
+    if (pos.shares < shares - SHARES_EPSILON) {
       throw new Error('Insufficient shares');
     }
 

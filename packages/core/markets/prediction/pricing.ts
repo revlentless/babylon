@@ -4,6 +4,8 @@
  * Framework-free math utilities for YES/NO markets.
  */
 
+import { DEFAULT_LIQUIDITY } from './constants';
+
 export interface ShareCalculation {
   sharesBought: number;
   avgPrice: number;
@@ -40,7 +42,7 @@ export class PredictionPricing {
   /**
    * Initialize a market with symmetric liquidity.
    */
-  static initializeMarket(initialLiquidity = 10_000) {
+  static initializeMarket(initialLiquidity = DEFAULT_LIQUIDITY) {
     const half = initialLiquidity / 2;
     return { yesShares: half, noShares: half };
   }
