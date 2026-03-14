@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type {
   BroadcastPort,
   CachePort,
@@ -531,5 +531,153 @@ describe('PredictionMarketService', () => {
 
   it('pricing getCurrentPrice returns 0.5 when total is zero for display', () => {
     expect(PredictionPricing.getCurrentPrice(0, 0, 'yes')).toBe(0.5);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Cancel edge cases (F25)
+  // ---------------------------------------------------------------------------
+
+  describe('cancel edge cases', () => {
+    it('double-cancel should be idempotent (return zero refunds on second call)', async () => {
+      await service.buy({ userId: 'u1', marketId: 'm1', side: 'yes', amount: 100 });
+
+      const first = await service.cancel({ marketId: 'm1', reason: 'void' });
+      expect(first.positionsRefunded).toBe(1);
+      expect(first.totalRefunded).toBeGreaterThan(0);
+
+      const second = await service.cancel({ marketId: 'm1', reason: 'void again' });
+      expect(second.positionsRefunded).toBe(0);
+      expect(second.totalRefunded).toBe(0);
+    });
+
+    it('cancel after resolve should throw', async () => {
+      await service.buy({ userId: 'u1', marketId: 'm1', side: 'yes', amount: 100 });
+
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'yes',
+        resolutionDescription: 'It rained',
+      });
+
+      await expect(
+        service.cancel({ marketId: 'm1', reason: 'too late' })
+      ).rejects.toThrow(/cannot cancel/i);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Resolve edge cases (F26)
+  // ---------------------------------------------------------------------------
+
+  describe('resolve edge cases', () => {
+    it('double-resolve should be idempotent (second call is a no-op)', async () => {
+      await service.buy({ userId: 'u1', marketId: 'm1', side: 'yes', amount: 100 });
+
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'yes',
+        resolutionDescription: 'First',
+      });
+
+      const balanceAfterFirst = (await wallet.getBalance('u1')).balance;
+
+      // Second resolve should silently return (market.resolved is already true)
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'no',
+        resolutionDescription: 'Second',
+      });
+
+      // Balance should not change on second resolve
+      const balanceAfterSecond = (await wallet.getBalance('u1')).balance;
+      expect(balanceAfterSecond).toBe(balanceAfterFirst);
+    });
+
+    it('resolve with NO outcome should pay NO holders (short-sellers win)', async () => {
+      await service.buy({ userId: 'u1', marketId: 'm1', side: 'yes', amount: 100 });
+      await service.buy({ userId: 'u2', marketId: 'm1', side: 'no', amount: 100 });
+
+      const preYesBalance = (await wallet.getBalance('u1')).balance;
+      const preNoBalance = (await wallet.getBalance('u2')).balance;
+
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'no',
+        resolutionDescription: 'It did not rain',
+      });
+
+      const postYesBalance = (await wallet.getBalance('u1')).balance;
+      const postNoBalance = (await wallet.getBalance('u2')).balance;
+
+      // NO holders get paid, YES holders do not
+      expect(postNoBalance).toBeGreaterThan(preNoBalance);
+      expect(postYesBalance).toBeLessThanOrEqual(preYesBalance);
+
+      const pos1 = await db.getPosition('u1', 'm1', 'yes');
+      const pos2 = await db.getPosition('u2', 'm1', 'no');
+      expect(pos1?.outcome).toBe(false);
+      expect(pos2?.outcome).toBe(true);
+    });
+
+    it('resolve with zero positions should complete without payouts', async () => {
+      // Resolve a market that has no positions at all
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'yes',
+        resolutionDescription: 'No one participated',
+      });
+
+      const resolvedMarket = await service.getMarket('m1');
+      expect(resolvedMarket?.resolved).toBe(true);
+      // No PnL records should exist
+      expect(wallet.pnls.length).toBe(0);
+    });
+
+    it('resolve with mixed YES/NO positions pays only winners', async () => {
+      // Create multiple users on both sides
+      await service.buy({ userId: 'u1', marketId: 'm1', side: 'yes', amount: 200 });
+      await service.buy({ userId: 'u2', marketId: 'm1', side: 'no', amount: 100 });
+      await service.buy({ userId: 'u3', marketId: 'm1', side: 'yes', amount: 50 });
+
+      const preU1 = (await wallet.getBalance('u1')).balance;
+      const preU2 = (await wallet.getBalance('u2')).balance;
+      const preU3 = (await wallet.getBalance('u3')).balance;
+
+      await service.resolve({
+        marketId: 'm1',
+        winningSide: 'yes',
+        resolutionDescription: 'It rained',
+      });
+
+      const postU1 = (await wallet.getBalance('u1')).balance;
+      const postU2 = (await wallet.getBalance('u2')).balance;
+      const postU3 = (await wallet.getBalance('u3')).balance;
+
+      // YES holders (u1, u3) should receive payouts
+      expect(postU1).toBeGreaterThan(preU1);
+      expect(postU3).toBeGreaterThan(preU3);
+      // NO holder (u2) should not receive payouts
+      expect(postU2).toBeLessThanOrEqual(preU2);
+
+      // All positions should be marked resolved
+      const pos1 = await db.getPosition('u1', 'm1', 'yes');
+      const pos2 = await db.getPosition('u2', 'm1', 'no');
+      const pos3 = await db.getPosition('u3', 'm1', 'yes');
+      expect(pos1?.status).toBe('resolved');
+      expect(pos2?.status).toBe('resolved');
+      expect(pos3?.status).toBe('resolved');
+
+      // Winners have positive outcome, losers have false
+      expect(pos1?.outcome).toBe(true);
+      expect(pos2?.outcome).toBe(false);
+      expect(pos3?.outcome).toBe(true);
+
+      // PnL recorded for losers should be negative
+      const loserPnl = wallet.pnls.find(
+        (p) => p.userId === 'u2' && p.reason === 'pred_resolve'
+      );
+      expect(loserPnl).toBeDefined();
+      expect(loserPnl!.pnl).toBeLessThan(0);
+    });
   });
 });
