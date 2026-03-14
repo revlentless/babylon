@@ -36,6 +36,23 @@ const MAX_POSITIONS_PER_USER = 50;
 const MIN_IMPACT_DELTA = 0.001;
 
 /**
+ * Compute the clamped price-impact delta for a given trade size.
+ *
+ * Pure helper shared by both open and close impact paths so the
+ * calculation stays consistent.
+ */
+function computeImpactDelta(
+  size: number,
+  basePrice: number,
+  effectiveSupply: number,
+  maxChangePct: number
+): number {
+  const rawImpact = size / effectiveSupply;
+  const maxImpact = basePrice * maxChangePct;
+  return Math.min(rawImpact, maxImpact);
+}
+
+/**
  * PerpMarketService
  *
  * Thin domain service wrapper for perpetual markets.
@@ -94,9 +111,12 @@ export class PerpMarketService {
       const effectiveSupply =
         PERP_MARKET_CONFIG.SYNTHETIC_SUPPLY /
         PERP_MARKET_CONFIG.LIQUIDITY_FACTOR;
-      const rawImpact = tradeSize / effectiveSupply;
-      const maxImpact = basePrice * PERP_MARKET_CONFIG.MAX_CHANGE_PER_TRADE;
-      const impact = Math.min(rawImpact, maxImpact);
+      const impact = computeImpactDelta(
+        tradeSize,
+        basePrice,
+        effectiveSupply,
+        PERP_MARKET_CONFIG.MAX_CHANGE_PER_TRADE
+      );
 
       if (impact <= MIN_IMPACT_DELTA) return undefined;
 
@@ -175,9 +195,12 @@ export class PerpMarketService {
       const effectiveSupply =
         PERP_MARKET_CONFIG.SYNTHETIC_SUPPLY /
         PERP_MARKET_CONFIG.LIQUIDITY_FACTOR;
-      const rawImpact = params.closeSize / effectiveSupply;
-      const maxImpact = basePrice * PERP_MARKET_CONFIG.MAX_CHANGE_PER_TRADE;
-      const impact = Math.min(rawImpact, maxImpact);
+      const impact = computeImpactDelta(
+        params.closeSize,
+        basePrice,
+        effectiveSupply,
+        PERP_MARKET_CONFIG.MAX_CHANGE_PER_TRADE
+      );
 
       if (impact <= MIN_IMPACT_DELTA) return undefined;
 
