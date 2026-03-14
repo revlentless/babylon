@@ -221,18 +221,31 @@ export class PredictionDbAdapter implements PredictionDbPort {
     const [updated] = await this.client
       .update(markets)
       .set({
-        yesShares:
-          updates.yesShares != null ? String(updates.yesShares) : undefined,
-        noShares:
-          updates.noShares != null ? String(updates.noShares) : undefined,
-        liquidity:
-          updates.liquidity != null ? String(updates.liquidity) : undefined,
-        resolved: updates.resolved ?? undefined,
-        resolution: updates.resolution ?? undefined,
-        onChainMarketId: updates.onChainMarketId ?? undefined,
-        onChainResolved: updates.onChainResolved ?? undefined,
-        resolutionProofUrl: updates.resolutionProofUrl ?? undefined,
-        resolutionDescription: updates.resolutionDescription ?? undefined,
+        ...(updates.yesShares !== undefined && {
+          yesShares: String(updates.yesShares),
+        }),
+        ...(updates.noShares !== undefined && {
+          noShares: String(updates.noShares),
+        }),
+        ...(updates.liquidity !== undefined && {
+          liquidity: String(updates.liquidity),
+        }),
+        ...(updates.resolved !== undefined && { resolved: updates.resolved }),
+        ...(updates.resolution !== undefined && {
+          resolution: updates.resolution,
+        }),
+        ...(updates.onChainMarketId !== undefined && {
+          onChainMarketId: updates.onChainMarketId,
+        }),
+        ...(updates.onChainResolved !== undefined && {
+          onChainResolved: updates.onChainResolved,
+        }),
+        ...(updates.resolutionProofUrl !== undefined && {
+          resolutionProofUrl: updates.resolutionProofUrl,
+        }),
+        ...(updates.resolutionDescription !== undefined && {
+          resolutionDescription: updates.resolutionDescription,
+        }),
         updatedAt: new Date(),
       })
       .where(eq(markets.id, marketId))
