@@ -58,7 +58,10 @@ export interface PerpPositionRecord {
 
 export interface PerpDbPort {
   listMarkets(): Promise<PerpMarketRecord[]>;
-  listOpenPositions(): Promise<PerpPositionRecord[]>;
+  listOpenPositions(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<PerpPositionRecord[]>;
   getPositionById(id: string): Promise<PerpPositionRecord | null>;
   /** Get all open positions for a user */
   getOpenPositionsByUser(userId: string): Promise<PerpPositionRecord[]>;

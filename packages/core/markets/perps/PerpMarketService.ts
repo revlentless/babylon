@@ -718,84 +718,92 @@ export class PerpMarketService {
 
     const positions = await this.db.listOpenPositions();
 
-    for (const position of positions) {
-      const newPrice =
-        priceMap.get(position.organizationId) ??
-        priceMap.get(position.ticker) ??
-        null;
-      if (newPrice === null || newPrice === undefined) continue;
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < positions.length; i += BATCH_SIZE) {
+      const batch = positions.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (position) => {
+          const newPrice =
+            priceMap.get(position.organizationId) ??
+            priceMap.get(position.ticker) ??
+            null;
+          if (newPrice === null || newPrice === undefined) return;
 
-      // Update unrealized
-      const { pnl, pnlPercent } = calculateUnrealizedPnL(
-        position.entryPrice,
-        newPrice,
-        position.side,
-        position.size
-      );
+          // Update unrealized
+          const { pnl, pnlPercent } = calculateUnrealizedPnL(
+            position.entryPrice,
+            newPrice,
+            position.side,
+            position.size
+          );
 
-      const market =
-        marketByOrg.get(position.organizationId) ??
-        marketByTicker.get(position.ticker);
+          const market =
+            marketByOrg.get(position.organizationId) ??
+            marketByTicker.get(position.ticker);
 
-      const now = this.deps.clock?.now() ?? new Date();
+          const now = this.deps.clock?.now() ?? new Date();
 
-      // Liquidation check
-      if (shouldLiquidate(newPrice, position.liquidationPrice, position.side)) {
-        const marginLoss = position.size / position.leverage;
-        // OI decreases by notional (size), not leveraged exposure
-        const newOpenInterest = Math.max(
-          0,
-          (market?.openInterest ?? 0) - position.size
-        );
+          // Liquidation check
+          if (
+            shouldLiquidate(newPrice, position.liquidationPrice, position.side)
+          ) {
+            const marginLoss = position.size / position.leverage;
+            // OI decreases by notional (size), not leveraged exposure
+            const newOpenInterest = Math.max(
+              0,
+              (market?.openInterest ?? 0) - position.size
+            );
 
-        try {
-          await this.db.closePosition(position.id, {
-            currentPrice: newPrice,
-            closedAt: now,
-            realizedPnL: -marginLoss,
-            unrealizedPnL: 0,
-            unrealizedPnLPercent: 0,
-          });
+            try {
+              await this.db.closePosition(position.id, {
+                currentPrice: newPrice,
+                closedAt: now,
+                realizedPnL: -marginLoss,
+                unrealizedPnL: 0,
+                unrealizedPnLPercent: 0,
+              });
 
-          await this.deps.wallet.recordPnL({
-            userId: position.userId,
-            pnl: -marginLoss,
-            reason: 'perp_liquidation',
-            relatedId: position.id,
-          });
+              await this.deps.wallet.recordPnL({
+                userId: position.userId,
+                pnl: -marginLoss,
+                reason: 'perp_liquidation',
+                relatedId: position.id,
+              });
 
-          if (market) {
-            await this.db.updateMarketStats(position.ticker, {
-              openInterest: newOpenInterest,
+              if (market) {
+                await this.db.updateMarketStats(position.ticker, {
+                  openInterest: newOpenInterest,
+                });
+              }
+              summary.liquidations++;
+            } catch (err) {
+              summary.errors.push({
+                key: position.ticker,
+                positionId: position.id,
+                error: `Liquidation failed: ${err instanceof Error ? err.message : String(err)}`,
+              });
+            }
+            return;
+          }
+
+          // Persist open position metrics
+          try {
+            await this.db.updateOpenPosition(position.id, {
+              currentPrice: newPrice,
+              unrealizedPnL: pnl,
+              unrealizedPnLPercent: pnlPercent,
+              lastUpdated: now,
+            });
+            summary.positionsUpdated++;
+          } catch (err) {
+            summary.errors.push({
+              key: position.ticker,
+              positionId: position.id,
+              error: `Position update failed: ${err instanceof Error ? err.message : String(err)}`,
             });
           }
-          summary.liquidations++;
-        } catch (err) {
-          summary.errors.push({
-            key: position.ticker,
-            positionId: position.id,
-            error: `Liquidation failed: ${err instanceof Error ? err.message : String(err)}`,
-          });
-        }
-        continue;
-      }
-
-      // Persist open position metrics
-      try {
-        await this.db.updateOpenPosition(position.id, {
-          currentPrice: newPrice,
-          unrealizedPnL: pnl,
-          unrealizedPnLPercent: pnlPercent,
-          lastUpdated: now,
-        });
-        summary.positionsUpdated++;
-      } catch (err) {
-        summary.errors.push({
-          key: position.ticker,
-          positionId: position.id,
-          error: `Position update failed: ${err instanceof Error ? err.message : String(err)}`,
-        });
-      }
+        })
+      );
     }
 
     // Update market prices (simple stats update)
@@ -876,26 +884,32 @@ export class PerpMarketService {
       });
 
       const periodRate = funding.periodRate;
-      for (const pos of agg.positions) {
-        const payment = calculateFundingPayment(pos.size, periodRate);
-        // Positive funding: longs pay shorts
-        const delta =
-          funding.paymentDirection === 'balanced'
-            ? 0
-            : funding.paymentDirection === 'longs_pay'
-              ? pos.side === 'long'
-                ? payment
-                : -payment
-              : pos.side === 'short'
-                ? payment
-                : -payment;
+      const FUNDING_BATCH_SIZE = 50;
+      for (let i = 0; i < agg.positions.length; i += FUNDING_BATCH_SIZE) {
+        const batch = agg.positions.slice(i, i + FUNDING_BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (pos) => {
+            const payment = calculateFundingPayment(pos.size, periodRate);
+            // Positive funding: longs pay shorts
+            const delta =
+              funding.paymentDirection === 'balanced'
+                ? 0
+                : funding.paymentDirection === 'longs_pay'
+                  ? pos.side === 'long'
+                    ? payment
+                    : -payment
+                  : pos.side === 'short'
+                    ? payment
+                    : -payment;
 
-        if (delta !== 0) {
-          await this.db.updateOpenPosition(pos.id, {
-            fundingPaid: pos.fundingPaid + delta,
-            lastUpdated: now,
-          });
-        }
+            if (delta !== 0) {
+              await this.db.updateOpenPosition(pos.id, {
+                fundingPaid: pos.fundingPaid + delta,
+                lastUpdated: now,
+              });
+            }
+          })
+        );
       }
 
       await this.db.updateMarketStats(market.ticker, {
