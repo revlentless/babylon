@@ -74,8 +74,8 @@ export interface PredictionPriceSnapshotRecord {
 export interface PredictionDbPort {
   getMarketById(id: string): Promise<PredictionMarketRecord | null>;
   getMarketsByIds(ids: string[]): Promise<PredictionMarketRecord[]>;
-  listMarkets?(): Promise<PredictionMarketRecord[]>;
-  listUserPositions?(userId: string): Promise<PredictionPositionRecord[]>;
+  listMarkets(): Promise<PredictionMarketRecord[]>;
+  listUserPositions(userId: string): Promise<PredictionPositionRecord[]>;
   getQuestion?(idOrNumber: string): Promise<QuestionRecord | null>;
   createMarketFromQuestion(
     question: QuestionRecord,
@@ -113,7 +113,7 @@ export interface PredictionDbPort {
   ): Promise<PredictionPositionRecord>;
   deletePosition(positionId: string): Promise<void>;
   listPositionsForMarket(marketId: string): Promise<PredictionPositionRecord[]>;
-  insertPriceSnapshot(snapshot: PredictionPriceSnapshotRecord): Promise<void>;
+  insertPriceSnapshot?(snapshot: PredictionPriceSnapshotRecord): Promise<void>;
 }
 
 // DTOs
