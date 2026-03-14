@@ -154,25 +154,14 @@ export class PredictionMarketService {
           }
     );
 
-    await this.recordSnapshot({
+    await this.postTradeEvent({
       marketId,
       yesPrice: calc.newYesPrice,
       noPrice: calc.newNoPrice,
       yesShares: calc.newYesShares,
       noShares: calc.newNoShares,
       liquidity: newLiquidity,
-      eventType: 'trade',
       source: tradeSource,
-    });
-
-    await this.emitTrade({
-      type: 'prediction_trade',
-      marketId,
-      yesPrice: calc.newYesPrice,
-      noPrice: calc.newNoPrice,
-      yesShares: calc.newYesShares,
-      noShares: calc.newNoShares,
-      liquidity: newLiquidity,
       trade: {
         actorType: tradeActorType,
         actorId: userId,
@@ -181,12 +170,8 @@ export class PredictionMarketService {
         shares: calc.sharesBought,
         amount,
         price: calc.avgPrice,
-        source: tradeSource,
-        timestamp: this.now().toISOString(),
       },
     });
-
-    await this.invalidateCaches(marketId);
 
     if (this.deps.feeProcessor) {
       await this.deps.feeProcessor.processTradingFee({
@@ -320,25 +305,14 @@ export class PredictionMarketService {
       relatedId: marketId,
     });
 
-    await this.recordSnapshot({
+    await this.postTradeEvent({
       marketId,
       yesPrice: calc.newYesPrice,
       noPrice: calc.newNoPrice,
       yesShares: calc.newYesShares,
       noShares: calc.newNoShares,
       liquidity: newLiquidity,
-      eventType: 'trade',
       source: tradeSource,
-    });
-
-    await this.emitTrade({
-      type: 'prediction_trade',
-      marketId,
-      yesPrice: calc.newYesPrice,
-      noPrice: calc.newNoPrice,
-      yesShares: calc.newYesShares,
-      noShares: calc.newNoShares,
-      liquidity: newLiquidity,
       trade: {
         actorType: tradeActorType,
         actorId: userId,
@@ -347,12 +321,8 @@ export class PredictionMarketService {
         shares,
         amount: netProceeds,
         price: calc.avgPrice,
-        source: tradeSource,
-        timestamp: this.now().toISOString(),
       },
     });
-
-    await this.invalidateCaches(marketId);
 
     if (this.deps.feeProcessor) {
       await this.deps.feeProcessor.processTradingFee({
@@ -463,7 +433,7 @@ export class PredictionMarketService {
       source: 'system',
     });
 
-    await this.emitResolution({
+    await this.emitEvent({
       type: 'prediction_resolution',
       marketId,
       winningSide,
@@ -579,7 +549,7 @@ export class PredictionMarketService {
     });
 
     // Emit cancellation event
-    await this.emitResolution({
+    await this.emitEvent({
       type: 'prediction_cancellation',
       marketId,
       reason: reason ?? 'Market cancelled',
@@ -603,14 +573,7 @@ export class PredictionMarketService {
   private async ensureMarket(
     marketId: string
   ): Promise<PredictionMarketRecord> {
-    const market = await this.db.getMarketById(marketId);
-    if (market) return market;
-
-    const question = await this.db.getQuestion?.(marketId);
-    if (!question) {
-      throw new Error(`Market not found: ${marketId}`);
-    }
-    return this.db.createMarketFromQuestion(question, DEFAULT_LIQUIDITY);
+    return this.ensureMarketExists({ marketId });
   }
 
   /**
@@ -648,6 +611,68 @@ export class PredictionMarketService {
     }
   }
 
+  /**
+   * Record a price snapshot, emit a trade event, and invalidate caches.
+   * Shared by buy() and sell() to avoid repeating the same three-step sequence.
+   */
+  private async postTradeEvent(params: {
+    marketId: string;
+    yesPrice: number;
+    noPrice: number;
+    yesShares: number;
+    noShares: number;
+    liquidity: number;
+    source: string;
+    trade: {
+      actorType: string;
+      actorId: string;
+      action: 'buy' | 'sell';
+      side: PredictionSide;
+      shares: number;
+      amount: number;
+      price: number;
+    };
+  }) {
+    const {
+      marketId,
+      yesPrice,
+      noPrice,
+      yesShares,
+      noShares,
+      liquidity,
+      source,
+      trade,
+    } = params;
+
+    await this.recordSnapshot({
+      marketId,
+      yesPrice,
+      noPrice,
+      yesShares,
+      noShares,
+      liquidity,
+      eventType: 'trade',
+      source,
+    });
+
+    await this.emitEvent({
+      type: 'prediction_trade',
+      marketId,
+      yesPrice,
+      noPrice,
+      yesShares,
+      noShares,
+      liquidity,
+      trade: {
+        ...trade,
+        source,
+        timestamp: this.now().toISOString(),
+      },
+    });
+
+    await this.invalidateCaches(marketId);
+  }
+
   private async recordSnapshot(snapshot: PredictionPriceSnapshotRecord) {
     if (!this.db.insertPriceSnapshot) return;
     await this.db.insertPriceSnapshot({
@@ -656,12 +681,7 @@ export class PredictionMarketService {
     });
   }
 
-  private async emitTrade(payload: Record<string, unknown>) {
-    if (!this.deps.broadcast) return;
-    await this.deps.broadcast.emit('markets', payload);
-  }
-
-  private async emitResolution(payload: Record<string, unknown>) {
+  private async emitEvent(payload: Record<string, unknown>) {
     if (!this.deps.broadcast) return;
     await this.deps.broadcast.emit('markets', payload);
   }
