@@ -72,17 +72,11 @@ export class PredictionMarketService {
   }
 
   async listMarkets(): Promise<PredictionMarketRecord[]> {
-    if (this.db.listMarkets) {
-      return this.db.listMarkets();
-    }
-    throw new Error('listMarkets not implemented by db adapter');
+    return this.db.listMarkets();
   }
 
   async listUserPositions(userId: string): Promise<PredictionPositionRecord[]> {
-    if (this.db.listUserPositions) {
-      return this.db.listUserPositions(userId);
-    }
-    throw new Error('listUserPositions not implemented by db adapter');
+    return this.db.listUserPositions(userId);
   }
 
   async buy(input: PredictionBuyInput): Promise<PredictionTradeResult> {
