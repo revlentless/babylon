@@ -87,20 +87,22 @@ export class JsonUserAdapter implements UserPort {
 
   async updateUserBalance(id: string, balance: string): Promise<void> {
     const user = this.state.users[id];
-    if (user) {
-      user.virtualBalance = balance;
-      user.updatedAt = new Date();
-      this.onChange();
+    if (!user) {
+      throw new Error(`User not found: ${id}`);
     }
+    user.virtualBalance = balance;
+    user.updatedAt = new Date();
+    this.onChange();
   }
 
   async updateUserReputationPoints(id: string, points: number): Promise<void> {
     const user = this.state.users[id];
-    if (user) {
-      user.reputationPoints = points;
-      user.updatedAt = new Date();
-      this.onChange();
+    if (!user) {
+      throw new Error(`User not found: ${id}`);
     }
+    user.reputationPoints = points;
+    user.updatedAt = new Date();
+    this.onChange();
   }
 
   async createPointsTransaction(
