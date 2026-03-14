@@ -48,7 +48,8 @@ export class JsonIdGenerator {
    */
   importCounters(counters: Record<string, number>): void {
     for (const [key, value] of Object.entries(counters)) {
-      this.counters.set(key, value);
+      const current = this.counters.get(key) ?? 0;
+      this.counters.set(key, Math.max(current, value));
     }
   }
 }
