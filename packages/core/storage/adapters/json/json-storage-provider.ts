@@ -166,8 +166,7 @@ export class JsonStorageProvider implements IStorageProvider {
   }
 
   private mergeState(loaded: JsonStorageState): void {
-    // Merge loaded state with current state
-    this.state = {
+    const merged = {
       ...this.state,
       ...loaded,
       metadata: {
@@ -176,7 +175,13 @@ export class JsonStorageProvider implements IStorageProvider {
       },
     };
 
-    // Restore counters
+    // Clear existing keys, then copy merged values in place
+    // This preserves the object reference that adapters hold
+    for (const key of Object.keys(this.state)) {
+      delete (this.state as unknown as Record<string, unknown>)[key];
+    }
+    Object.assign(this.state, merged);
+
     if (loaded.counters) {
       this.idGenerator.importCounters(loaded.counters);
     }
