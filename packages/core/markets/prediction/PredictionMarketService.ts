@@ -110,14 +110,7 @@ export class PredictionMarketService {
       throw new Error('Trade amount too low after fees');
     }
 
-    await this.deps.wallet.debit({
-      userId,
-      amount,
-      reason: 'pred_buy',
-      description: `Buy ${side.toUpperCase()} in ${market.question}`,
-      relatedId: marketId,
-    });
-
+    // DB ops first: if any fail, no money is taken from the user's wallet.
     const newLiquidity = market.liquidity + calc.netAmount;
     await this.db.updateMarketState(marketId, {
       yesShares: calc.newYesShares,
@@ -163,6 +156,15 @@ export class PredictionMarketService {
       liquidity: newLiquidity,
       eventType: 'trade',
       source: tradeSource,
+    });
+
+    // Debit wallet after DB ops succeed to avoid taking funds on DB failure.
+    await this.deps.wallet.debit({
+      userId,
+      amount,
+      reason: 'pred_buy',
+      description: `Buy ${side.toUpperCase()} in ${market.question}`,
+      relatedId: marketId,
     });
 
     await this.emitTrade({
