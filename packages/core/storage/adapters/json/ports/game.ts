@@ -120,7 +120,9 @@ export class JsonGameAdapter implements GamePort {
       price: data.closePrice,
       change: data.closePrice - data.openPrice,
       changePercent:
-        ((data.closePrice - data.openPrice) / data.openPrice) * 100,
+        data.openPrice === 0
+          ? 0
+          : ((data.closePrice - data.openPrice) / data.openPrice) * 100,
       isSnapshot: true,
       openPrice: data.openPrice,
       highPrice: data.highPrice,
