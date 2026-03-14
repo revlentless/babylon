@@ -68,19 +68,15 @@ export interface IStorageProvider {
 }
 
 /**
- * Storage context - global provider management.
- * Uses a singleton pattern to ensure consistent state across modules.
+ * Storage context - module-scoped provider management.
  */
-declare global {
-  // eslint-disable-next-line no-var
-  var __babylon_storage_provider__: IStorageProvider | undefined;
-}
+let _storageProvider: IStorageProvider | undefined;
 
 /**
  * Set the global storage provider.
  */
 export function setStorageProvider(provider: IStorageProvider): void {
-  globalThis.__babylon_storage_provider__ = provider;
+  _storageProvider = provider;
 }
 
 /**
@@ -88,7 +84,7 @@ export function setStorageProvider(provider: IStorageProvider): void {
  * Throws if not initialized.
  */
 export function getStorageProvider(): IStorageProvider {
-  const provider = globalThis.__babylon_storage_provider__;
+  const provider = _storageProvider;
   if (!provider) {
     throw new Error(
       'Storage provider not initialized. Call setStorageProvider() first, or use createStorageProvider().'
@@ -101,14 +97,14 @@ export function getStorageProvider(): IStorageProvider {
  * Check if a storage provider is set.
  */
 export function hasStorageProvider(): boolean {
-  return globalThis.__babylon_storage_provider__ !== undefined;
+  return _storageProvider !== undefined;
 }
 
 /**
  * Clear the global storage provider (for testing).
  */
 export function clearStorageProvider(): void {
-  globalThis.__babylon_storage_provider__ = undefined;
+  _storageProvider = undefined;
 }
 
 /**
