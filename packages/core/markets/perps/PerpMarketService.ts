@@ -141,7 +141,7 @@ export class PerpMarketService {
         liquidationPrice: newLiquidationPrice,
       };
     } catch (error) {
-      logger.error(
+      logger.warn(
         'Post-trade impact adjustment failed',
         {
           positionId,
@@ -189,7 +189,7 @@ export class PerpMarketService {
 
       return { avgExitPrice, deltaImpact };
     } catch (error) {
-      logger.error(
+      logger.warn(
         'Failed to preview close impact',
         {
           ticker: params.ticker,
@@ -212,7 +212,7 @@ export class PerpMarketService {
     try {
       return await this.deps.priceImpact.applyAndGetPrice(ticker);
     } catch (error) {
-      logger.error(
+      logger.warn(
         'Post-close market impact update failed',
         {
           ticker,
@@ -416,6 +416,9 @@ export class PerpMarketService {
     if (impactAdj) {
       result.entryPrice = impactAdj.entryPrice;
       result.liquidationPrice = impactAdj.liquidationPrice;
+      result.priceImpactApplied = true;
+    } else if (this.deps.priceImpact) {
+      result.priceImpactApplied = false;
     }
 
     return result;
@@ -640,6 +643,11 @@ export class PerpMarketService {
       balance: balanceResult.balance,
       remainingSize: isFullClose ? 0 : remainingSize,
       fullyClosed: isFullClose,
+      priceImpactApplied: closeImpact
+        ? true
+        : this.deps.priceImpact
+          ? false
+          : undefined,
     };
 
     // Broadcast trade event for real-time UI updates.
@@ -1133,6 +1141,9 @@ export class PerpMarketService {
     if (impactAdj) {
       result.entryPrice = impactAdj.entryPrice;
       result.liquidationPrice = impactAdj.liquidationPrice;
+      result.priceImpactApplied = true;
+    } else if (this.deps.priceImpact) {
+      result.priceImpactApplied = false;
     }
 
     return result;
@@ -1369,6 +1380,9 @@ export class PerpMarketService {
       if (impactAdj) {
         flipResult.entryPrice = impactAdj.entryPrice;
         flipResult.liquidationPrice = impactAdj.liquidationPrice;
+        flipResult.priceImpactApplied = true;
+      } else if (this.deps.priceImpact) {
+        flipResult.priceImpactApplied = false;
       }
 
       return flipResult;
