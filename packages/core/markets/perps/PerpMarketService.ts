@@ -9,6 +9,7 @@ import type {
   PerpSide,
   PerpTradeResult,
 } from './types';
+import { shouldLiquidate } from './utils';
 
 /** Summary of price update operations */
 export interface PriceUpdateSummary {
@@ -1549,5 +1550,3 @@ function calculateFundingPayment(size: number, fundingRate: number): number {
 function periodsPerYear(): number {
   return (365.25 * 24) / FUNDING_PERIOD_HOURS;
 }
-
-import { shouldLiquidate } from './utils';
