@@ -37,29 +37,21 @@ export class JsonQuestionAdapter implements QuestionPort {
       const now = new Date();
       let endDate: Date | undefined;
 
-      switch (timeframe) {
-        case '24h':
-          endDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-          questions = questions.filter(
-            (q) => q.resolutionDate >= now && q.resolutionDate <= endDate!
-          );
-          break;
-        case '7d':
-          endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          questions = questions.filter(
-            (q) => q.resolutionDate >= now && q.resolutionDate <= endDate!
-          );
-          break;
-        case '30d':
-          endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-          questions = questions.filter(
-            (q) => q.resolutionDate >= now && q.resolutionDate <= endDate!
-          );
-          break;
-        case '30d+':
-          const startDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-          questions = questions.filter((q) => q.resolutionDate >= startDate);
-          break;
+      const timeframeDays: Record<string, number> = {
+        '24h': 1,
+        '7d': 7,
+        '30d': 30,
+      };
+      const days = timeframeDays[timeframe];
+
+      if (days !== undefined) {
+        endDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        questions = questions.filter(
+          (q) => q.resolutionDate >= now && q.resolutionDate <= endDate!
+        );
+      } else if (timeframe === '30d+') {
+        const startDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        questions = questions.filter((q) => q.resolutionDate >= startDate);
       }
     }
 
