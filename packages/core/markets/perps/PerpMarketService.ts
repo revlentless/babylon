@@ -1018,7 +1018,7 @@ export class PerpMarketService {
 
     // Use transaction for atomic position + market stats update
     // This prevents race conditions when concurrent requests modify the same position
-    const result = await this.db.transaction(async (tx) => {
+    const txResult = await this.db.transaction(async (tx) => {
       // Re-fetch position inside transaction to get latest state
       const freshPosition = await tx.getPositionById(existing.id);
       if (!freshPosition || freshPosition.closedAt) {
@@ -1065,52 +1065,62 @@ export class PerpMarketService {
         volume24h: market.volume24h + addedSize,
       });
 
-      // Process fees (outside transaction - fee service is separate)
-      if (this.deps.feeProcessor) {
-        await this.deps.feeProcessor.processTradingFee({
-          userId: input.userId,
-          amount: addedSize,
-          type: 'perp_add_to_position',
-          relatedId: freshPosition.ticker,
-          positionId: freshPosition.id,
-        });
-      }
-
-      const result: PerpTradeResult = {
+      return {
         positionId: freshPosition.id,
         ticker: freshPosition.ticker,
         side: freshPosition.side,
         size: actualNewSize,
-        leverage: effectiveLeverage,
         entryPrice: newEntryPrice,
         liquidationPrice: newLiquidationPrice,
-        marginPaid: marginRequired,
-        feePaid: fee,
-        balance: (await this.deps.wallet.getBalance(input.userId)).balance,
-        isRebalance: true,
-        rebalanceType: 'add',
         previousSize: freshPosition.size,
         previousEntryPrice: freshPosition.entryPrice,
+        newOpenInterest,
       };
+    });
 
-      // Broadcast trade event
-      await this.emitTradeEvent({
-        type: 'perp_trade',
-        action: 'add_to_position',
-        ticker: freshPosition.ticker,
-        side: freshPosition.side,
-        size: actualNewSize,
-        addedSize,
-        leverage: effectiveLeverage,
-        entryPrice: newEntryPrice,
-        previousEntryPrice: freshPosition.entryPrice,
-        positionId: freshPosition.id,
-        openInterest: newOpenInterest,
-        volume24h: market.volume24h + addedSize,
-        timestamp: now.toISOString(),
+    // Process fees outside transaction - fee service is separate
+    if (this.deps.feeProcessor) {
+      await this.deps.feeProcessor.processTradingFee({
+        userId: input.userId,
+        amount: addedSize,
+        type: 'perp_add_to_position',
+        relatedId: txResult.ticker,
+        positionId: txResult.positionId,
       });
+    }
 
-      return result;
+    const result: PerpTradeResult = {
+      positionId: txResult.positionId,
+      ticker: txResult.ticker,
+      side: txResult.side,
+      size: txResult.size,
+      leverage: effectiveLeverage,
+      entryPrice: txResult.entryPrice,
+      liquidationPrice: txResult.liquidationPrice,
+      marginPaid: marginRequired,
+      feePaid: fee,
+      balance: (await this.deps.wallet.getBalance(input.userId)).balance,
+      isRebalance: true,
+      rebalanceType: 'add',
+      previousSize: txResult.previousSize,
+      previousEntryPrice: txResult.previousEntryPrice,
+    };
+
+    // Broadcast trade event
+    await this.emitTradeEvent({
+      type: 'perp_trade',
+      action: 'add_to_position',
+      ticker: txResult.ticker,
+      side: txResult.side,
+      size: txResult.size,
+      addedSize,
+      leverage: effectiveLeverage,
+      entryPrice: txResult.entryPrice,
+      previousEntryPrice: txResult.previousEntryPrice,
+      positionId: txResult.positionId,
+      openInterest: txResult.newOpenInterest,
+      volume24h: market.volume24h + addedSize,
+      timestamp: now.toISOString(),
     });
 
     // Record realized PnL impact of the ADD operation (fees are realized immediately).
@@ -1193,37 +1203,43 @@ export class PerpMarketService {
       };
     } else {
       // FLIP: Close existing and open inverse position
-      // Use transaction for atomicity - all DB operations use tx
-      const flipResult = await this.db.transaction(async (tx) => {
-        const exitPrice = market.currentPrice;
 
-        // === STEP 1: Close existing position (inline logic for atomicity) ===
+      // === Pre-calculate all financial values before transaction ===
+      const exitPrice = market.currentPrice;
 
-        // Calculate PnL for the closed position
-        const { pnl: closePnl } = calculateUnrealizedPnL(
-          existing.entryPrice,
-          exitPrice,
-          existing.side,
-          existing.size
-        );
-        const realizedPnL = closePnl - existing.fundingPaid;
-        const closeMarginPaid = existing.size / existing.leverage;
-        const closeFee = this.calculateFee(existing.size);
-        const grossSettlement = closeMarginPaid + realizedPnL;
-        const netSettlement = Math.max(0, grossSettlement - closeFee);
+      const { pnl: closePnl } = calculateUnrealizedPnL(
+        existing.entryPrice,
+        exitPrice,
+        existing.side,
+        existing.size
+      );
+      const realizedPnL = closePnl - existing.fundingPaid;
+      const closeMarginPaid = existing.size / existing.leverage;
+      const closeFee = this.calculateFee(existing.size);
+      const grossSettlement = closeMarginPaid + realizedPnL;
+      const netSettlement = Math.max(0, grossSettlement - closeFee);
 
-        // Credit wallet for closed position (wallet ops outside DB tx)
-        if (netSettlement > 0) {
-          await this.deps.wallet.credit({
-            userId: input.userId,
-            amount: netSettlement,
-            reason: 'perp_close',
-            description: `Close ${existing.leverage}x ${existing.side} ${existing.ticker}`,
-            relatedId: existing.id,
-          });
-        }
+      const inverseSize = tradeSize - existing.size;
+      const maxLeverage = market.maxLeverage ?? DEFAULT_MAX_LEVERAGE;
+      const effectiveLeverage = Math.min(leverage, maxLeverage);
 
-        // Close position in DB using transaction
+      const entryPrice = market.currentPrice;
+      const liquidationPrice = calculateLiquidationPrice(
+        entryPrice,
+        tradeSide,
+        effectiveLeverage
+      );
+      const marginRequired = inverseSize / effectiveLeverage;
+      const openFee = this.calculateFee(inverseSize);
+      const totalCost = marginRequired + openFee;
+
+      const netOiChange = inverseSize - existing.size;
+      const newOpenInterest = Math.max(0, market.openInterest + netOiChange);
+      const volumeTraded = existing.size + inverseSize;
+
+      // === Transaction: DB operations only ===
+      const flipTxResult = await this.db.transaction(async (tx) => {
+        // Close position in DB
         await tx.closePosition(existing.id, {
           currentPrice: exitPrice,
           closedAt: now,
@@ -1232,43 +1248,7 @@ export class PerpMarketService {
           unrealizedPnLPercent: 0,
         });
 
-        // === STEP 2: Open inverse position ===
-
-        const inverseSize = tradeSize - existing.size;
-        const maxLeverage = market.maxLeverage ?? DEFAULT_MAX_LEVERAGE;
-        const effectiveLeverage = Math.min(leverage, maxLeverage);
-
-        const entryPrice = market.currentPrice;
-        const liquidationPrice = calculateLiquidationPrice(
-          entryPrice,
-          tradeSide,
-          effectiveLeverage
-        );
-        const marginRequired = inverseSize / effectiveLeverage;
-        const openFee = this.calculateFee(inverseSize);
-        const totalCost = marginRequired + openFee;
-
-        // Debit wallet for new position (wallet ops outside DB tx)
-        await this.deps.wallet.debit({
-          userId: input.userId,
-          amount: totalCost,
-          reason: 'perp_flip_position',
-          description: `Flip to ${effectiveLeverage}x ${tradeSide} ${existing.ticker}`,
-        });
-
-        // Net realized PnL for the flip operation:
-        // - Close leg: settlement minus returned margin (includes any fee actually collected)
-        // - Open leg: fee is realized immediately
-        const netClosePnL = netSettlement - closeMarginPaid;
-        const netFlipPnL = netClosePnL - openFee;
-        await this.deps.wallet.recordPnL({
-          userId: input.userId,
-          pnl: netFlipPnL,
-          reason: 'perp_flip_position',
-          relatedId: existing.id,
-        });
-
-        // Create new position using transaction
+        // Create new position
         const newPosition = await tx.upsertPosition({
           id: undefined,
           userId: input.userId,
@@ -1287,74 +1267,102 @@ export class PerpMarketService {
           lastUpdated: now,
         });
 
-        // === STEP 3: Update market stats atomically ===
-        // OI change: -existing.size (closed) + inverseSize (opened)
-        const netOiChange = inverseSize - existing.size;
-        const newOpenInterest = Math.max(0, market.openInterest + netOiChange);
-        const volumeTraded = existing.size + inverseSize;
-
+        // Update market stats atomically
         await tx.updateMarketStats(existing.ticker, {
           openInterest: newOpenInterest,
           volume24h: market.volume24h + volumeTraded,
         });
 
-        // Process fees for both legs (outside DB tx)
-        if (this.deps.feeProcessor) {
-          await this.deps.feeProcessor.processTradingFee({
-            userId: input.userId,
-            amount: existing.size,
-            type: 'perp_close',
-            relatedId: existing.ticker,
-            positionId: existing.id,
-          });
-          await this.deps.feeProcessor.processTradingFee({
-            userId: input.userId,
-            amount: inverseSize,
-            type: 'perp_flip_position',
-            relatedId: existing.ticker,
-            positionId: newPosition.id,
-          });
-        }
+        return { newPositionId: newPosition.id };
+      });
 
-        const totalFees = closeFee + openFee;
-        const result: PerpTradeResult = {
-          positionId: newPosition.id,
-          ticker: existing.ticker,
-          side: tradeSide,
-          size: inverseSize,
-          leverage: effectiveLeverage,
-          entryPrice,
-          liquidationPrice,
-          marginPaid: marginRequired,
-          feePaid: totalFees,
-          realizedPnL,
-          balance: (await this.deps.wallet.getBalance(input.userId)).balance,
-          isRebalance: true,
-          rebalanceType: 'flip',
-          previousSize: existing.size,
-          previousEntryPrice: existing.entryPrice,
-        };
+      // === Wallet operations outside transaction ===
 
-        // Broadcast flip event
-        await this.emitTradeEvent({
-          type: 'perp_trade',
-          action: 'flip_position',
-          ticker: existing.ticker,
-          previousSide: existing.side,
-          newSide: tradeSide,
-          closedSize: existing.size,
-          newSize: inverseSize,
-          leverage: effectiveLeverage,
-          entryPrice,
-          realizedPnL,
-          positionId: newPosition.id,
-          previousPositionId: existing.id,
-          openInterest: newOpenInterest,
-          volume24h: market.volume24h + volumeTraded,
-          timestamp: now.toISOString(),
+      // Credit wallet for closed position
+      if (netSettlement > 0) {
+        await this.deps.wallet.credit({
+          userId: input.userId,
+          amount: netSettlement,
+          reason: 'perp_close',
+          description: `Close ${existing.leverage}x ${existing.side} ${existing.ticker}`,
+          relatedId: existing.id,
         });
+      }
 
-        return result;
+      // Debit wallet for new position
+      await this.deps.wallet.debit({
+        userId: input.userId,
+        amount: totalCost,
+        reason: 'perp_flip_position',
+        description: `Flip to ${effectiveLeverage}x ${tradeSide} ${existing.ticker}`,
+      });
+
+      // Net realized PnL for the flip operation:
+      // - Close leg: settlement minus returned margin (includes any fee actually collected)
+      // - Open leg: fee is realized immediately
+      const netClosePnL = netSettlement - closeMarginPaid;
+      const netFlipPnL = netClosePnL - openFee;
+      await this.deps.wallet.recordPnL({
+        userId: input.userId,
+        pnl: netFlipPnL,
+        reason: 'perp_flip_position',
+        relatedId: existing.id,
+      });
+
+      // === Fee processing outside transaction ===
+      if (this.deps.feeProcessor) {
+        await this.deps.feeProcessor.processTradingFee({
+          userId: input.userId,
+          amount: existing.size,
+          type: 'perp_close',
+          relatedId: existing.ticker,
+          positionId: existing.id,
+        });
+        await this.deps.feeProcessor.processTradingFee({
+          userId: input.userId,
+          amount: inverseSize,
+          type: 'perp_flip_position',
+          relatedId: existing.ticker,
+          positionId: flipTxResult.newPositionId,
+        });
+      }
+
+      const totalFees = closeFee + openFee;
+      const flipResult: PerpTradeResult = {
+        positionId: flipTxResult.newPositionId,
+        ticker: existing.ticker,
+        side: tradeSide,
+        size: inverseSize,
+        leverage: effectiveLeverage,
+        entryPrice,
+        liquidationPrice,
+        marginPaid: marginRequired,
+        feePaid: totalFees,
+        realizedPnL,
+        balance: (await this.deps.wallet.getBalance(input.userId)).balance,
+        isRebalance: true,
+        rebalanceType: 'flip',
+        previousSize: existing.size,
+        previousEntryPrice: existing.entryPrice,
+      };
+
+      // Broadcast flip event
+      await this.emitTradeEvent({
+        type: 'perp_trade',
+        action: 'flip_position',
+        ticker: existing.ticker,
+        previousSide: existing.side,
+        newSide: tradeSide,
+        closedSize: existing.size,
+        newSize: inverseSize,
+        leverage: effectiveLeverage,
+        entryPrice,
+        realizedPnL,
+        positionId: flipTxResult.newPositionId,
+        previousPositionId: existing.id,
+        openInterest: newOpenInterest,
+        volume24h: market.volume24h + volumeTraded,
+        timestamp: now.toISOString(),
       });
 
       // BF-75: Apply price impact and adjust entry for the new flipped position
