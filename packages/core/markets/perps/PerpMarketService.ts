@@ -1,4 +1,10 @@
 import { logger, PERP_MARKET_CONFIG } from '@babylon/shared';
+import {
+  calculateDynamicFundingRate,
+  calculateFundingPayment,
+  periodsPerYear,
+} from './funding';
+import { calculateLiquidationPrice, calculateUnrealizedPnL } from './pnl';
 import type {
   PerpCloseInput,
   PerpDbPort,
@@ -9,6 +15,7 @@ import type {
   PerpSide,
   PerpTradeResult,
 } from './types';
+import { shouldLiquidate } from './utils';
 
 /** Summary of price update operations */
 export interface PriceUpdateSummary {
@@ -22,11 +29,6 @@ const DEFAULT_MAX_LEVERAGE = 100;
 const DEFAULT_MIN_ORDER_SIZE = 10;
 const MIN_MAX_POSITION_SIZE = 10_000;
 const OPEN_INTEREST_LIMIT_RATIO = 0.1;
-const FUNDING_PERIOD_HOURS = 8;
-const BASE_FUNDING_RATE = 0.01; // 1% APR base
-const MAX_FUNDING_RATE = 0.5; // 50% APR cap
-const IMBALANCE_EXPONENT = 3.0;
-
 /** Maximum total notional exposure per user across all positions */
 const MAX_USER_EXPOSURE = 1_000_000;
 /** Maximum number of open positions per user */
@@ -1397,44 +1399,6 @@ export class PerpMarketService {
   }
 }
 
-function calculateLiquidationPrice(
-  entryPrice: number,
-  side: PerpSide,
-  leverage: number
-): number {
-  // Guard against division by zero - leverage must be >= 1
-  if (leverage < 1) leverage = 1;
-  const liquidationThreshold = 0.9 / leverage;
-  if (side === 'long') {
-    return entryPrice * (1 - liquidationThreshold);
-  }
-  return entryPrice * (1 + liquidationThreshold);
-}
-
-function calculateUnrealizedPnL(
-  entryPrice: number,
-  currentPrice: number,
-  side: PerpSide,
-  size: number
-): { pnl: number; pnlPercent: number } {
-  // Guard against division by zero and non-finite values
-  if (
-    entryPrice <= 0 ||
-    size <= 0 ||
-    !Number.isFinite(entryPrice) ||
-    !Number.isFinite(currentPrice) ||
-    !Number.isFinite(size)
-  ) {
-    return { pnl: 0, pnlPercent: 0 };
-  }
-  const pnl =
-    side === 'long'
-      ? ((currentPrice - entryPrice) / entryPrice) * size
-      : ((entryPrice - currentPrice) / entryPrice) * size;
-  const pnlPercent = (pnl / size) * 100;
-  return { pnl, pnlPercent };
-}
-
 function normalizePriceMap(
   input: Map<string, number> | Record<string, number> | Array<[string, number]>
 ): Map<string, number> {
@@ -1465,89 +1429,3 @@ function createPerpAggregate(
     positions: [],
   };
 }
-
-interface FundingRateResult {
-  annualRate: number;
-  periodRate: number;
-  imbalance: number;
-  isSeverelyImbalanced: boolean;
-  paymentDirection: 'longs_pay' | 'shorts_pay' | 'balanced';
-}
-
-function calculateDynamicFundingRate(params: {
-  longOpenInterest: number;
-  shortOpenInterest: number;
-  baseFundingRate?: number;
-  maxFundingRate?: number;
-  imbalanceExponent?: number;
-}): FundingRateResult {
-  const {
-    longOpenInterest,
-    shortOpenInterest,
-    baseFundingRate = BASE_FUNDING_RATE,
-    maxFundingRate = MAX_FUNDING_RATE,
-    imbalanceExponent = IMBALANCE_EXPONENT,
-  } = params;
-
-  const totalOI = longOpenInterest + shortOpenInterest;
-  if (totalOI === 0) {
-    const base = baseFundingRate;
-    return {
-      annualRate: base,
-      periodRate: base / periodsPerYear(),
-      imbalance: 0,
-      isSeverelyImbalanced: false,
-      paymentDirection: 'balanced',
-    };
-  }
-
-  const imbalance = (longOpenInterest - shortOpenInterest) / totalOI;
-  let paymentDirection: 'longs_pay' | 'shorts_pay' | 'balanced';
-  if (Math.abs(imbalance) < 0.05) {
-    paymentDirection = 'balanced';
-  } else if (imbalance > 0) {
-    paymentDirection = 'longs_pay';
-  } else {
-    paymentDirection = 'shorts_pay';
-  }
-
-  const absImbalance = Math.abs(imbalance);
-  // At max imbalance (1.0), rate should reach maxFundingRate
-  // At zero imbalance, rate stays at baseFundingRate
-  // Using polynomial curve: rate = base + (max - base) * imbalance^exponent
-  const rateRange = maxFundingRate - baseFundingRate;
-  const rateMultiplier = rateRange * absImbalance ** imbalanceExponent;
-
-  let annualRate: number;
-  if (absImbalance < 0.01) {
-    annualRate = baseFundingRate;
-  } else {
-    const signedRate =
-      (baseFundingRate + rateMultiplier) * Math.sign(imbalance);
-    annualRate = Math.max(
-      -maxFundingRate,
-      Math.min(maxFundingRate, signedRate)
-    );
-  }
-
-  const periodRate = annualRate / periodsPerYear();
-  const isSeverelyImbalanced = absImbalance > 0.4;
-
-  return {
-    annualRate,
-    periodRate,
-    imbalance,
-    isSeverelyImbalanced,
-    paymentDirection,
-  };
-}
-
-function calculateFundingPayment(size: number, fundingRate: number): number {
-  return size * fundingRate;
-}
-
-function periodsPerYear(): number {
-  return (365.25 * 24) / FUNDING_PERIOD_HOURS;
-}
-
-import { shouldLiquidate } from './utils';
