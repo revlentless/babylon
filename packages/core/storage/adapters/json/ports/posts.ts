@@ -9,6 +9,7 @@ import type {
   PostRecord,
 } from '../../../types';
 import type { JsonIdGenerator } from '../id-generator';
+import { queryPaginated } from '../query-utils';
 import type { JsonStorageState } from '../types';
 
 export class JsonPostAdapter implements PostPort {
@@ -25,66 +26,43 @@ export class JsonPostAdapter implements PostPort {
   async getRecentPosts(
     options?: PaginationOptions
   ): Promise<PaginatedResult<PostRecord>> {
-    const limit = options?.limit ?? 100;
-    const offset = options?.offset ?? 0;
-
-    const posts = Object.values(this.state.posts)
-      .filter((p) => !p.deletedAt)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    const items = posts.slice(offset, offset + limit);
-    const hasMore = offset + limit < posts.length;
-
-    return {
-      items,
-      total: posts.length,
-      hasMore,
-      nextCursor: hasMore
-        ? items[items.length - 1]?.timestamp.toISOString()
-        : undefined,
-    };
+    return queryPaginated(
+      Object.values(this.state.posts),
+      (p) => !p.deletedAt,
+      {
+        ...options,
+        sortBy: (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+        nextCursor: (last) => last.timestamp.toISOString(),
+      }
+    );
   }
 
   async getPostsByAuthor(
     authorId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<PostRecord>> {
-    const limit = options?.limit ?? 100;
-    const offset = options?.offset ?? 0;
-
-    const posts = Object.values(this.state.posts)
-      .filter((p) => p.authorId === authorId && !p.deletedAt)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    const items = posts.slice(offset, offset + limit);
-    const hasMore = offset + limit < posts.length;
-
-    return {
-      items,
-      total: posts.length,
-      hasMore,
-    };
+    return queryPaginated(
+      Object.values(this.state.posts),
+      (p) => p.authorId === authorId && !p.deletedAt,
+      {
+        ...options,
+        sortBy: (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+      }
+    );
   }
 
   async getPostsByType(
     type: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<PostRecord>> {
-    const limit = options?.limit ?? 100;
-    const offset = options?.offset ?? 0;
-
-    const posts = Object.values(this.state.posts)
-      .filter((p) => p.type === type && !p.deletedAt)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-
-    const items = posts.slice(offset, offset + limit);
-    const hasMore = offset + limit < posts.length;
-
-    return {
-      items,
-      total: posts.length,
-      hasMore,
-    };
+    return queryPaginated(
+      Object.values(this.state.posts),
+      (p) => p.type === type && !p.deletedAt,
+      {
+        ...options,
+        sortBy: (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+      }
+    );
   }
 
   async createPost(
@@ -179,21 +157,15 @@ export class JsonPostAdapter implements PostPort {
     postId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<PostRecord>> {
-    const limit = options?.limit ?? 50;
-    const offset = options?.offset ?? 0;
-
-    const comments = Object.values(this.state.posts)
-      .filter((p) => p.commentOnPostId === postId && !p.deletedAt)
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    const items = comments.slice(offset, offset + limit);
-    const hasMore = offset + limit < comments.length;
-
-    return {
-      items,
-      total: comments.length,
-      hasMore,
-    };
+    return queryPaginated(
+      Object.values(this.state.posts),
+      (p) => p.commentOnPostId === postId && !p.deletedAt,
+      {
+        ...options,
+        defaultLimit: 50,
+        sortBy: (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      }
+    );
   }
 
   async getTotalPosts(): Promise<number> {
