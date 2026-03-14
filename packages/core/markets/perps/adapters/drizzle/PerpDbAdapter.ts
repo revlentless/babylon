@@ -18,6 +18,21 @@ import type {
 type NewPerpPosition = InferInsertModel<typeof perpPositions>;
 type DrizzleClient = typeof defaultDb | Transaction;
 
+/** Remove keys whose values are `undefined`, preserving the type. */
+function stripUndefined<T extends Record<string, unknown>>(
+  obj: T
+): { [K in keyof T as T[K] extends undefined ? never : K]: T[K] } {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result as {
+    [K in keyof T as T[K] extends undefined ? never : K]: T[K];
+  };
+}
+
 /**
  * Drizzle adapter for PerpDbPort.
  *
@@ -163,31 +178,18 @@ export class PerpDbAdapter implements PerpDbPort {
       >
     >
   ): Promise<void> {
-    // Only set fields that are explicitly provided (not undefined)
-    const setFields: Record<string, unknown> = {
+    const setFields: Partial<NewPerpPosition> = {
       lastUpdated: updates.lastUpdated ?? new Date(),
+      ...stripUndefined({
+        currentPrice: updates.currentPrice,
+        unrealizedPnL: updates.unrealizedPnL,
+        unrealizedPnLPercent: updates.unrealizedPnLPercent,
+        fundingPaid: updates.fundingPaid,
+        liquidationPrice: updates.liquidationPrice,
+        size: updates.size,
+        entryPrice: updates.entryPrice,
+      }),
     };
-    if (updates.currentPrice !== undefined) {
-      setFields.currentPrice = updates.currentPrice;
-    }
-    if (updates.unrealizedPnL !== undefined) {
-      setFields.unrealizedPnL = updates.unrealizedPnL;
-    }
-    if (updates.unrealizedPnLPercent !== undefined) {
-      setFields.unrealizedPnLPercent = updates.unrealizedPnLPercent;
-    }
-    if (updates.fundingPaid !== undefined) {
-      setFields.fundingPaid = updates.fundingPaid;
-    }
-    if (updates.liquidationPrice !== undefined) {
-      setFields.liquidationPrice = updates.liquidationPrice;
-    }
-    if (updates.size !== undefined) {
-      setFields.size = updates.size;
-    }
-    if (updates.entryPrice !== undefined) {
-      setFields.entryPrice = updates.entryPrice;
-    }
 
     await this.dbClient
       .update(perpPositions)
@@ -211,19 +213,16 @@ export class PerpDbAdapter implements PerpDbPort {
     >
   ): Promise<void> {
     const closedAt = updates.closedAt ?? new Date();
-    // Only set fields that are explicitly provided (not undefined)
-    const setFields: Record<string, unknown> = {
+    const setFields: Partial<NewPerpPosition> = {
       closedAt,
       lastUpdated: closedAt,
       unrealizedPnL: updates.unrealizedPnL ?? 0,
       unrealizedPnLPercent: updates.unrealizedPnLPercent ?? 0,
+      ...stripUndefined({
+        currentPrice: updates.currentPrice,
+        realizedPnL: updates.realizedPnL,
+      }),
     };
-    if (updates.currentPrice !== undefined) {
-      setFields.currentPrice = updates.currentPrice;
-    }
-    if (updates.realizedPnL !== undefined) {
-      setFields.realizedPnL = updates.realizedPnL;
-    }
 
     await this.dbClient
       .update(perpPositions)

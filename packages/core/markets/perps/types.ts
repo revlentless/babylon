@@ -120,6 +120,8 @@ export interface PerpDbPort {
         | 'fundingRate'
         | 'markPrice'
         | 'indexPrice'
+        | 'maxLeverage'
+        | 'minOrderSize'
       >
     >
   ): Promise<void>;
