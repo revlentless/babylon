@@ -8,6 +8,11 @@ import type {
   StockPriceRecord,
   WorldEventRecord,
 } from '../../../types';
+import {
+  DAILY_SNAPSHOT_DAYS,
+  DEFAULT_GAME_SPEED_MS,
+  PRICE_HISTORY_LIMIT,
+} from '../constants';
 import type { JsonIdGenerator } from '../id-generator';
 import type { JsonStorageState } from '../types';
 
@@ -34,7 +39,7 @@ export class JsonGameAdapter implements GamePort {
       isRunning: true,
       currentDay: 1,
       currentDate: now,
-      speed: 60000,
+      speed: DEFAULT_GAME_SPEED_MS,
       createdAt: now,
       updatedAt: now,
     };
@@ -135,7 +140,7 @@ export class JsonGameAdapter implements GamePort {
 
   async getPriceHistory(
     organizationId: string,
-    limit = 1440
+    limit = PRICE_HISTORY_LIMIT
   ): Promise<StockPriceRecord[]> {
     return this.state.stockPrices
       .filter((p) => p.organizationId === organizationId)
@@ -145,7 +150,7 @@ export class JsonGameAdapter implements GamePort {
 
   async getDailySnapshots(
     organizationId: string,
-    days = 30
+    days = DAILY_SNAPSHOT_DAYS
   ): Promise<StockPriceRecord[]> {
     return this.state.stockPrices
       .filter((p) => p.organizationId === organizationId && p.isSnapshot)

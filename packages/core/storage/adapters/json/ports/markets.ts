@@ -7,6 +7,7 @@ import type {
   MarketSnapshotRecord,
   PredictionMarketRecord,
 } from '../../../types';
+import { DEFAULT_MARKET_LIMIT } from '../constants';
 import type { JsonIdGenerator } from '../id-generator';
 import type { JsonStorageState } from '../types';
 
@@ -93,7 +94,7 @@ export class JsonMarketAdapter implements MarketPort {
 
   async getMarketSnapshots(
     marketId: string,
-    limit = 100
+    limit = DEFAULT_MARKET_LIMIT
   ): Promise<MarketSnapshotRecord[]> {
     return this.state.marketSnapshots
       .filter((s) => s.marketId === marketId)
