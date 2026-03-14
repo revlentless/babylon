@@ -50,6 +50,18 @@ const mapMarket = (m: typeof markets.$inferSelect): PredictionMarketRecord => {
   };
 };
 
+const mapQuestion = (
+  q: typeof questions.$inferSelect
+): QuestionRecord => ({
+  id: q.id,
+  questionNumber: q.questionNumber ?? undefined,
+  text: q.text,
+  status: (q.status as QuestionRecord['status']) ?? 'active',
+  resolutionDate: q.resolutionDate,
+  resolvedOutcome: q.resolvedOutcome,
+  createdDate: q.createdDate,
+});
+
 const mapPosition = (
   p: typeof positions.$inferSelect
 ): PredictionPositionRecord => ({
@@ -119,15 +131,7 @@ export class PredictionDbAdapter implements PredictionDbPort {
       .where(eq(questions.id, idOrNumber))
       .limit(1);
     if (byId) {
-      return {
-        id: byId.id,
-        questionNumber: byId.questionNumber ?? undefined,
-        text: byId.text,
-        status: (byId.status as QuestionRecord['status']) ?? 'active',
-        resolutionDate: byId.resolutionDate,
-        resolvedOutcome: byId.resolvedOutcome,
-        createdDate: byId.createdDate,
-      };
+      return mapQuestion(byId);
     }
 
     const num = Number.parseInt(idOrNumber, 10);
@@ -138,17 +142,7 @@ export class PredictionDbAdapter implements PredictionDbPort {
       .where(eq(questions.questionNumber, num))
       .limit(1);
     const q = qs[0];
-    return q
-      ? {
-          id: q.id,
-          questionNumber: q.questionNumber ?? undefined,
-          text: q.text,
-          status: (q.status as QuestionRecord['status']) ?? 'active',
-          resolutionDate: q.resolutionDate,
-          resolvedOutcome: q.resolvedOutcome,
-          createdDate: q.createdDate,
-        }
-      : null;
+    return q ? mapQuestion(q) : null;
   }
 
   async createMarketFromQuestion(
