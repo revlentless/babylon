@@ -9,6 +9,10 @@ import type {
   OrganizationRecord,
   OrganizationStateRecord,
 } from '../../../types';
+import {
+  DEFAULT_ACTOR_BALANCE,
+  DEFAULT_ACTOR_TRADING_BALANCE,
+} from '../constants';
 import type { JsonIdGenerator } from '../id-generator';
 import type { JsonStorageState } from '../types';
 
@@ -49,9 +53,13 @@ export class JsonActorAdapter implements ActorPort {
     const updated: ActorStateRecord = {
       id: state.id,
       tradingBalance:
-        state.tradingBalance ?? existing?.tradingBalance ?? '10000',
+        state.tradingBalance ??
+        existing?.tradingBalance ??
+        DEFAULT_ACTOR_BALANCE,
       reputationPoints:
-        state.reputationPoints ?? existing?.reputationPoints ?? 10000,
+        state.reputationPoints ??
+        existing?.reputationPoints ??
+        DEFAULT_ACTOR_TRADING_BALANCE,
       hasPool: state.hasPool ?? existing?.hasPool ?? false,
       updatedAt: now,
     };
