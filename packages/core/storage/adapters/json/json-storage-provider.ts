@@ -5,7 +5,7 @@
  * Stores all data in JSON files for easy inspection and modification.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ActorPort, OrganizationPort } from '../../ports/actors';
 import type { AgentPort } from '../../ports/agents';
@@ -39,6 +39,8 @@ export class JsonStorageProvider implements IStorageProvider {
   private idGenerator: JsonIdGenerator;
   private autoSave: boolean;
   private initialized = false;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingSave = false;
 
   readonly actors: ActorPort;
   readonly organizations: OrganizationPort;
@@ -92,22 +94,31 @@ export class JsonStorageProvider implements IStorageProvider {
     if (this.initialized) return;
 
     // Ensure base directory exists
-    if (!existsSync(this.basePath)) {
-      mkdirSync(this.basePath, { recursive: true });
-    }
+    await mkdir(this.basePath, { recursive: true });
 
     // Try to load existing state
     const statePath = join(this.basePath, 'state.json');
-    if (existsSync(statePath)) {
-      const data = readFileSync(statePath, 'utf-8');
+    try {
+      const data = await readFile(statePath, 'utf-8');
       const loaded = JSON.parse(data) as JsonStorageState;
       this.mergeState(loaded);
+    } catch (err) {
+      // File does not exist yet — start with empty state
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
 
     this.initialized = true;
   }
 
   async shutdown(): Promise<void> {
+    // Flush any pending debounced save
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    if (this.pendingSave) {
+      this.pendingSave = false;
+    }
     await this.saveSnapshot();
   }
 
@@ -134,11 +145,11 @@ export class JsonStorageProvider implements IStorageProvider {
       transaction: counters.transaction ?? 0,
     };
 
-    writeFileSync(statePath, JSON.stringify(this.state, null, 2));
+    await writeFile(statePath, JSON.stringify(this.state, null, 2));
   }
 
   async loadSnapshot(path: string): Promise<void> {
-    const data = readFileSync(path, 'utf-8');
+    const data = await readFile(path, 'utf-8');
     const loaded = JSON.parse(data) as JsonStorageState;
     this.mergeState(loaded);
   }
@@ -148,7 +159,7 @@ export class JsonStorageProvider implements IStorageProvider {
       ? path
       : join(path, 'export.json');
     this.state.metadata.updatedAt = new Date().toISOString();
-    writeFileSync(exportPath, JSON.stringify(this.state, null, 2));
+    await writeFile(exportPath, JSON.stringify(this.state, null, 2));
   }
 
   /**
@@ -183,9 +194,18 @@ export class JsonStorageProvider implements IStorageProvider {
   }
 
   private onStateChange(): void {
-    if (this.autoSave && this.initialized) {
-      // Debounce saves in a real implementation
-      void this.saveSnapshot();
+    if (!this.autoSave || !this.initialized) return;
+
+    this.pendingSave = true;
+
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
     }
+
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      this.pendingSave = false;
+      void this.saveSnapshot();
+    }, 300);
   }
 }
