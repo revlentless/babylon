@@ -63,20 +63,22 @@ export class JsonActorAdapter implements ActorPort {
 
   async updateActorBalance(id: string, balance: number): Promise<void> {
     const existing = this.state.actorStates[id];
-    if (existing) {
-      existing.tradingBalance = String(balance);
-      existing.updatedAt = new Date();
-      this.onChange();
+    if (!existing) {
+      throw new Error(`Actor not found: ${id}`);
     }
+    existing.tradingBalance = String(balance);
+    existing.updatedAt = new Date();
+    this.onChange();
   }
 
   async updateActorReputation(id: string, points: number): Promise<void> {
     const existing = this.state.actorStates[id];
-    if (existing) {
-      existing.reputationPoints = points;
-      existing.updatedAt = new Date();
-      this.onChange();
+    if (!existing) {
+      throw new Error(`Actor not found: ${id}`);
     }
+    existing.reputationPoints = points;
+    existing.updatedAt = new Date();
+    this.onChange();
   }
 }
 

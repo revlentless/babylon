@@ -145,15 +145,19 @@ export class JsonPostAdapter implements PostPort {
 
   async incrementLikeCount(id: string): Promise<void> {
     const post = this.state.posts[id];
-    if (post) {
-      post.likeCount++;
-      this.onChange();
+    if (!post) {
+      throw new Error(`Post not found: ${id}`);
     }
+    post.likeCount++;
+    this.onChange();
   }
 
   async decrementLikeCount(id: string): Promise<void> {
     const post = this.state.posts[id];
-    if (post && post.likeCount > 0) {
+    if (!post) {
+      throw new Error(`Post not found: ${id}`);
+    }
+    if (post.likeCount > 0) {
       post.likeCount--;
       this.onChange();
     }
@@ -161,18 +165,20 @@ export class JsonPostAdapter implements PostPort {
 
   async incrementCommentCount(id: string): Promise<void> {
     const post = this.state.posts[id];
-    if (post) {
-      post.commentCount++;
-      this.onChange();
+    if (!post) {
+      throw new Error(`Post not found: ${id}`);
     }
+    post.commentCount++;
+    this.onChange();
   }
 
   async incrementRepostCount(id: string): Promise<void> {
     const post = this.state.posts[id];
-    if (post) {
-      post.repostCount++;
-      this.onChange();
+    if (!post) {
+      throw new Error(`Post not found: ${id}`);
     }
+    post.repostCount++;
+    this.onChange();
   }
 
   async getPostComments(
