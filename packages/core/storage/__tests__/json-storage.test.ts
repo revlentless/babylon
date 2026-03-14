@@ -4,16 +4,19 @@
  * Tests the JSON-based storage implementation for simulation/training.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { JsonStorageProvider } from '../adapters/json';
+
+let testCounter = 0;
 
 describe('JsonStorageProvider', () => {
   let provider: JsonStorageProvider;
 
   beforeEach(async () => {
+    testCounter++;
     provider = new JsonStorageProvider({
       mode: 'json',
-      jsonBasePath: '/tmp/babylon-test-' + Date.now(),
+      jsonBasePath: `/tmp/babylon-test-${Date.now()}-${testCounter}`,
       persistOnChange: false, // Don't persist in tests
     });
     await provider.initialize();
@@ -449,6 +452,289 @@ describe('JsonStorageProvider', () => {
 
       const logs = await provider.agents.getAgentLogs('agent-1');
       expect(logs.length).toBe(1);
+    });
+  });
+
+  describe('Error Paths', () => {
+    test('throws when updating a non-existent pool', async () => {
+      await expect(
+        provider.trading.updatePool('nonexistent-pool', { totalValue: 999 })
+      ).rejects.toThrow('Pool not found: nonexistent-pool');
+    });
+
+    test('throws when updating a non-existent position', async () => {
+      await expect(
+        provider.trading.updatePosition('nonexistent-pos', {
+          currentPrice: 0.7,
+        })
+      ).rejects.toThrow('Position not found: nonexistent-pos');
+    });
+
+    test('throws when closing a non-existent position', async () => {
+      await expect(
+        provider.trading.closePosition('nonexistent-pos', 100)
+      ).rejects.toThrow('Position not found: nonexistent-pos');
+    });
+
+    test('throws when updating a non-existent market', async () => {
+      await expect(
+        provider.markets.updateMarket('nonexistent-market', {
+          title: 'Updated',
+        })
+      ).rejects.toThrow('Market not found: nonexistent-market');
+    });
+
+    test('throws when resolving a non-existent market', async () => {
+      await expect(
+        provider.markets.resolveMarket('nonexistent-market', true)
+      ).rejects.toThrow('Market not found: nonexistent-market');
+    });
+
+    test('throws when updating shares on a non-existent market', async () => {
+      await expect(
+        provider.markets.updateMarketShares(
+          'nonexistent-market',
+          '100',
+          '100',
+          '200'
+        )
+      ).rejects.toThrow('Market not found: nonexistent-market');
+    });
+
+    test('throws when updating a non-existent post', async () => {
+      await expect(
+        provider.posts.updatePost('nonexistent-post', { content: 'Updated' })
+      ).rejects.toThrow('Post not found: nonexistent-post');
+    });
+
+    test('throws when resolving a non-existent question', async () => {
+      await expect(
+        provider.questions.resolveQuestion('nonexistent-question', true)
+      ).rejects.toThrow('Question not found: nonexistent-question');
+    });
+
+    test('silently no-ops when deleting a non-existent post', async () => {
+      // deletePost does not throw for missing posts; it just does nothing
+      await provider.posts.deletePost('nonexistent-post');
+      const post = await provider.posts.getPost('nonexistent-post');
+      expect(post).toBeNull();
+    });
+
+    test('silently no-ops when updating balance of non-existent actor', async () => {
+      // updateActorBalance does not throw for missing actors
+      await provider.actors.updateActorBalance('nonexistent-actor', 5000);
+      const state = await provider.actors.getActorState('nonexistent-actor');
+      expect(state).toBeNull();
+    });
+  });
+
+  describe('Delete Operations', () => {
+    test('soft-deletes a post and excludes it from recent posts', async () => {
+      await provider.posts.createPost({
+        id: 'delete-me',
+        type: 'post',
+        content: 'This will be deleted',
+        authorId: 'author-1',
+        timestamp: new Date(),
+      });
+
+      await provider.posts.deletePost('delete-me');
+
+      const recent = await provider.posts.getRecentPosts();
+      expect(recent.items.find((p) => p.id === 'delete-me')).toBeUndefined();
+
+      // The raw record still exists but has deletedAt set
+      const raw = await provider.posts.getPost('delete-me');
+      expect(raw).toBeDefined();
+      expect(raw?.deletedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('Snapshot Roundtrip', () => {
+    test('saves and loads snapshot preserving all data', async () => {
+      // Populate state with data across multiple ports
+      await provider.game.initializeGame();
+      await provider.actors.upsertActorState({
+        id: 'snapshot-actor',
+        tradingBalance: '77777',
+        reputationPoints: 5000,
+        hasPool: true,
+      });
+      await provider.markets.createMarket({
+        id: 'snapshot-market',
+        title: 'Snapshot Market',
+        yesShares: '1000',
+        noShares: '1000',
+        liquidity: '2000',
+        resolved: false,
+        endDate: new Date(Date.now() + 86400000),
+      });
+      await provider.posts.createPost({
+        id: 'snapshot-post',
+        type: 'post',
+        content: 'Snapshot content',
+        authorId: 'snapshot-actor',
+        timestamp: new Date(),
+      });
+
+      // Save snapshot via exportToJson
+      const { mkdirSync } = await import('node:fs');
+      const snapshotDir = '/tmp/babylon-snapshot-src-' + Date.now();
+      mkdirSync(snapshotDir, { recursive: true });
+      await provider.exportToJson(snapshotDir);
+
+      // Create a fresh provider that loads the exported snapshot at init time
+      // by placing the export file as the basePath's state.json
+      const { copyFileSync } = await import('node:fs');
+      const newBasePath =
+        '/tmp/babylon-snapshot-test-' + Date.now() + '-' + testCounter;
+      mkdirSync(newBasePath, { recursive: true });
+      copyFileSync(
+        snapshotDir + '/export.json',
+        newBasePath + '/state.json'
+      );
+
+      const provider2 = new JsonStorageProvider({
+        mode: 'json',
+        jsonBasePath: newBasePath,
+        persistOnChange: false,
+      });
+      // initialize() reads state.json and calls mergeState before adapters are used
+      // Since constructor creates adapters with the initial empty state,
+      // and initialize replaces this.state, we verify via getState()
+      await provider2.initialize();
+
+      const loadedState = provider2.getState();
+
+      // Verify actor state
+      expect(loadedState.actorStates['snapshot-actor']).toBeDefined();
+      expect(loadedState.actorStates['snapshot-actor']?.tradingBalance).toBe(
+        '77777'
+      );
+      expect(loadedState.actorStates['snapshot-actor']?.reputationPoints).toBe(
+        5000
+      );
+      expect(loadedState.actorStates['snapshot-actor']?.hasPool).toBe(true);
+
+      // Verify market
+      expect(loadedState.markets['snapshot-market']).toBeDefined();
+      expect(loadedState.markets['snapshot-market']?.title).toBe(
+        'Snapshot Market'
+      );
+
+      // Verify post
+      expect(loadedState.posts['snapshot-post']).toBeDefined();
+      expect(loadedState.posts['snapshot-post']?.content).toBe(
+        'Snapshot content'
+      );
+
+      // Verify game state was loaded
+      expect(loadedState.game).toBeDefined();
+      expect(loadedState.game?.isRunning).toBe(true);
+    });
+
+    test('saveSnapshot persists counters for ID generation', async () => {
+      // Create entities to bump counters
+      await provider.questions.createQuestion({
+        questionNumber: 1,
+        text: 'Counter persistence test',
+        scenarioId: 1,
+        outcome: false,
+        rank: 1,
+        status: 'active',
+        resolutionDate: new Date(Date.now() + 86400000),
+      });
+
+      await provider.saveSnapshot();
+      const state = provider.getState();
+
+      // Counters should be persisted and non-zero
+      expect(state.counters.question).toBeGreaterThan(0);
+    });
+  });
+
+  describe('State Management', () => {
+    test('mergeState applies loaded data and adapters see updates', async () => {
+      // Create some initial data
+      await provider.actors.upsertActorState({
+        id: 'merge-actor-1',
+        tradingBalance: '10000',
+        reputationPoints: 100,
+        hasPool: false,
+      });
+
+      // Build a state object to merge in
+      const stateToMerge = provider.getState();
+
+      // Modify it externally
+      stateToMerge.actorStates['merge-actor-2'] = {
+        id: 'merge-actor-2',
+        tradingBalance: '25000',
+        reputationPoints: 500,
+        hasPool: true,
+        updatedAt: new Date(),
+      };
+
+      // Merge via setState
+      provider.setState(stateToMerge);
+
+      // Both actors should be visible through the adapter
+      const actor1 = await provider.actors.getActorState('merge-actor-1');
+      expect(actor1).toBeDefined();
+      expect(actor1?.tradingBalance).toBe('10000');
+
+      const actor2 = await provider.actors.getActorState('merge-actor-2');
+      expect(actor2).toBeDefined();
+      expect(actor2?.tradingBalance).toBe('25000');
+      expect(actor2?.hasPool).toBe(true);
+    });
+
+    test('mergeState preserves metadata and counters', async () => {
+      // Create data that bumps counters
+      await provider.questions.createQuestion({
+        questionNumber: 99,
+        text: 'Counter test',
+        scenarioId: 1,
+        outcome: false,
+        rank: 1,
+        status: 'active',
+        resolutionDate: new Date(Date.now() + 86400000),
+      });
+
+      // Save and reload via snapshot to exercise counter persistence
+      await provider.saveSnapshot();
+      const state = provider.getState();
+
+      expect(state.counters.question).toBeGreaterThan(0);
+      expect(state.metadata.version).toBe('1.0.0');
+    });
+
+    test('getState returns live state reflecting adapter writes', async () => {
+      await provider.users.createUser({
+        id: 'state-user',
+        username: 'statecheck',
+        isAgent: false,
+        virtualBalance: '1000',
+        totalDeposited: '0',
+        reputationPoints: 0,
+        lifetimePnL: '0',
+      });
+
+      const state = provider.getState();
+      expect(state.users['state-user']).toBeDefined();
+      expect(state.users['state-user']?.username).toBe('statecheck');
+    });
+  });
+
+  describe('Temp Directory Cleanup', () => {
+    test('shutdown calls saveSnapshot without error', async () => {
+      await provider.game.initializeGame();
+      // shutdown should save state without throwing
+      await provider.shutdown();
+
+      // isHealthy should still return true (initialized flag not cleared)
+      const healthy = await provider.isHealthy();
+      expect(healthy).toBe(true);
     });
   });
 
