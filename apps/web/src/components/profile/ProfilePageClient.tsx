@@ -12,13 +12,7 @@ import {
   type Organization,
   POST_TYPES,
 } from '@babylon/shared';
-import {
-  ArrowLeft,
-  Coins,
-  FileText,
-  MessageCircle,
-  Search,
-} from 'lucide-react';
+import { ArrowLeft, Coins, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -39,6 +33,7 @@ import {
   type ProfileReply,
   ProfileReplyCard,
 } from '@/components/profile/ProfileReplyCard';
+import { ProfileTabBar } from '@/components/profile/ProfileTabBar';
 import { ProfileWidget } from '@/components/profile/ProfileWidget';
 import { Avatar } from '@/components/shared/Avatar';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -1058,58 +1053,12 @@ export function ProfilePageClient({
             </div>
 
             <div className="border-border/5 border-t">
-              <div className="sticky top-[57px] z-10 border-border/5 border-b bg-background/95 backdrop-blur-sm">
-                <div className="flex items-center gap-3 px-4 py-2">
-                  <div className="flex flex-1 gap-2">
-                    <button
-                      onClick={() => setTab('posts')}
-                      className={cn(
-                        'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 font-medium text-sm transition-colors',
-                        tab === 'posts'
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/50'
-                      )}
-                    >
-                      <FileText className="h-4 w-4" />
-                      Posts
-                    </button>
-                    <button
-                      onClick={() => setTab('replies')}
-                      className={cn(
-                        'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 font-medium text-sm transition-colors',
-                        tab === 'replies'
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/50'
-                      )}
-                    >
-                      Replies
-                    </button>
-                    <button
-                      onClick={() => setTab('trades')}
-                      className={cn(
-                        'flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 font-medium text-sm transition-colors',
-                        tab === 'trades'
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/50'
-                      )}
-                    >
-                      Trades
-                    </button>
-                  </div>
-                </div>
-
-                <div className="px-4 pb-2">
-                  <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2">
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                    <input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search posts..."
-                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                  </div>
-                </div>
-              </div>
+              <ProfileTabBar
+                tab={tab}
+                onTabChange={setTab}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+              />
 
               <div className="sm:px-4 sm:py-4">
                 {tab === 'trades' ? (
