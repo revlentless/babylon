@@ -414,42 +414,48 @@ export class PredictionMarketService {
       resolutionDescription: resolutionDescription ?? undefined,
     });
 
-    for (const pos of positions) {
-      const isWinner =
-        (winningSide === 'yes' && pos.side === 'yes') ||
-        (winningSide === 'no' && pos.side === 'no');
-      const payout = isWinner ? pos.shares : 0;
-      const costBasisWithFees = grossUpBuyAmount(
-        pos.avgPrice * pos.shares,
-        this.deps.fees.tradingFeeRate
-      );
-      const pnl = payout - costBasisWithFees;
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < positions.length; i += BATCH_SIZE) {
+      const batch = positions.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (pos) => {
+          const isWinner =
+            (winningSide === 'yes' && pos.side === 'yes') ||
+            (winningSide === 'no' && pos.side === 'no');
+          const payout = isWinner ? pos.shares : 0;
+          const costBasisWithFees = grossUpBuyAmount(
+            pos.avgPrice * pos.shares,
+            this.deps.fees.tradingFeeRate
+          );
+          const pnl = payout - costBasisWithFees;
 
-      if (payout > 0) {
-        await this.deps.wallet.credit({
-          userId: pos.userId,
-          amount: payout,
-          reason: 'pred_resolve',
-          description: `Payout ${winningSide.toUpperCase()} for ${market.question}`,
-          relatedId: marketId,
-        });
-      }
-      if (pnl !== 0) {
-        await this.deps.wallet.recordPnL({
-          userId: pos.userId,
-          pnl,
-          reason: 'pred_resolve',
-          relatedId: marketId,
-        });
-      }
-      await this.db.upsertPosition({
-        ...pos,
-        status: 'resolved',
-        outcome: isWinner,
-        pnl,
-        resolvedAt: now,
-        updatedAt: now,
-      });
+          if (payout > 0) {
+            await this.deps.wallet.credit({
+              userId: pos.userId,
+              amount: payout,
+              reason: 'pred_resolve',
+              description: `Payout ${winningSide.toUpperCase()} for ${market.question}`,
+              relatedId: marketId,
+            });
+          }
+          if (pnl !== 0) {
+            await this.deps.wallet.recordPnL({
+              userId: pos.userId,
+              pnl,
+              reason: 'pred_resolve',
+              relatedId: marketId,
+            });
+          }
+          await this.db.upsertPosition({
+            ...pos,
+            status: 'resolved',
+            outcome: isWinner,
+            pnl,
+            resolvedAt: now,
+            updatedAt: now,
+          });
+        })
+      );
     }
 
     await this.recordSnapshot({
@@ -523,47 +529,60 @@ export class PredictionMarketService {
       resolutionDescription: reason ?? 'Market cancelled',
     });
 
-    // Refund each active position at cost basis
-    for (const pos of positions) {
-      // Skip already closed/resolved/cancelled positions
-      if (pos.status && pos.status !== 'active') {
-        continue;
+    // Refund each active position at cost basis (in batches)
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < positions.length; i += BATCH_SIZE) {
+      const batch = positions.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (pos) => {
+          // Skip already closed/resolved/cancelled positions
+          if (pos.status && pos.status !== 'active') {
+            return { refunded: 0, count: 0 };
+          }
+
+          // Calculate refund amount (original investment)
+          const refundAmount = pos.shares * pos.avgPrice;
+
+          if (refundAmount > 0) {
+            // Credit user their original investment
+            await this.deps.wallet.credit({
+              userId: pos.userId,
+              amount: refundAmount,
+              reason: 'pred_cancel',
+              description: `Refund for cancelled market: ${market.question}`,
+              relatedId: marketId,
+            });
+
+            // Record PnL of 0 (full refund means no gain or loss)
+            await this.deps.wallet.recordPnL({
+              userId: pos.userId,
+              pnl: 0,
+              reason: 'pred_cancel',
+              relatedId: marketId,
+            });
+          }
+
+          // Mark position as cancelled
+          await this.db.upsertPosition({
+            ...pos,
+            status: 'cancelled',
+            outcome: null,
+            pnl: 0,
+            resolvedAt: now,
+            updatedAt: now,
+          });
+
+          return {
+            refunded: refundAmount > 0 ? refundAmount : 0,
+            count: refundAmount > 0 ? 1 : 0,
+          };
+        })
+      );
+
+      for (const r of results) {
+        totalRefunded += r.refunded;
+        positionsRefunded += r.count;
       }
-
-      // Calculate refund amount (original investment)
-      const refundAmount = pos.shares * pos.avgPrice;
-
-      if (refundAmount > 0) {
-        // Credit user their original investment
-        await this.deps.wallet.credit({
-          userId: pos.userId,
-          amount: refundAmount,
-          reason: 'pred_cancel',
-          description: `Refund for cancelled market: ${market.question}`,
-          relatedId: marketId,
-        });
-
-        // Record PnL of 0 (full refund means no gain or loss)
-        await this.deps.wallet.recordPnL({
-          userId: pos.userId,
-          pnl: 0,
-          reason: 'pred_cancel',
-          relatedId: marketId,
-        });
-
-        totalRefunded += refundAmount;
-        positionsRefunded++;
-      }
-
-      // Mark position as cancelled
-      await this.db.upsertPosition({
-        ...pos,
-        status: 'cancelled',
-        outcome: null,
-        pnl: 0,
-        resolvedAt: now,
-        updatedAt: now,
-      });
     }
 
     // Record a snapshot for the cancellation
